@@ -4,6 +4,8 @@ import (
 	"os"
 
 	"github.com/hawkv6/hawkeye/pkg/config"
+	"github.com/hawkv6/hawkeye/pkg/graph"
+	"github.com/hawkv6/hawkeye/pkg/jagw"
 	"github.com/spf13/cobra"
 )
 
@@ -24,11 +26,36 @@ var startCmd = &cobra.Command{
 		}
 		log.Printf("Config created successfully %v", config)
 
-		// subscribe for lslinkedge events
-		// get all linksedge from jagw
-		// start grpc server (handle streams)
-		// calculate based on intents
-		// recaluclate based on events
+		requestService := jagw.NewDefaultJagwRequestService(config)
+		if err := requestService.Init(); err != nil {
+			log.Fatalf("Error initializing JAGW Request Service: %v", err)
+		}
+		graph := graph.NewDefaultGraph()
+		if err := requestService.GetLsLinks(graph); err != nil {
+			log.Fatalf("Error getting LsLinks from JAGW: %v", err)
+		}
+		source, err := graph.GetNode("0000.0000.000a")
+		if err != nil {
+			log.Fatalf("Error getting source node: %v", err)
+		}
+		destination, err := graph.GetNode("0000.0000.000c")
+		if err != nil {
+			log.Fatalf("Error getting destination node: %v", err)
+		}
+		path, err := graph.GetShortestPath(source, destination, "delay")
+		if err != nil {
+			log.Fatalf("Error getting shortest path: %v", err)
+		}
+		log.Infoln("Shortest path from ", source.GetId(), " to ", destination.GetId(), " is: ")
+		for _, edge := range path {
+			log.Infoln("Edge: ", edge.From().GetId(), " -> ", edge.To().GetId())
+		}
+
+		// TODO subscribe for lslinkedge events https://github.com/hawkv6/hawkeye/issues/2
+		// TODO get all linksedge from jagw https://github.com/hawkv6/hawkeye/issues/1
+		// TODO start grpc server (handle streams): https://github.com/hawkv6/hawkeye/issues/3
+		// TODO calculate based on intents: https://github.com/hawkv6/hawkeye/issues/4
+		// TODO recaluclate based on events: https://github.com/hawkv6/hawkeye/issues/5
 	},
 }
 

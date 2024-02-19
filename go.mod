@@ -28,7 +28,9 @@ require (
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/go-playground/validator/v10 v10.18.0
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/jalapeno-api-gateway/jagw-go v1.3.3
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.8.4
+	gonum.org/v1/gonum v0.14.0
 )
