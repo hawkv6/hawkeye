@@ -57,7 +57,7 @@ func (graph *DefaultGraph) AddEdge(edge Edge) error {
 	if err != nil {
 		return err
 	}
-	graph.log.Infoln(fmt.Sprintf("Adding edge from %d to %d with weight %f", fromId, toId, weight))
+	graph.log.Debugf(fmt.Sprintf("Adding edge from %s to %s with weight %f", fromId, toId, weight))
 
 	if !graph.NodeExists(edge.From().GetId()) {
 		return fmt.Errorf("node with id %d does not exist", edge.From().GetId())

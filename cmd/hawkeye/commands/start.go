@@ -3,9 +3,14 @@ package commands
 import (
 	"os"
 
+	"github.com/hawkv6/hawkeye/pkg/adapter"
+	"github.com/hawkv6/hawkeye/pkg/cache"
 	"github.com/hawkv6/hawkeye/pkg/config"
+	"github.com/hawkv6/hawkeye/pkg/controller"
 	"github.com/hawkv6/hawkeye/pkg/graph"
 	"github.com/hawkv6/hawkeye/pkg/jagw"
+	"github.com/hawkv6/hawkeye/pkg/messaging"
+	"github.com/hawkv6/hawkeye/pkg/processor"
 	"github.com/spf13/cobra"
 )
 
@@ -24,37 +29,44 @@ var startCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("Error creating config: %v", err)
 		}
-		log.Printf("Config created successfully %v", config)
+		log.Infoln("Config created successfully")
 
-		requestService := jagw.NewDefaultJagwRequestService(config)
+		adapter := adapter.NewDefaultAdapter()
+		graph := graph.NewDefaultGraph()
+		cache := cache.NewDefaultCacheService()
+		processor := processor.NewDefaultProcessor(graph, cache)
+
+		requestService := jagw.NewDefaultJagwRequestService(config, adapter, processor)
 		if err := requestService.Init(); err != nil {
 			log.Fatalf("Error initializing JAGW Request Service: %v", err)
 		}
-		graph := graph.NewDefaultGraph()
+		if err := requestService.GetSrv6Sids(); err != nil {
+			log.Fatalf("Error getting SRv6 SIDs from JAGW: %v", err)
+		}
+		if err := requestService.GetLsPrefixes(); err != nil {
+			log.Fatalf("Error getting LsPrefixes from JAGW: %v", err)
+		}
 		if err := requestService.GetLsLinks(graph); err != nil {
 			log.Fatalf("Error getting LsLinks from JAGW: %v", err)
 		}
-		source, err := graph.GetNode("0000.0000.000a")
-		if err != nil {
-			log.Fatalf("Error getting source node: %v", err)
-		}
-		destination, err := graph.GetNode("0000.0000.000c")
-		if err != nil {
-			log.Fatalf("Error getting destination node: %v", err)
-		}
-		path, err := graph.GetShortestPath(source, destination, "delay")
-		if err != nil {
-			log.Fatalf("Error getting shortest path: %v", err)
-		}
-		log.Infoln("Shortest path from ", source.GetId(), " to ", destination.GetId(), " is: ")
-		for _, edge := range path {
-			log.Infoln("Edge: ", edge.From().GetId(), " -> ", edge.To().GetId())
+		requestService.Close()
+
+		messagingChannels := messaging.NewDefaultMessagingChannels()
+		controller := controller.NewDefaultController(cache, graph, messagingChannels)
+		go controller.Start()
+
+		server := messaging.NewDefaultMessagingServer(adapter, config, messagingChannels)
+
+		if err := server.Start(); err != nil {
+			log.Fatalf("Error starting gRPC server: %v", err)
 		}
 
-		// TODO subscribe for lslinkedge events https://github.com/hawkv6/hawkeye/issues/2
 		// TODO get all linksedge from jagw https://github.com/hawkv6/hawkeye/issues/1
 		// TODO start grpc server (handle streams): https://github.com/hawkv6/hawkeye/issues/3
 		// TODO calculate based on intents: https://github.com/hawkv6/hawkeye/issues/4
+		// TODO Get SRv6 SID list from JAGW and enrich nodes
+		// TODO Get Prefix information from JAGW
+		// TODO subscribe for lslinkedge events https://github.com/hawkv6/hawkeye/issues/2
 		// TODO recaluclate based on events: https://github.com/hawkv6/hawkeye/issues/5
 	},
 }

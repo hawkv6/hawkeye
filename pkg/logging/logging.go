@@ -10,7 +10,7 @@ var DefaultLogger = InitializeDefaultLogger()
 
 func InitializeDefaultLogger() *logrus.Logger {
 	logger := logrus.New()
-	envvar := os.Getenv("HAWKV6_DEBUG")
+	envvar := os.Getenv("HAWKEYE_DEBUG")
 	if envvar != "" {
 		logger.SetLevel(logrus.DebugLevel)
 	} else {

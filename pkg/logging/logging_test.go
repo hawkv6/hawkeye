@@ -13,8 +13,8 @@ func TestIntializeDefaultLogger(t *testing.T) {
 	assert.Equal(t, logrus.InfoLevel, InitializeDefaultLogger().Level)
 }
 func TestIntializeDefaultLoggerDebug(t *testing.T) {
-	os.Setenv("HAWKV6_DEBUG", "true")
+	os.Setenv("HAWKEYE_DEBUG", "true")
 	assert.NotNil(t, InitializeDefaultLogger())
 	assert.Equal(t, logrus.DebugLevel, InitializeDefaultLogger().Level)
-	os.Unsetenv("HAWKV6_DEBUG")
+	os.Unsetenv("HAWKEYE_DEBUG")
 }
