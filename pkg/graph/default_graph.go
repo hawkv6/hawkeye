@@ -30,17 +30,17 @@ func (graph *DefaultGraph) NodeExists(id interface{}) bool {
 
 func (graph *DefaultGraph) GetNode(id interface{}) (Node, error) {
 	if !graph.NodeExists(id) {
-		return nil, fmt.Errorf("node with id %d does not exist", id)
+		return nil, fmt.Errorf("Node with id %d does not exist", id)
 	}
 	return graph.nodes[id], nil
 }
 
-func (graph *DefaultGraph) AddNode(node Node) error {
+func (graph *DefaultGraph) AddNode(node Node) (Node, error) {
 	if graph.NodeExists(node.GetId()) {
-		return fmt.Errorf("node with id %d already exists", node.GetId())
+		return nil, fmt.Errorf("Node with id %d already exists", node.GetId())
 	}
 	graph.nodes[node.GetId()] = node
-	return nil
+	return node, nil
 }
 
 func (graph *DefaultGraph) EdgeExists(id interface{}) bool {
@@ -49,35 +49,36 @@ func (graph *DefaultGraph) EdgeExists(id interface{}) bool {
 }
 
 func (graph *DefaultGraph) AddEdge(edge Edge) error {
-	from := edge.From()
-	to := edge.To()
-	fromId := from.GetId()
-	toId := to.GetId()
-	weight, err := edge.GetWeight("delay")
-	if err != nil {
-		return err
+	fromId := edge.From().GetId()
+	toId := edge.To().GetId()
+	graph.log.Debugf("Adding edge from %s to %s with weights %v", fromId, toId, edge.GetAllWeights())
+	if !graph.NodeExists(fromId) {
+		return fmt.Errorf("Node with id %d does not exist", fromId)
 	}
-	graph.log.Debugf(fmt.Sprintf("Adding edge from %s to %s with weight %f", fromId, toId, weight))
-
-	if !graph.NodeExists(edge.From().GetId()) {
-		return fmt.Errorf("node with id %d does not exist", edge.From().GetId())
+	if !graph.NodeExists(toId) {
+		return fmt.Errorf("Node with id %d does not exist", toId)
 	}
-	if !graph.NodeExists(edge.To().GetId()) {
-		return fmt.Errorf("node with id %d does not exist", edge.To().GetId())
+	edgeId := edge.GetId()
+	if graph.EdgeExists(edgeId) {
+		return fmt.Errorf("Edge with id %d already exists", edgeId)
 	}
-	if graph.EdgeExists(edge.GetId()) {
-		return fmt.Errorf("edge with id %d already exists", edge.GetId())
-	}
-	graph.edges[edge.GetId()] = edge
+	graph.edges[edgeId] = edge
 	edge.From().AddEdge(edge)
 	return nil
 }
 
 func (graph *DefaultGraph) RemoveNode(node Node) {
+	for _, edge := range node.GetEdges() {
+		graph.RemoveEdge(edge)
+	}
 	delete(graph.nodes, node.GetId())
 }
 
 func (graph *DefaultGraph) RemoveEdge(edge Edge) {
+	from := edge.From()
+	to := edge.To()
+	from.DeleteEdge(edge.GetId())
+	to.DeleteEdge(edge.GetId())
 	delete(graph.edges, edge.GetId())
 }
 
@@ -85,7 +86,7 @@ func (graph *DefaultGraph) GetShortestPath(from Node, to Node, weightKind string
 	distances, priorityQueue := graph.initializeDijkstra(from)
 	previous := make(map[interface{}]Edge)
 
-	graph.performDijkstra(from, to, weightKind, distances, &priorityQueue, previous)
+	graph.performDijkstra(to, weightKind, distances, &priorityQueue, previous)
 
 	path, err := graph.reconstructPath(from, to, previous)
 	if err != nil {
@@ -108,7 +109,7 @@ func (graph *DefaultGraph) initializeDijkstra(from Node) (map[interface{}]float6
 	return distances, priorityQueue
 }
 
-func (graph *DefaultGraph) performDijkstra(from Node, to Node, weightKind string, distances map[interface{}]float64, priorityQueue *PriorityQueue, previous map[interface{}]Edge) {
+func (graph *DefaultGraph) performDijkstra(to Node, weightKind string, distances map[interface{}]float64, priorityQueue *PriorityQueue, previous map[interface{}]Edge) {
 	for !priorityQueue.IsEmpty() {
 		item := heap.Pop(priorityQueue).(*Item)
 		currentId := item.GetNodeId()
@@ -140,10 +141,8 @@ func (graph *DefaultGraph) reconstructPath(from Node, to Node, previous map[inte
 		path = append([]Edge{edge}, path...)
 		current = edge.From()
 	}
-
 	if len(path) == 0 {
-		return nil, fmt.Errorf("no path found from node %d to node %d", from.GetId(), to.GetId())
+		return nil, fmt.Errorf("No path found from node %d to node %d", from.GetId(), to.GetId())
 	}
-
 	return path, nil
 }

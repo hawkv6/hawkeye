@@ -30,6 +30,10 @@ func (edge *DefaultEdge) To() Node {
 	return edge.to
 }
 
+func (edge *DefaultEdge) GetAllWeights() map[string]float64 {
+	return edge.weights
+}
+
 func (edge *DefaultEdge) GetWeight(kind string) (float64, error) {
 	weight, ok := edge.weights[kind]
 	if !ok {

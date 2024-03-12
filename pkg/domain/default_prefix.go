@@ -2,23 +2,37 @@ package domain
 
 import "github.com/go-playground/validator"
 
+type PrefixInput struct {
+	Key          *string `validate:"required"`
+	IgpRouterId  *string `validate:"required"`
+	Prefix       *string `validate:"required"`
+	PrefixLength *int32  `validate:"required,min=0,max=128"`
+}
 type DefaultPrefix struct {
-	key          string `validate:"required"`
-	igpRouterId  string `validate:"required"`
-	prefix       string `validate:"required"`
-	prefixLength uint8  `validate:"required,min=0,max=128"`
+	key          string
+	igpRouterId  string
+	prefix       string
+	prefixLength uint8
 }
 
-func NewDefaultPrefix(key, igpRouterId, prefix string, prefixLength int32) (*DefaultPrefix, error) {
-	lsPrefixAdapter := &DefaultPrefix{
-		key:          key,
-		igpRouterId:  igpRouterId,
-		prefix:       prefix,
-		prefixLength: uint8(prefixLength),
+func NewDefaultPrefix(key, igpRouterId, prefix *string, prefixLength *int32) (*DefaultPrefix, error) {
+	input := &PrefixInput{
+		Key:          key,
+		IgpRouterId:  igpRouterId,
+		Prefix:       prefix,
+		PrefixLength: prefixLength,
 	}
+
 	validate := validator.New()
-	if err := validate.Struct(lsPrefixAdapter); err != nil {
+	if err := validate.Struct(input); err != nil {
 		return nil, err
+	}
+
+	lsPrefixAdapter := &DefaultPrefix{
+		key:          *key,
+		igpRouterId:  *igpRouterId,
+		prefix:       *prefix,
+		prefixLength: uint8(*prefixLength),
 	}
 	return lsPrefixAdapter, nil
 }

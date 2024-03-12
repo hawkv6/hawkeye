@@ -21,16 +21,20 @@ func NewDefaultAdapter() *DefaultAdapter {
 	}
 }
 
+func (adapter *DefaultAdapter) ConvertNode(lsNode *jagw.LsNode) (domain.Node, error) {
+	return domain.NewDefaultNode(lsNode.Key, lsNode.IgpRouterId, lsNode.Name)
+}
+
 func (adapter *DefaultAdapter) ConvertLink(lsLink *jagw.LsLink) (domain.Link, error) {
-	return domain.NewDefaultLink(*lsLink.Key, *lsLink.IgpRouterId, *lsLink.RemoteIgpRouterId, *lsLink.UnidirLinkDelay)
+	return domain.NewDefaultLink(lsLink.Key, lsLink.IgpRouterId, lsLink.RemoteIgpRouterId, lsLink.UnidirLinkDelay, lsLink.UnidirDelayVariation, lsLink.UnidirAvailableBw, lsLink.UnidirBwUtilization, lsLink.UnidirPacketLoss)
 }
 
 func (adapter *DefaultAdapter) ConvertPrefix(lsPrefix *jagw.LsPrefix) (domain.Prefix, error) {
-	return domain.NewDefaultPrefix(*lsPrefix.Key, *lsPrefix.IgpRouterId, *lsPrefix.Prefix, *lsPrefix.PrefixLen)
+	return domain.NewDefaultPrefix(lsPrefix.Key, lsPrefix.IgpRouterId, lsPrefix.Prefix, lsPrefix.PrefixLen)
 }
 
 func (adapter *DefaultAdapter) ConvertSid(lsSrv6Sid *jagw.LsSrv6Sid) (domain.Sid, error) {
-	return domain.NewDefaultSid(*lsSrv6Sid.Key, *lsSrv6Sid.IgpRouterId, *lsSrv6Sid.Srv6Sid)
+	return domain.NewDefaultSid(lsSrv6Sid.Key, lsSrv6Sid.IgpRouterId, lsSrv6Sid.Srv6Sid)
 }
 
 func (adapter *DefaultAdapter) convertValuesToDomain(apiValues []*api.Value) ([]domain.Value, error) {

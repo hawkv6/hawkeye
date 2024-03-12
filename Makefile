@@ -22,7 +22,7 @@ update-submodules: ## Update submodules (sync proto)
 
 binary: ## Build binary bin/hawkeye
 		mkdir -p bin
-		go build -o bin/hawkeye cmd/hawkeye/main.go
+		go build -o bin/hawkeye hawkeye/main.go
 
 clean: ## Clean bin directory
 		rm -rf bin

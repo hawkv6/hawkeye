@@ -1,7 +1,8 @@
-package commands
+package cmd
 
 import (
 	"os"
+	"os/signal"
 
 	"github.com/hawkv6/hawkeye/pkg/adapter"
 	"github.com/hawkv6/hawkeye/pkg/cache"
@@ -37,7 +38,7 @@ var startCmd = &cobra.Command{
 		processor := processor.NewDefaultProcessor(graph, cache)
 
 		requestService := jagw.NewDefaultJagwRequestService(config, adapter, processor)
-		if err := requestService.Init(); err != nil {
+		if err := requestService.Start(); err != nil {
 			log.Fatalf("Error initializing JAGW Request Service: %v", err)
 		}
 		if err := requestService.GetSrv6Sids(); err != nil {
@@ -46,20 +47,43 @@ var startCmd = &cobra.Command{
 		if err := requestService.GetLsPrefixes(); err != nil {
 			log.Fatalf("Error getting LsPrefixes from JAGW: %v", err)
 		}
-		if err := requestService.GetLsLinks(graph); err != nil {
+		if err := requestService.GetLsNodes(); err != nil {
+			log.Fatalf("Error getting LsNodes from JAGW: %v", err)
+		}
+		if err := requestService.GetLsLinks(); err != nil {
 			log.Fatalf("Error getting LsLinks from JAGW: %v", err)
 		}
-		requestService.Close()
 
 		messagingChannels := messaging.NewDefaultMessagingChannels()
 		controller := controller.NewDefaultController(cache, graph, messagingChannels)
 		go controller.Start()
+
+		// subscriptionService := jagw.NewDefaultJagwSubscriptionService(config, adapter, processor)
+		// if err := subscriptionService.Start(); err != nil {
+		// 	log.Fatalf("Error starting JAGW Subscription Service: %v", err)
+		// }
+		// if err := subscriptionService.SubscribeLsLinks(); err != nil {
+		// 	log.Fatalf("Error subscribing to LsLinks: %v", err)
+		// }
 
 		server := messaging.NewDefaultMessagingServer(adapter, config, messagingChannels)
 
 		if err := server.Start(); err != nil {
 			log.Fatalf("Error starting gRPC server: %v", err)
 		}
+
+		signalChan := make(chan os.Signal, 1)
+		signal.Notify(signalChan, os.Interrupt)
+
+		<-signalChan
+		log.Info("Received interrupt signal, shutting down")
+		requestService.Stop()
+		// TODO Stop the subscription service
+		// subscriptionService.Close()
+		// TODO Stop the controller
+		// controller.Close()
+		// TODO stop the gRPC server
+		// server.Stop()
 
 		// TODO get all linksedge from jagw https://github.com/hawkv6/hawkeye/issues/1
 		// TODO start grpc server (handle streams): https://github.com/hawkv6/hawkeye/issues/3

@@ -1,4 +1,4 @@
-package commands
+package cmd
 
 import (
 	"github.com/hawkv6/hawkeye/pkg/logging"

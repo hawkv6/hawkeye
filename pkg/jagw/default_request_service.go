@@ -8,7 +8,6 @@ import (
 	"github.com/hawkv6/hawkeye/pkg/adapter"
 	"github.com/hawkv6/hawkeye/pkg/config"
 	"github.com/hawkv6/hawkeye/pkg/domain"
-	"github.com/hawkv6/hawkeye/pkg/graph"
 	"github.com/hawkv6/hawkeye/pkg/logging"
 	"github.com/hawkv6/hawkeye/pkg/processor"
 	"github.com/jalapeno-api-gateway/jagw-go/jagw"
@@ -21,6 +20,7 @@ type DefaultJagwRequestService struct {
 	log                  *logrus.Entry
 	jagwRequestSocket    string
 	grpcClientConnection *grpc.ClientConn
+	requestClient        jagw.RequestServiceClient
 	adapter              adapter.Adapter
 	processor            processor.Processor
 }
@@ -28,24 +28,63 @@ type DefaultJagwRequestService struct {
 func NewDefaultJagwRequestService(config config.Config, adapter adapter.Adapter, processor processor.Processor) *DefaultJagwRequestService {
 	return &DefaultJagwRequestService{
 		log:               logging.DefaultLogger.WithField("subsystem", Subsystem),
-		jagwRequestSocket: config.GetJagwServiceAddress() + ":" + strconv.FormatUint(uint64(config.GetJagwSubscriptionPort()), 10),
+		jagwRequestSocket: config.GetJagwServiceAddress() + ":" + strconv.FormatUint(uint64(config.GetJagwRequestPort()), 10),
 		adapter:           adapter,
 		processor:         processor,
 	}
 }
 
-func (requestService *DefaultJagwRequestService) Init() error {
+func (requestService *DefaultJagwRequestService) Start() error {
 	requestService.log.Debugln("Initializing JAGW Request Service")
 	grpcClientConnection, err := grpc.Dial(requestService.jagwRequestSocket,
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
 	}
+
 	requestService.grpcClientConnection = grpcClientConnection
+	requestService.requestClient = jagw.NewRequestServiceClient(grpcClientConnection)
+	return nil
+}
+
+func (requestService *DefaultJagwRequestService) convertLsNodes(lsNodes []*jagw.LsNode) ([]domain.Node, error) {
+	requestService.log.Debugln("Converting LsNodes to internal structure")
+	var nodes []domain.Node
+	for _, lsNode := range lsNodes {
+		node, err := requestService.adapter.ConvertNode(lsNode)
+		if err != nil {
+			return nil, fmt.Errorf("Error converting LsNode: %s", err.Error())
+		}
+		nodes = append(nodes, node)
+	}
+	return nodes, nil
+}
+
+func (requestService *DefaultJagwRequestService) GetLsNodes() error {
+	request := &jagw.TopologyRequest{
+		Keys:       []string{},
+		Properties: []string{"Key", "IgpRouterId", "Name"},
+	}
+
+	requestService.log.Debugln("Getting LsNodes from JAGW")
+	response, err := requestService.requestClient.GetLsNodes(context.Background(), request)
+	if err != nil {
+		return err
+	}
+
+	requestService.log.Infof("Got %d LsNodes from JAGW", len(response.LsNodes))
+	nodes, err := requestService.convertLsNodes(response.LsNodes)
+	if err != nil {
+		return err
+	}
+	if err := requestService.processor.CreateNetworkNodes(nodes); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (requestService *DefaultJagwRequestService) convertLsLinks(lsLinks []*jagw.LsLink) ([]domain.Link, error) {
+	requestService.log.Debugln("Converting LsLinks to internal structure")
 	var links []domain.Link
 	for _, lsLink := range lsLinks {
 		defaultLink, err := requestService.adapter.ConvertLink(lsLink)
@@ -57,28 +96,32 @@ func (requestService *DefaultJagwRequestService) convertLsLinks(lsLinks []*jagw.
 	return links, nil
 }
 
-func (requestService *DefaultJagwRequestService) GetLsLinks(network graph.Graph) error {
-	client := jagw.NewRequestServiceClient(requestService.grpcClientConnection)
+func (requestService *DefaultJagwRequestService) GetLsLinks() error {
 	request := &jagw.TopologyRequest{
 		Keys:       []string{},
-		Properties: []string{"Key", "IgpRouterId", "RemoteIgpRouterId", "UnidirLinkDelay"},
+		Properties: []string{"Key", "IgpRouterId", "RemoteIgpRouterId", "UnidirLinkDelay", "UnidirDelayVariation", "UnidirAvailableBW", "UnidirPacketLoss", "UnidirBWUtilization"},
 	}
-	response, err := client.GetLsLinks(context.Background(), request)
+
+	requestService.log.Debugln("Getting LsLinks from JAGW")
+	response, err := requestService.requestClient.GetLsLinks(context.Background(), request)
 	if err != nil {
 		return err
 	}
+
+	requestService.log.Infof("Got %d LsLinks from JAGW", len(response.LsLinks))
 	links, err := requestService.convertLsLinks(response.LsLinks)
 	if err != nil {
 		return err
 	}
 
-	if err := requestService.processor.CreateNetworkGraph(links); err != nil {
+	if err := requestService.processor.CreateNetworkEdges(links); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (requestService *DefaultJagwRequestService) convertLsPrefix(lsPrefixes []*jagw.LsPrefix) ([]domain.Prefix, error) {
+	requestService.log.Debugf("Converting LsPrefixes to internal structure")
 	var prefixes []domain.Prefix
 	for _, lsPrefix := range lsPrefixes {
 		prefix, err := requestService.adapter.ConvertPrefix(lsPrefix)
@@ -91,17 +134,18 @@ func (requestService *DefaultJagwRequestService) convertLsPrefix(lsPrefixes []*j
 }
 
 func (requestService *DefaultJagwRequestService) GetLsPrefixes() error {
-	client := jagw.NewRequestServiceClient(requestService.grpcClientConnection)
 	request := &jagw.TopologyRequest{
 		Keys:       []string{},
 		Properties: []string{"Key", "IgpRouterId", "Prefix", "PrefixLen"},
 	}
 
-	response, err := client.GetLsPrefixes(context.Background(), request)
+	requestService.log.Debugln("Getting LsPrefixes from JAGW")
+	response, err := requestService.requestClient.GetLsPrefixes(context.Background(), request)
 	if err != nil {
 		return err
 	}
 
+	requestService.log.Infof("Got %d LsPrefixes from JAGW", len(response.LsPrefixes))
 	prefixes, err := requestService.convertLsPrefix(response.LsPrefixes)
 	if err != nil {
 		return err
@@ -114,6 +158,7 @@ func (requestService *DefaultJagwRequestService) GetLsPrefixes() error {
 }
 
 func (requestService *DefaultJagwRequestService) convertLsSrv6Sids(lsSrv6Sids []*jagw.LsSrv6Sid) ([]domain.Sid, error) {
+	requestService.log.Debugln("Converting LsSrv6Sids to internal structure")
 	var sidList []domain.Sid
 	for _, lsSrv6Sid := range lsSrv6Sids {
 		srv6Sid, err := requestService.adapter.ConvertSid(lsSrv6Sid)
@@ -126,17 +171,17 @@ func (requestService *DefaultJagwRequestService) convertLsSrv6Sids(lsSrv6Sids []
 }
 
 func (requestService *DefaultJagwRequestService) GetSrv6Sids() error {
-	client := jagw.NewRequestServiceClient(requestService.grpcClientConnection)
 	request := &jagw.TopologyRequest{
 		Keys:       []string{},
 		Properties: []string{"Key", "IgpRouterId", "Srv6Sid"},
 	}
 
-	response, err := client.GetLsSrv6Sids(context.Background(), request)
+	requestService.log.Debugln("Getting SRv6 SIDs from JAGW")
+	response, err := requestService.requestClient.GetLsSrv6Sids(context.Background(), request)
 	if err != nil {
 		return err
 	}
-
+	requestService.log.Infof("Got %d SRv6 SIDs from JAGW", len(response.LsSrv6Sids))
 	sidList, err := requestService.convertLsSrv6Sids(response.LsSrv6Sids)
 	if err != nil {
 		return err
@@ -147,6 +192,7 @@ func (requestService *DefaultJagwRequestService) GetSrv6Sids() error {
 	return nil
 }
 
-func (requestService *DefaultJagwRequestService) Close() {
+func (requestService *DefaultJagwRequestService) Stop() {
+	requestService.log.Infoln("Closing JAGW Request Service")
 	requestService.grpcClientConnection.Close()
 }

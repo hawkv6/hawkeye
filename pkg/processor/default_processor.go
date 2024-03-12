@@ -1,6 +1,8 @@
 package processor
 
 import (
+	"fmt"
+
 	"github.com/hawkv6/hawkeye/pkg/cache"
 	"github.com/hawkv6/hawkeye/pkg/domain"
 	"github.com/hawkv6/hawkeye/pkg/graph"
@@ -9,54 +11,84 @@ import (
 )
 
 type DefaultProcessor struct {
-	log     *logrus.Entry
-	network graph.Graph
-	cache   cache.CacheService
+	log   *logrus.Entry
+	graph graph.Graph
+	cache cache.CacheService
 }
 
 func NewDefaultProcessor(graph graph.Graph, cache cache.CacheService) *DefaultProcessor {
 	return &DefaultProcessor{
-		log:     logging.DefaultLogger.WithField("subsystem", Subsystem),
-		network: graph,
-		cache:   cache,
+		log:   logging.DefaultLogger.WithField("subsystem", Subsystem),
+		graph: graph,
+		cache: cache,
 	}
 }
 
-func (processor *DefaultProcessor) CreateNetworkGraph(links []domain.Link) error {
-	for _, link := range links {
-		if err := processor.addLinkToNetwork(link); err != nil {
+func (processor *DefaultProcessor) createNetworkNode(node domain.Node) error {
+	id := node.GetIgpRouterId()
+	if processor.graph.NodeExists(id) {
+		return fmt.Errorf("Error creating network node - node already with id %s already exists", id)
+	}
+	graphNode, err := processor.graph.AddNode(graph.NewDefaultNode(id))
+	if err != nil {
+		return err
+	}
+	name := node.GetName()
+	graphNode.SetName(name)
+	processor.log.Debugf("Added node %s to graph with id %s", name, id)
+	return nil
+}
+
+func (processor *DefaultProcessor) CreateNetworkNodes(nodes []domain.Node) error {
+	for _, node := range nodes {
+		if err := processor.createNetworkNode(node); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (processor *DefaultProcessor) addLinkToNetwork(link domain.Link) error {
-	from, err := processor.getOrCreateNode(link.GetIgpRouterId())
-	if err != nil {
-		return err
+func (processor *DefaultProcessor) CreateNetworkEdges(links []domain.Link) error {
+	for _, link := range links {
+		if err := processor.addLinkToGraph(link); err != nil {
+			return err
+		}
 	}
-
-	to, err := processor.getOrCreateNode(link.GetRemoteIgpRouterId())
-	if err != nil {
-		return err
-	}
-
-	edge := graph.NewDefaultEdge(link.GetKey(), from, to, map[string]float64{"delay": link.GetUnidirLinkDelay()})
-	if err := processor.network.AddEdge(edge); err != nil {
-		return err
-	}
-
 	return nil
 }
 
-func (processor *DefaultProcessor) getOrCreateNode(nodeId string) (graph.Node, error) {
-	if processor.network.NodeExists(nodeId) {
-		return processor.network.GetNode(nodeId)
+func (processor *DefaultProcessor) getLinkWeights(link domain.Link) map[string]float64 {
+	return map[string]float64{
+		"latency":            float64(link.GetUnidirLinkDelay()),
+		"jitter":             float64(link.GetUnidirDelayVariation()),
+		"availableBandwidth": float64(link.GetUnidirAvailableBandwidth()),
+		"utilizedBandwidth":  float64(link.GetUnidirBandwidthUtilization()),
+		"loss":               float64(link.GetUnidirPacketLoss()),
 	}
-	node := graph.NewDefaultNode(nodeId)
-	err := processor.network.AddNode(node)
-	return node, err
+}
+func (processor *DefaultProcessor) addLinkToGraph(link domain.Link) error {
+	from, err := processor.getNode(link.GetIgpRouterId())
+	if err != nil {
+		return err
+	}
+
+	to, err := processor.getNode(link.GetRemoteIgpRouterId())
+	if err != nil {
+		return err
+	}
+	edge := graph.NewDefaultEdge(link.GetKey(), from, to, processor.getLinkWeights(link))
+	if err := processor.graph.AddEdge(edge); err != nil {
+		return err
+	}
+	processor.log.Debugf("Added edge to graph between %s and %s", from.GetName(), to.GetName())
+	return nil
+}
+
+func (processor *DefaultProcessor) getNode(nodeId string) (graph.Node, error) {
+	if !processor.graph.NodeExists(nodeId) {
+		return nil, fmt.Errorf("Node with id %s does not exist in graph", nodeId)
+	}
+	return processor.graph.GetNode(nodeId)
 }
 
 func (processor *DefaultProcessor) getPrefixCounts(prefixes []domain.Prefix) (map[string]int, map[string]domain.Prefix) {
@@ -93,7 +125,7 @@ func (processor *DefaultProcessor) CreateClientNetworks(prefixes []domain.Prefix
 	clientNetworks := processor.getClientNetworks(processor.getPrefixCounts(prefixes))
 	for _, clientNetwork := range clientNetworks {
 		processor.cache.StoreClientNetwork(clientNetwork)
-		processor.log.Debugln("Client Network: ", clientNetwork)
+		processor.log.Debugf("Added client network %s/%d to cache ", clientNetwork.GetPrefix(), clientNetwork.GetPrefixLength())
 	}
 	return nil
 }
@@ -101,6 +133,7 @@ func (processor *DefaultProcessor) CreateClientNetworks(prefixes []domain.Prefix
 func (processor *DefaultProcessor) CreateSids(sids []domain.Sid) error {
 	for _, sid := range sids {
 		processor.cache.StoreSids(sid)
+		processor.log.Debugf("Added SRv6 SID %s to cache", sid.GetSid())
 	}
 	return nil
 }

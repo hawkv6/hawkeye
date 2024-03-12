@@ -2,21 +2,34 @@ package domain
 
 import "github.com/go-playground/validator"
 
+type SidInput struct {
+	Key         *string `validate:"required"`
+	IgpRouterId *string `validate:"required"`
+	Sid         *string `validate:"required"`
+}
+
 type DefaultSid struct {
 	key         string `validate:"required"`
 	igpRouterId string `validate:"required"`
 	sid         string `validate:"required"`
 }
 
-func NewDefaultSid(key, igpRouterId, sid string) (*DefaultSid, error) {
-	defaultSid := &DefaultSid{
-		key:         key,
-		igpRouterId: igpRouterId,
-		sid:         sid,
+func NewDefaultSid(key, igpRouterId, sid *string) (*DefaultSid, error) {
+	input := &SidInput{
+		Key:         key,
+		IgpRouterId: igpRouterId,
+		Sid:         sid,
 	}
+
 	validate := validator.New()
-	if err := validate.Struct(defaultSid); err != nil {
+	if err := validate.Struct(input); err != nil {
 		return nil, err
+	}
+
+	defaultSid := &DefaultSid{
+		key:         *key,
+		igpRouterId: *igpRouterId,
+		sid:         *sid,
 	}
 	return defaultSid, nil
 }

@@ -66,9 +66,7 @@ func (controller *DefaultController) getShortestPath(sourceIP, destinationIp, me
 	}
 	edgeList := make([]string, 0)
 	for _, edge := range result {
-		// from := edge.From().GetId().(string)
 		to := edge.To().GetId().(string)
-		// edgeList = append(edgeList, from, to)
 		edgeList = append(edgeList, to)
 	}
 	return edgeList, nil
@@ -87,7 +85,7 @@ func (controller *DefaultController) Start() {
 		for _, intent := range pathRequest.GetIntents() {
 			switch intentType := intent.GetIntentType(); intentType {
 			case domain.IntentTypeLowLatency:
-				nodeIds, err := controller.getShortestPath(ipv6SourceAddress, ipv6DestinationAddress, "delay")
+				nodeIds, err := controller.getShortestPath(ipv6SourceAddress, ipv6DestinationAddress, "latency")
 				if err != nil {
 					controller.log.Errorln("Error getting shortest path: ", err)
 					continue

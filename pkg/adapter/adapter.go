@@ -11,6 +11,7 @@ import (
 const Subsystem = "adapter"
 
 type Adapter interface {
+	ConvertNode(*jagw.LsNode) (domain.Node, error)
 	ConvertLink(*jagw.LsLink) (domain.Link, error)
 	ConvertPrefix(*jagw.LsPrefix) (domain.Prefix, error)
 	ConvertSid(*jagw.LsSrv6Sid) (domain.Sid, error)
