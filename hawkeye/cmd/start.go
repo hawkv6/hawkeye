@@ -9,6 +9,7 @@ import (
 	"github.com/hawkv6/hawkeye/pkg/config"
 	"github.com/hawkv6/hawkeye/pkg/controller"
 	"github.com/hawkv6/hawkeye/pkg/graph"
+	"github.com/hawkv6/hawkeye/pkg/helper"
 	"github.com/hawkv6/hawkeye/pkg/jagw"
 	"github.com/hawkv6/hawkeye/pkg/messaging"
 	"github.com/hawkv6/hawkeye/pkg/processor"
@@ -36,41 +37,33 @@ var startCmd = &cobra.Command{
 		graph := graph.NewDefaultGraph()
 		cache := cache.NewDefaultCacheService()
 		processor := processor.NewDefaultProcessor(graph, cache)
+		helper := helper.NewDefaultHelper()
 
-		requestService := jagw.NewDefaultJagwRequestService(config, adapter, processor)
-		if err := requestService.Start(); err != nil {
+		requestService := jagw.NewJagwRequestService(config, adapter, processor, helper)
+		if err := requestService.Init(); err != nil {
 			log.Fatalf("Error initializing JAGW Request Service: %v", err)
 		}
-		if err := requestService.GetSrv6Sids(); err != nil {
-			log.Fatalf("Error getting SRv6 SIDs from JAGW: %v", err)
-		}
-		if err := requestService.GetLsPrefixes(); err != nil {
-			log.Fatalf("Error getting LsPrefixes from JAGW: %v", err)
-		}
-		if err := requestService.GetLsNodes(); err != nil {
-			log.Fatalf("Error getting LsNodes from JAGW: %v", err)
-		}
-		if err := requestService.GetLsLinks(); err != nil {
-			log.Fatalf("Error getting LsLinks from JAGW: %v", err)
+		if err := requestService.Start(); err != nil {
+			log.Fatalf("Error starting JAGW Request Service: %v", err)
 		}
 
 		messagingChannels := messaging.NewDefaultMessagingChannels()
 		controller := controller.NewDefaultController(cache, graph, messagingChannels)
 		go controller.Start()
 
-		// subscriptionService := jagw.NewDefaultJagwSubscriptionService(config, adapter, processor)
-		// if err := subscriptionService.Start(); err != nil {
-		// 	log.Fatalf("Error starting JAGW Subscription Service: %v", err)
-		// }
-		// if err := subscriptionService.SubscribeLsLinks(); err != nil {
-		// 	log.Fatalf("Error subscribing to LsLinks: %v", err)
-		// }
-
-		server := messaging.NewDefaultMessagingServer(adapter, config, messagingChannels)
-
-		if err := server.Start(); err != nil {
-			log.Fatalf("Error starting gRPC server: %v", err)
+		subscriptionService := jagw.NewJagwSubscriptionService(config, adapter, processor, helper)
+		if err := subscriptionService.Init(); err != nil {
+			log.Fatalf("Error initializing JAGW Subscription Service: %v", err)
 		}
+		if err := subscriptionService.Start(); err != nil {
+			log.Fatalf("Error starting JAGW Subscription Service: %v", err)
+		}
+
+		// server := messaging.NewDefaultMessagingServer(adapter, config, messagingChannels)
+
+		// if err := server.Start(); err != nil {
+		// 	log.Fatalf("Error starting gRPC server: %v", err)
+		// }
 
 		signalChan := make(chan os.Signal, 1)
 		signal.Notify(signalChan, os.Interrupt)
@@ -78,8 +71,7 @@ var startCmd = &cobra.Command{
 		<-signalChan
 		log.Info("Received interrupt signal, shutting down")
 		requestService.Stop()
-		// TODO Stop the subscription service
-		// subscriptionService.Close()
+		subscriptionService.Stop()
 		// TODO Stop the controller
 		// controller.Close()
 		// TODO stop the gRPC server

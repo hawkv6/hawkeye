@@ -25,16 +25,90 @@ func (adapter *DefaultAdapter) ConvertNode(lsNode *jagw.LsNode) (domain.Node, er
 	return domain.NewDefaultNode(lsNode.Key, lsNode.IgpRouterId, lsNode.Name)
 }
 
+func (adapter *DefaultAdapter) ConvertNodeEvent(lsNodeEvent *jagw.LsNodeEvent) (domain.NetworkEvent, error) {
+	if lsNodeEvent == nil || lsNodeEvent.Action == nil || lsNodeEvent.Key == nil {
+		return nil, fmt.Errorf("LsNodeEvent, action or key is nil")
+	}
+	if *lsNodeEvent.Action == "del" {
+		return domain.NewDeleteNodeEvent(*lsNodeEvent.Key), nil
+	} else if *lsNodeEvent.Action == "add" {
+		node, err := adapter.ConvertNode(lsNodeEvent.LsNode)
+		if err != nil {
+			return nil, fmt.Errorf("Error converting LsNode to Node: %s", err)
+		}
+		return domain.NewAddNodeEvent(node), nil
+	} else {
+		return nil, fmt.Errorf("Unknown action: %s", *lsNodeEvent.Action)
+	}
+}
+
 func (adapter *DefaultAdapter) ConvertLink(lsLink *jagw.LsLink) (domain.Link, error) {
 	return domain.NewDefaultLink(lsLink.Key, lsLink.IgpRouterId, lsLink.RemoteIgpRouterId, lsLink.UnidirLinkDelay, lsLink.UnidirDelayVariation, lsLink.UnidirAvailableBw, lsLink.UnidirBwUtilization, lsLink.UnidirPacketLoss)
+}
+
+func (adapter *DefaultAdapter) ConvertLinkEvent(lsLinkEvent *jagw.LsLinkEvent) (domain.NetworkEvent, error) {
+	if lsLinkEvent == nil || lsLinkEvent.Action == nil || lsLinkEvent.Key == nil {
+		return nil, fmt.Errorf("LsLinkEvent, action or key is nil")
+	}
+	if *lsLinkEvent.Action == "del" {
+		return domain.NewDeleteLinkEvent(*lsLinkEvent.Key), nil
+	} else if *lsLinkEvent.Action == "add" {
+		link, err := adapter.ConvertLink(lsLinkEvent.LsLink)
+		if err != nil {
+			return nil, fmt.Errorf("Error converting LsLink to Link: %s", err)
+		}
+		return domain.NewAddLinkEvent(link), nil
+	} else if *lsLinkEvent.Action == "update" {
+		link, err := adapter.ConvertLink(lsLinkEvent.LsLink)
+		if err != nil {
+			return nil, fmt.Errorf("Error converting LsLink to Link: %s", err)
+		}
+		return domain.NewUpdateLinkEvent(link), nil
+	} else {
+		return nil, fmt.Errorf("Unknown action: %s", *lsLinkEvent.Action)
+	}
 }
 
 func (adapter *DefaultAdapter) ConvertPrefix(lsPrefix *jagw.LsPrefix) (domain.Prefix, error) {
 	return domain.NewDefaultPrefix(lsPrefix.Key, lsPrefix.IgpRouterId, lsPrefix.Prefix, lsPrefix.PrefixLen)
 }
 
+func (adapter *DefaultAdapter) ConvertPrefixEvent(lsPrefixEvent *jagw.LsPrefixEvent) (domain.NetworkEvent, error) {
+	if lsPrefixEvent == nil || lsPrefixEvent.Action == nil || lsPrefixEvent.Key == nil {
+		return nil, fmt.Errorf("LsPrefixEvent, action or key is nil")
+	}
+	if *lsPrefixEvent.Action == "del" {
+		return domain.NewDeletePrefixEvent(*lsPrefixEvent.Key), nil
+	} else if *lsPrefixEvent.Action == "add" {
+		prefix, err := adapter.ConvertPrefix(lsPrefixEvent.LsPrefix)
+		if err != nil {
+			return nil, fmt.Errorf("Error converting LsPrefix to Prefix: %s", err)
+		}
+		return domain.NewAddPrefixEvent(prefix), nil
+	} else {
+		return nil, fmt.Errorf("Unknown action: %s", *lsPrefixEvent.Action)
+	}
+}
+
 func (adapter *DefaultAdapter) ConvertSid(lsSrv6Sid *jagw.LsSrv6Sid) (domain.Sid, error) {
 	return domain.NewDefaultSid(lsSrv6Sid.Key, lsSrv6Sid.IgpRouterId, lsSrv6Sid.Srv6Sid)
+}
+
+func (adapter *DefaultAdapter) ConvertSidEvent(lsSrv6SidEvent *jagw.LsSrv6SidEvent) (domain.NetworkEvent, error) {
+	if lsSrv6SidEvent == nil || lsSrv6SidEvent.Action == nil || lsSrv6SidEvent.Key == nil {
+		return nil, fmt.Errorf("LsSrv6SidEvent, action or key is nil")
+	}
+	if *lsSrv6SidEvent.Action == "del" {
+		return domain.NewDeleteSidEvent(*lsSrv6SidEvent.Key), nil
+	} else if *lsSrv6SidEvent.Action == "add" {
+		sid, err := adapter.ConvertSid(lsSrv6SidEvent.LsSrv6Sid)
+		if err != nil {
+			return nil, fmt.Errorf("Error converting LsSrv6Sid to Sid: %s", err)
+		}
+		return domain.NewAddSidEvent(sid), nil
+	} else {
+		return nil, fmt.Errorf("Unknown action: %s", *lsSrv6SidEvent.Action)
+	}
 }
 
 func (adapter *DefaultAdapter) convertValuesToDomain(apiValues []*api.Value) ([]domain.Value, error) {

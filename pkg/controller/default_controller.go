@@ -15,17 +15,17 @@ import (
 type DefaultController struct {
 	log             *logrus.Entry
 	cache           cache.CacheService
-	network         graph.Graph
+	graph           graph.Graph
 	streamSessions  []domain.StreamSession
 	pathRequestChan chan domain.PathRequest
 	pathResultChan  chan domain.PathResult
 }
 
-func NewDefaultController(cache cache.CacheService, network graph.Graph, messagingChannels messaging.MessagingChannels) *DefaultController {
+func NewDefaultController(cache cache.CacheService, graph graph.Graph, messagingChannels messaging.MessagingChannels) *DefaultController {
 	return &DefaultController{
 		log:             logging.DefaultLogger.WithField("subsystem", Subsystem),
 		cache:           cache,
-		network:         network,
+		graph:           graph,
 		streamSessions:  make([]domain.StreamSession, 0),
 		pathRequestChan: messagingChannels.GetPathRequestChan(),
 		pathResultChan:  messagingChannels.GetPathResponseChan(),
@@ -52,15 +52,15 @@ func (controller *DefaultController) getShortestPath(sourceIP, destinationIp, me
 	controller.log.Debugln("Source Router ID: ", sourceRouterId)
 	controller.log.Debugln("Destination Router ID: ", destinationRouterId)
 
-	source, err := controller.network.GetNode(sourceRouterId)
+	source, err := controller.graph.GetNode(sourceRouterId)
 	if err != nil {
 		return nil, err
 	}
-	destination, err := controller.network.GetNode(destinationRouterId)
+	destination, err := controller.graph.GetNode(destinationRouterId)
 	if err != nil {
 		return nil, err
 	}
-	result, err := controller.network.GetShortestPath(source, destination, metric)
+	result, err := controller.graph.GetShortestPath(source, destination, metric)
 	if err != nil {
 		return nil, err
 	}

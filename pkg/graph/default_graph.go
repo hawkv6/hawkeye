@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"fmt"
 	"math"
+	"sync"
 
 	"github.com/hawkv6/hawkeye/pkg/logging"
 	"github.com/sirupsen/logrus"
@@ -13,6 +14,7 @@ type DefaultGraph struct {
 	log   *logrus.Entry
 	nodes map[interface{}]Node
 	edges map[interface{}]Edge
+	mu    *sync.Mutex
 }
 
 func NewDefaultGraph() *DefaultGraph {
@@ -21,6 +23,14 @@ func NewDefaultGraph() *DefaultGraph {
 		nodes: make(map[interface{}]Node),
 		edges: make(map[interface{}]Edge),
 	}
+}
+
+func (graph *DefaultGraph) Lock() {
+	graph.mu.Lock()
+}
+
+func (graph *DefaultGraph) Unlock() {
+	graph.mu.Unlock()
 }
 
 func (graph *DefaultGraph) NodeExists(id interface{}) bool {

@@ -1,6 +1,8 @@
 package cache
 
 import (
+	"sync"
+
 	"github.com/hawkv6/hawkeye/pkg/domain"
 	"github.com/sirupsen/logrus"
 )
@@ -11,6 +13,7 @@ type DefaultCacheService struct {
 	prefixRouterMap map[string]string
 	sidStore        map[string]domain.Sid
 	routerSidMap    map[string]string
+	mu              sync.Mutex
 }
 
 func NewDefaultCacheService() *DefaultCacheService {
@@ -21,6 +24,14 @@ func NewDefaultCacheService() *DefaultCacheService {
 		sidStore:        make(map[string]domain.Sid),
 		routerSidMap:    make(map[string]string),
 	}
+}
+
+func (cacheService *DefaultCacheService) Lock() {
+	cacheService.mu.Lock()
+}
+
+func (cacheService *DefaultCacheService) Unlock() {
+	cacheService.mu.Unlock()
 }
 
 func (cacheService *DefaultCacheService) StoreClientNetwork(prefix domain.Prefix) {
