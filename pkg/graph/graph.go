@@ -3,12 +3,15 @@ package graph
 const Subsystem = "graph"
 
 type Graph interface {
-	GetShortestPath(from Node, to Node, weightKind string) ([]Edge, error)
+	Lock()
+	Unlock()
 	AddNode(node Node) (Node, error)
-	GetNode(id interface{}) (Node, error)
+	GetNode(id interface{}) (Node, bool)
+	DeleteNode(node Node)
 	NodeExists(id interface{}) bool
 	AddEdge(edge Edge) error
+	GetEdge(id interface{}) (Edge, bool)
 	EdgeExists(id interface{}) bool
-	RemoveNode(node Node)
-	RemoveEdge(edge Edge)
+	DeleteEdge(edge Edge)
+	GetShortestPath(from Node, to Node, weightKind string) ([]Edge, error)
 }

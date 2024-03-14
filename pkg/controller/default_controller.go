@@ -52,13 +52,13 @@ func (controller *DefaultController) getShortestPath(sourceIP, destinationIp, me
 	controller.log.Debugln("Source Router ID: ", sourceRouterId)
 	controller.log.Debugln("Destination Router ID: ", destinationRouterId)
 
-	source, err := controller.graph.GetNode(sourceRouterId)
-	if err != nil {
-		return nil, err
+	source, exist := controller.graph.GetNode(sourceRouterId)
+	if !exist {
+		return nil, fmt.Errorf("Source router not found")
 	}
-	destination, err := controller.graph.GetNode(destinationRouterId)
-	if err != nil {
-		return nil, err
+	destination, exist := controller.graph.GetNode(destinationRouterId)
+	if !exist {
+		return nil, fmt.Errorf("Destination router not found")
 	}
 	result, err := controller.graph.GetShortestPath(source, destination, metric)
 	if err != nil {
@@ -90,7 +90,7 @@ func (controller *DefaultController) Start() {
 					controller.log.Errorln("Error getting shortest path: ", err)
 					continue
 				}
-				for i := 0; i < len(nodeIds); i = i + 2 {
+				for i := 0; i < len(nodeIds)-1; i++ {
 					controller.log.Infof("Edge: %s -> %s", nodeIds[i], nodeIds[i+1])
 				}
 				sidList := make([]string, 0)

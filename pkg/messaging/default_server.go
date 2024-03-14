@@ -3,6 +3,7 @@ package messaging
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 
 	"github.com/hawkv6/hawkeye/pkg/adapter"
@@ -12,6 +13,7 @@ import (
 	"github.com/hawkv6/hawkeye/pkg/logging"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/peer"
 )
 
 type DefaultMessagingServer struct {
@@ -50,20 +52,32 @@ func (server *DefaultMessagingServer) Start() error {
 }
 
 func (server *DefaultMessagingServer) GetIntentPath(stream api.IntentController_GetIntentPathServer) error {
-	apiRequest, err := stream.Recv()
-	if err != nil {
-		server.log.Errorln("Error receiving message: ", err)
-		return err
+	ctx := stream.Context()
+	peerInfo, ok := peer.FromContext(ctx)
+	if ok {
+		server.log.Debugln("Received Stream from: ", peerInfo.Addr)
 	}
-	server.log.Debugln("Received request: ", apiRequest)
+	for {
+		apiRequest, err := stream.Recv()
+		if err != nil {
+			ctx.Done()
+			if err == io.EOF {
+				server.log.Debugf("Stream has with %s ended", peerInfo.Addr)
+				return nil
+			} else {
+				server.log.Errorln("Error receiving message: ", err)
+				return err
+			}
+		}
+		server.log.Debugln("Received request: ", apiRequest)
 
-	pathRequest, err := server.adapter.ConvertPathRequest(apiRequest, stream, stream.Context())
-	if err != nil {
-		return err
+		pathRequest, err := server.adapter.ConvertPathRequest(apiRequest, stream, ctx)
+		if err != nil {
+			return err
+		}
+		server.pathRequestChan <- pathRequest
+		go server.GetIntentPathResponse(stream, ctx)
 	}
-	server.pathRequestChan <- pathRequest
-	server.GetIntentPathResponse(stream, stream.Context())
-	return nil
 }
 
 func (server *DefaultMessagingServer) GetIntentPathResponse(stream api.IntentController_GetIntentPathServer, ctx context.Context) {

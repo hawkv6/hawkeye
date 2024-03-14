@@ -7,6 +7,7 @@ import (
 
 	"github.com/hawkv6/hawkeye/pkg/adapter"
 	"github.com/hawkv6/hawkeye/pkg/config"
+	"github.com/hawkv6/hawkeye/pkg/domain"
 	"github.com/hawkv6/hawkeye/pkg/helper"
 	"github.com/hawkv6/hawkeye/pkg/logging"
 	"github.com/hawkv6/hawkeye/pkg/processor"
@@ -25,13 +26,14 @@ type JagwSubscriptionService struct {
 	processor              processor.Processor
 	quitChan               chan struct{}
 	helper                 helper.Helper
+	eventChan              chan domain.NetworkEvent
 	lsNodesSubscription    jagw.SubscriptionService_SubscribeToLsNodesClient
 	lsLinksSubscription    jagw.SubscriptionService_SubscribeToLsLinksClient
 	lsPrefixesSubscription jagw.SubscriptionService_SubscribeToLsPrefixesClient
 	lsSrv6SidsSubscription jagw.SubscriptionService_SubscribeToLsSrv6SidsClient
 }
 
-func NewJagwSubscriptionService(config config.Config, adapter adapter.Adapter, processor processor.Processor, helper helper.Helper) *JagwSubscriptionService {
+func NewJagwSubscriptionService(config config.Config, adapter adapter.Adapter, processor processor.Processor, helper helper.Helper, eventChan chan domain.NetworkEvent) *JagwSubscriptionService {
 	return &JagwSubscriptionService{
 		log:                    logging.DefaultLogger.WithField("subsystem", Subsystem),
 		jagwSubscriptionSocket: config.GetJagwServiceAddress() + ":" + strconv.FormatUint(uint64(config.GetJagwSubscriptionPort()), 10),
@@ -39,6 +41,7 @@ func NewJagwSubscriptionService(config config.Config, adapter adapter.Adapter, p
 		processor:              processor,
 		quitChan:               make(chan struct{}),
 		helper:                 helper,
+		eventChan:              eventChan,
 	}
 }
 
@@ -103,13 +106,13 @@ func (subscriptionService *JagwSubscriptionService) createLsNodesSubscription() 
 	return nil
 }
 
-func (subscriptionService *JagwSubscriptionService) convertLsNodeEvent(lsNodeEvent *jagw.LsNodeEvent) {
+func (subscriptionService *JagwSubscriptionService) enqueueNodeEvent(lsNodeEvent *jagw.LsNodeEvent) {
 	event, err := subscriptionService.adapter.ConvertNodeEvent(lsNodeEvent)
 	if err != nil {
 		subscriptionService.log.Errorf("Error converting LsNodeEvent: %s", err)
 		return
 	}
-	subscriptionService.log.Debugln(event)
+	subscriptionService.eventChan <- event
 }
 
 func (subscriptionService *JagwSubscriptionService) subscribeLsNodes() {
@@ -123,7 +126,7 @@ func (subscriptionService *JagwSubscriptionService) subscribeLsNodes() {
 			if err != nil {
 				subscriptionService.log.Errorf("Error when receiving LsNode event: %s", err)
 			}
-			subscriptionService.convertLsNodeEvent(event)
+			subscriptionService.enqueueNodeEvent(event)
 		}
 	}
 }
@@ -142,13 +145,13 @@ func (subscriptionService *JagwSubscriptionService) createLsLinksSubscription() 
 	return nil
 }
 
-func (subscriptionService *JagwSubscriptionService) convertLsLink(lsLinkEvent *jagw.LsLinkEvent) {
+func (subscriptionService *JagwSubscriptionService) enqueueLinkEvent(lsLinkEvent *jagw.LsLinkEvent) {
 	event, err := subscriptionService.adapter.ConvertLinkEvent(lsLinkEvent)
 	if err != nil {
 		subscriptionService.log.Errorf("Error converting LsLinkEvent: %s", err)
 		return
 	}
-	subscriptionService.log.Debugln(event)
+	subscriptionService.eventChan <- event
 }
 
 func (subscriptionService *JagwSubscriptionService) subscribeLsLinks() {
@@ -162,7 +165,7 @@ func (subscriptionService *JagwSubscriptionService) subscribeLsLinks() {
 				subscriptionService.log.Errorf("Error when receiving LsLink event: %s", err)
 				continue
 			}
-			subscriptionService.convertLsLink(event)
+			subscriptionService.enqueueLinkEvent(event)
 		}
 	}
 }
@@ -181,13 +184,13 @@ func (subscriptionService *JagwSubscriptionService) createLsPrefixesSubscription
 	return nil
 }
 
-func (subscriptionService *JagwSubscriptionService) convertLsPrefix(lsPrefixEvent *jagw.LsPrefixEvent) {
+func (subscriptionService *JagwSubscriptionService) enqueuePrefixEvent(lsPrefixEvent *jagw.LsPrefixEvent) {
 	event, err := subscriptionService.adapter.ConvertPrefixEvent(lsPrefixEvent)
 	if err != nil {
 		subscriptionService.log.Errorf("Error converting LsPrefixEvent: %s", err)
 		return
 	}
-	subscriptionService.log.Debugln(event)
+	subscriptionService.eventChan <- event
 }
 
 func (subscriptionService *JagwSubscriptionService) subscribeLsPrefixes() {
@@ -201,7 +204,7 @@ func (subscriptionService *JagwSubscriptionService) subscribeLsPrefixes() {
 				subscriptionService.log.Errorf("Error when receiving LsPrefix event: %s", err)
 				continue
 			}
-			subscriptionService.convertLsPrefix(event)
+			subscriptionService.enqueuePrefixEvent(event)
 		}
 	}
 }
@@ -220,13 +223,13 @@ func (subscriptionService *JagwSubscriptionService) createLsSrv6SidsSubscription
 	return nil
 }
 
-func (subscriptionService *JagwSubscriptionService) convertLsSrv6Sids(lsSrv6SidsEvent *jagw.LsSrv6SidEvent) {
+func (subscriptionService *JagwSubscriptionService) enqueueSrv6Sids(lsSrv6SidsEvent *jagw.LsSrv6SidEvent) {
 	event, err := subscriptionService.adapter.ConvertSidEvent(lsSrv6SidsEvent)
 	if err != nil {
-		subscriptionService.log.Errorf("Error converting LsSrv6SidEvent: %s", err)
+		subscriptionService.log.Errorf("Error converting LsSrv6SidsEvent: %s", err)
 		return
 	}
-	subscriptionService.log.Debugln(event)
+	subscriptionService.eventChan <- event
 }
 
 func (subscriptionService *JagwSubscriptionService) subscribeLsSrv6Sids() {
@@ -240,7 +243,7 @@ func (subscriptionService *JagwSubscriptionService) subscribeLsSrv6Sids() {
 				subscriptionService.log.Errorf("Error when receiving LsSrv6Sids event: %s", err)
 				continue
 			}
-			subscriptionService.convertLsSrv6Sids(event)
+			subscriptionService.enqueueSrv6Sids(event)
 		}
 	}
 }

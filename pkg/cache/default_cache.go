@@ -13,6 +13,9 @@ type DefaultCacheService struct {
 	prefixRouterMap map[string]string
 	sidStore        map[string]domain.Sid
 	routerSidMap    map[string]string
+	nodeMap         map[string]domain.Node
+	igpRouterIdMap  map[string]string
+	linkMap         map[string]domain.Link
 	mu              sync.Mutex
 }
 
@@ -23,6 +26,9 @@ func NewDefaultCacheService() *DefaultCacheService {
 		prefixRouterMap: make(map[string]string),
 		sidStore:        make(map[string]domain.Sid),
 		routerSidMap:    make(map[string]string),
+		nodeMap:         make(map[string]domain.Node),
+		igpRouterIdMap:  make(map[string]string),
+		linkMap:         make(map[string]domain.Link),
 	}
 }
 
@@ -58,4 +64,33 @@ func (cacheService *DefaultCacheService) GetSidFromRouterId(routerId string) (st
 		sid, ok := cacheService.sidStore[sidKey]
 		return sid.GetSid(), ok
 	}
+}
+
+func (cacheService *DefaultCacheService) StoreNode(node domain.Node) {
+	cacheService.nodeMap[node.GetKey()] = node
+	cacheService.igpRouterIdMap[node.GetIgpRouterId()] = node.GetKey()
+}
+
+func (cacheService *DefaultCacheService) GetNodeByKey(key string) (domain.Node, bool) {
+	node, ok := cacheService.nodeMap[key]
+	return node, ok
+}
+
+func (cacheService *DefaultCacheService) GetNodeByIgpRouterId(igpRouterId string) (domain.Node, bool) {
+	key, ok := cacheService.igpRouterIdMap[igpRouterId]
+	if !ok {
+		return nil, ok
+	} else {
+		node, ok := cacheService.nodeMap[key]
+		return node, ok
+	}
+}
+
+func (cacheService *DefaultCacheService) StoreLink(link domain.Link) {
+	cacheService.linkMap[link.GetKey()] = link
+}
+
+func (cacheService *DefaultCacheService) GetLinkByKey(key string) (domain.Link, bool) {
+	link, ok := cacheService.linkMap[key]
+	return link, ok
 }

@@ -16,13 +16,13 @@ func NewDefaultHelper() *DefaultHelper {
 }
 
 func (helper *DefaultHelper) GetLsNodeProperties() []string {
-	helper.log.Debugln("Getting LsNode properties")
-	return []string{"Key", "IgpRouterId", "Name"}
+	nodeProperties := []string{"Key", "IgpRouterId", "Name"}
+	helper.log.Debugln("LsNode properties", nodeProperties)
+	return nodeProperties
 }
 
 func (helper *DefaultHelper) GetLsLinkProperties() []string {
-	helper.log.Debugln("Getting LsLink properties")
-	return []string{
+	linkProperties := []string{
 		"Key",
 		"IgpRouterId",
 		"RemoteIgpRouterId",
@@ -32,14 +32,34 @@ func (helper *DefaultHelper) GetLsLinkProperties() []string {
 		"UnidirPacketLoss",
 		"UnidirBWUtilization",
 	}
+	helper.log.Debugln("LsLink properties", linkProperties)
+	return linkProperties
 }
 
 func (helper *DefaultHelper) GetLsPrefixProperties() []string {
-	helper.log.Debugln("Getting LsPrefix properties")
 	return []string{"Key", "IgpRouterId", "Prefix", "PrefixLen"}
 }
 
 func (helper *DefaultHelper) GetLsSrv6SidsProperties() []string {
-	helper.log.Debugln("Getting LsSrv6Sids properties")
 	return []string{"Key", "IgpRouterId", "Srv6Sid"}
+}
+
+func (helper *DefaultHelper) GetLatencyKey() string {
+	return "latency"
+}
+
+func (helper *DefaultHelper) GetJitterKey() string {
+	return "jitter"
+}
+
+func (helper *DefaultHelper) GetAvailableBandwidthKey() string {
+	return "availableBandwidth"
+}
+
+func (helper *DefaultHelper) GetUtilizedBandwidthKey() string {
+	return "utilizedBandwith"
+}
+
+func (helper *DefaultHelper) GetPacketLossKey() string {
+	return "loss"
 }

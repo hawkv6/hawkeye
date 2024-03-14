@@ -8,6 +8,7 @@ import (
 	"github.com/hawkv6/hawkeye/pkg/cache"
 	"github.com/hawkv6/hawkeye/pkg/config"
 	"github.com/hawkv6/hawkeye/pkg/controller"
+	"github.com/hawkv6/hawkeye/pkg/domain"
 	"github.com/hawkv6/hawkeye/pkg/graph"
 	"github.com/hawkv6/hawkeye/pkg/helper"
 	"github.com/hawkv6/hawkeye/pkg/jagw"
@@ -33,11 +34,12 @@ var startCmd = &cobra.Command{
 		}
 		log.Infoln("Config created successfully")
 
+		eventChan := make(chan domain.NetworkEvent)
 		adapter := adapter.NewDefaultAdapter()
+		helper := helper.NewDefaultHelper()
 		graph := graph.NewDefaultGraph()
 		cache := cache.NewDefaultCacheService()
-		processor := processor.NewDefaultProcessor(graph, cache)
-		helper := helper.NewDefaultHelper()
+		processor := processor.NewDefaultProcessor(graph, cache, eventChan, helper)
 
 		requestService := jagw.NewJagwRequestService(config, adapter, processor, helper)
 		if err := requestService.Init(); err != nil {
@@ -51,7 +53,9 @@ var startCmd = &cobra.Command{
 		controller := controller.NewDefaultController(cache, graph, messagingChannels)
 		go controller.Start()
 
-		subscriptionService := jagw.NewJagwSubscriptionService(config, adapter, processor, helper)
+		go processor.Start()
+
+		subscriptionService := jagw.NewJagwSubscriptionService(config, adapter, processor, helper, eventChan)
 		if err := subscriptionService.Init(); err != nil {
 			log.Fatalf("Error initializing JAGW Subscription Service: %v", err)
 		}
@@ -59,11 +63,11 @@ var startCmd = &cobra.Command{
 			log.Fatalf("Error starting JAGW Subscription Service: %v", err)
 		}
 
-		// server := messaging.NewDefaultMessagingServer(adapter, config, messagingChannels)
+		server := messaging.NewDefaultMessagingServer(adapter, config, messagingChannels)
 
-		// if err := server.Start(); err != nil {
-		// 	log.Fatalf("Error starting gRPC server: %v", err)
-		// }
+		if err := server.Start(); err != nil {
+			log.Fatalf("Error starting gRPC server: %v", err)
+		}
 
 		signalChan := make(chan os.Signal, 1)
 		signal.Notify(signalChan, os.Interrupt)
@@ -72,6 +76,7 @@ var startCmd = &cobra.Command{
 		log.Info("Received interrupt signal, shutting down")
 		requestService.Stop()
 		subscriptionService.Stop()
+		processor.Stop()
 		// TODO Stop the controller
 		// controller.Close()
 		// TODO stop the gRPC server

@@ -94,7 +94,7 @@ func (requestService *JagwRequestService) getLsNodes() error {
 	if err != nil {
 		return err
 	}
-	if err := requestService.processor.CreateNetworkNodes(nodes); err != nil {
+	if err := requestService.processor.CreateGraphNodes(nodes); err != nil {
 		return err
 	}
 	return nil
@@ -130,7 +130,7 @@ func (requestService *JagwRequestService) getLsLinks() error {
 		return err
 	}
 
-	if err := requestService.processor.CreateNetworkEdges(links); err != nil {
+	if err := requestService.processor.CreateGraphEdges(links); err != nil {
 		return err
 	}
 	return nil

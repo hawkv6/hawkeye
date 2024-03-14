@@ -38,11 +38,9 @@ func (graph *DefaultGraph) NodeExists(id interface{}) bool {
 	return exists
 }
 
-func (graph *DefaultGraph) GetNode(id interface{}) (Node, error) {
-	if !graph.NodeExists(id) {
-		return nil, fmt.Errorf("Node with id %d does not exist", id)
-	}
-	return graph.nodes[id], nil
+func (graph *DefaultGraph) GetNode(id interface{}) (Node, bool) {
+	node, exists := graph.nodes[id]
+	return node, exists
 }
 
 func (graph *DefaultGraph) AddNode(node Node) (Node, error) {
@@ -53,6 +51,18 @@ func (graph *DefaultGraph) AddNode(node Node) (Node, error) {
 	return node, nil
 }
 
+func (graph *DefaultGraph) DeleteNode(node Node) {
+	for _, edge := range node.GetEdges() {
+		graph.DeleteEdge(edge)
+	}
+	delete(graph.nodes, node.GetId())
+}
+
+func (graph *DefaultGraph) GetEdge(id interface{}) (Edge, bool) {
+	edge, exists := graph.edges[id]
+	return edge, exists
+}
+
 func (graph *DefaultGraph) EdgeExists(id interface{}) bool {
 	_, exists := graph.edges[id]
 	return exists
@@ -61,7 +71,7 @@ func (graph *DefaultGraph) EdgeExists(id interface{}) bool {
 func (graph *DefaultGraph) AddEdge(edge Edge) error {
 	fromId := edge.From().GetId()
 	toId := edge.To().GetId()
-	graph.log.Debugf("Adding edge from %s to %s with weights %v", fromId, toId, edge.GetAllWeights())
+	graph.log.Debugf("Add edge from %s to %s with weights %v", fromId, toId, edge.GetAllWeights())
 	if !graph.NodeExists(fromId) {
 		return fmt.Errorf("Node with id %d does not exist", fromId)
 	}
@@ -77,14 +87,7 @@ func (graph *DefaultGraph) AddEdge(edge Edge) error {
 	return nil
 }
 
-func (graph *DefaultGraph) RemoveNode(node Node) {
-	for _, edge := range node.GetEdges() {
-		graph.RemoveEdge(edge)
-	}
-	delete(graph.nodes, node.GetId())
-}
-
-func (graph *DefaultGraph) RemoveEdge(edge Edge) {
+func (graph *DefaultGraph) DeleteEdge(edge Edge) {
 	from := edge.From()
 	to := edge.To()
 	from.DeleteEdge(edge.GetId())

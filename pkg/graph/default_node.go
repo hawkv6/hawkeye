@@ -9,7 +9,8 @@ type DefaultNode struct {
 func NewDefaultNode(id interface{}) *DefaultNode {
 	return &DefaultNode{
 		id:    id,
-		edges: make(map[interface{}]Edge)}
+		edges: make(map[interface{}]Edge),
+	}
 }
 
 func (node *DefaultNode) GetName() string {
