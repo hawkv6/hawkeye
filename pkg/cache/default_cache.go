@@ -29,6 +29,7 @@ func NewDefaultCacheService() *DefaultCacheService {
 		nodeMap:         make(map[string]domain.Node),
 		igpRouterIdMap:  make(map[string]string),
 		linkMap:         make(map[string]domain.Link),
+		mu:              sync.Mutex{},
 	}
 }
 
@@ -46,9 +47,30 @@ func (cacheService *DefaultCacheService) StoreClientNetwork(prefix domain.Prefix
 	cacheService.prefixRouterMap[networkAddress] = prefix.GetIgpRouterId()
 }
 
-func (cacheService *DefaultCacheService) StoreSids(sid domain.Sid) {
+func (cacheService *DefaultCacheService) RemoveClientNetwork(prefix domain.Prefix) {
+	networkAddress := prefix.GetPrefix()
+	delete(cacheService.prefixMap, prefix.GetKey())
+	delete(cacheService.prefixRouterMap, networkAddress)
+}
+
+func (cacheService *DefaultCacheService) GetClientNetworkByKey(key string) (domain.Prefix, bool) {
+	prefix, ok := cacheService.prefixMap[key]
+	return prefix, ok
+}
+
+func (cacheService *DefaultCacheService) StoreSid(sid domain.Sid) {
 	cacheService.sidStore[sid.GetKey()] = sid
 	cacheService.routerSidMap[sid.GetIgpRouterId()] = sid.GetKey()
+}
+
+func (cacheService *DefaultCacheService) RemoveSid(sid domain.Sid) {
+	delete(cacheService.sidStore, sid.GetKey())
+	delete(cacheService.routerSidMap, sid.GetIgpRouterId())
+}
+
+func (cacheService *DefaultCacheService) GetSidByKey(key string) (domain.Sid, bool) {
+	sid, ok := cacheService.sidStore[key]
+	return sid, ok
 }
 
 func (cacheService *DefaultCacheService) GetRouterIdFromNetworkAddress(networkAddress string) (string, bool) {

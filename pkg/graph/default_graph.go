@@ -22,6 +22,7 @@ func NewDefaultGraph() *DefaultGraph {
 		log:   logging.DefaultLogger.WithField("subsystem", Subsystem),
 		nodes: make(map[interface{}]Node),
 		edges: make(map[interface{}]Edge),
+		mu:    &sync.Mutex{},
 	}
 }
 

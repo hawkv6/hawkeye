@@ -166,9 +166,7 @@ func (requestService *JagwRequestService) getLsPrefixes() error {
 		return err
 	}
 
-	if err := requestService.processor.CreateClientNetworks(prefixes); err != nil {
-		return err
-	}
+	requestService.processor.CreateClientNetworks(prefixes)
 	return nil
 }
 
@@ -200,9 +198,7 @@ func (requestService *JagwRequestService) getSrv6Sids() error {
 	if err != nil {
 		return err
 	}
-	if err := requestService.processor.CreateSids(sidList); err != nil {
-		return err
-	}
+	requestService.processor.CreateSids(sidList)
 	return nil
 }
 

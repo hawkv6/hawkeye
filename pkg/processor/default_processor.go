@@ -2,6 +2,7 @@ package processor
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/hawkv6/hawkeye/pkg/cache"
 	"github.com/hawkv6/hawkeye/pkg/domain"
@@ -12,22 +13,24 @@ import (
 )
 
 type DefaultProcessor struct {
-	log       *logrus.Entry
-	graph     graph.Graph
-	cache     cache.CacheService
-	eventChan chan domain.NetworkEvent
-	quitChan  chan struct{}
-	helper    helper.Helper
+	log          *logrus.Entry
+	graph        graph.Graph
+	cache        cache.CacheService
+	eventChan    chan domain.NetworkEvent
+	quitChan     chan struct{}
+	helper       helper.Helper
+	prefixCounts map[string]int
 }
 
 func NewDefaultProcessor(graph graph.Graph, cache cache.CacheService, eventChan chan domain.NetworkEvent, helper helper.Helper) *DefaultProcessor {
 	return &DefaultProcessor{
-		log:       logging.DefaultLogger.WithField("subsystem", Subsystem),
-		graph:     graph,
-		cache:     cache,
-		eventChan: eventChan,
-		helper:    helper,
-		quitChan:  make(chan struct{}),
+		log:          logging.DefaultLogger.WithField("subsystem", Subsystem),
+		graph:        graph,
+		cache:        cache,
+		eventChan:    eventChan,
+		helper:       helper,
+		quitChan:     make(chan struct{}),
+		prefixCounts: make(map[string]int),
 	}
 }
 
@@ -60,7 +63,7 @@ func (processor *DefaultProcessor) addNodeToCache(node domain.Node) {
 	processor.cache.StoreNode(node)
 }
 
-func (processor *DefaultProcessor) deleteNodeIfExists(key string) error {
+func (processor *DefaultProcessor) deleteNode(key string) error {
 	node, ok := processor.cache.GetNodeByKey(key)
 	if !ok {
 		return fmt.Errorf("Node with key %s does not exist in cache", key)
@@ -122,7 +125,7 @@ func (processor *DefaultProcessor) getOrCreateNode(nodeId string) (graph.Node, e
 	return graphNode, nil
 }
 
-func (processor *DefaultProcessor) deleteEdgeIfExists(key string) error {
+func (processor *DefaultProcessor) deleteEdge(key string) error {
 	if processor.graph.EdgeExists(key) {
 		edge, exist := processor.graph.GetEdge(key)
 		if !exist {
@@ -130,8 +133,9 @@ func (processor *DefaultProcessor) deleteEdgeIfExists(key string) error {
 		}
 		processor.log.Debugf("Delete edge with key %s from graph between %s and %s", key, edge.From().GetName(), edge.To().GetName())
 		processor.graph.DeleteEdge(edge)
+		return nil
 	}
-	return nil
+	return fmt.Errorf("Edge with key %s does not exist in graph", key)
 }
 
 func (processor *DefaultProcessor) addEdgeToGraph(edge graph.Edge) error {
@@ -197,61 +201,104 @@ func (processor *DefaultProcessor) updateLinkInGraph(link domain.Link) error {
 	return nil
 }
 
-func (processor *DefaultProcessor) getPrefixCounts(prefixes []domain.Prefix) (map[string]int, map[string]domain.Prefix) {
-	prefixCounts := make(map[string]int)
-	prefixMap := make(map[string]domain.Prefix)
+func (processor *DefaultProcessor) addClientNetworkToCache(prefix domain.Prefix) {
+	networkAddress := prefix.GetPrefix()
+	subnetLength := prefix.GetPrefixLength()
+	if subnetLength == 128 {
+		processor.log.Debugf("Ignoring lo0 address %s/%d", networkAddress, subnetLength)
+	}
+	_, ok := processor.prefixCounts[networkAddress]
+	if !ok {
+		processor.log.Debugf("Add network %s/%d to cache ", networkAddress, subnetLength)
+		processor.prefixCounts[networkAddress] = 1
+		processor.cache.StoreClientNetwork(prefix)
+	} else {
+		if _, ok := processor.cache.GetClientNetworkByKey(prefix.GetKey()); ok {
+			processor.log.Debugf("Delete non-client network %s/%d from cache ", networkAddress, subnetLength)
+			processor.prefixCounts[networkAddress]++
+			processor.cache.RemoveClientNetwork(prefix)
+		}
+	}
+}
+
+func (processor *DefaultProcessor) CreateClientNetworks(prefixes []domain.Prefix) {
 	for _, prefix := range prefixes {
-		// Ignore lo0 addressses
-		if prefix.GetPrefixLength() == 128 {
-			continue
-		}
-		network := prefix.GetPrefix()
-		if _, ok := prefixCounts[network]; !ok {
-			prefixCounts[network] = 1
-		} else {
-			prefixCounts[network]++
-		}
-		prefixMap[network] = prefix
+		processor.addClientNetworkToCache(prefix)
 	}
-	return prefixCounts, prefixMap
 }
 
-func (processor *DefaultProcessor) getClientNetworks(prefixCounts map[string]int, prefixMap map[string]domain.Prefix) []domain.Prefix {
-	// TODO: Find way to remove SRv6 locator prefixes from clientNetworks (with Segments)
-	prefixes := make([]domain.Prefix, 0)
-	for prefix, count := range prefixCounts {
-		if count == 1 {
-			prefixes = append(prefixes, prefixMap[prefix])
-		}
+func (processor *DefaultProcessor) deleteClientNetwork(key string) error {
+	prefix, ok := processor.cache.GetClientNetworkByKey(key)
+	if !ok {
+		return fmt.Errorf("Network with key %s does not exist in cache", key)
 	}
-	return prefixes
-}
-
-func (processor *DefaultProcessor) CreateClientNetworks(prefixes []domain.Prefix) error {
-	clientNetworks := processor.getClientNetworks(processor.getPrefixCounts(prefixes))
-	for _, clientNetwork := range clientNetworks {
-		processor.cache.StoreClientNetwork(clientNetwork)
-		processor.log.Debugf("Added client network %s/%d to cache ", clientNetwork.GetPrefix(), clientNetwork.GetPrefixLength())
+	networkAddress := prefix.GetPrefix()
+	subnetLength := prefix.GetPrefixLength()
+	if _, ok := processor.prefixCounts[networkAddress]; !ok {
+		return fmt.Errorf("Network %s/%d does not exist in prefix counts", networkAddress, subnetLength)
 	}
+	if processor.prefixCounts[networkAddress] > 1 {
+		processor.log.Debugf("Decrement network %s/%d from announced prefix count", networkAddress, subnetLength)
+		processor.prefixCounts[networkAddress]--
+		return nil
+	}
+	processor.log.Debugf("Delete client network %s/%d from cache", networkAddress, subnetLength)
+	delete(processor.prefixCounts, networkAddress)
+	processor.cache.RemoveClientNetwork(prefix)
 	return nil
 }
 
-func (processor *DefaultProcessor) CreateSids(sids []domain.Sid) error {
+func (processor *DefaultProcessor) addSidtoCache(sid domain.Sid) {
+	processor.log.Debugf("Add SRv6 SID %s to cache", sid.GetSid())
+	processor.cache.StoreSid(sid)
+}
+
+func (processor *DefaultProcessor) CreateSids(sids []domain.Sid) {
 	for _, sid := range sids {
-		processor.cache.StoreSids(sid)
-		processor.log.Debugf("Added SRv6 SID %s to cache", sid.GetSid())
+		processor.addSidtoCache(sid)
 	}
-	return nil
+}
+
+func (processor *DefaultProcessor) deleteSidFromCache(key string) {
+	processor.log.Debugf("Delete SRv6 SID %s from cache", key)
+	sid, ok := processor.cache.GetSidByKey(key)
+	if !ok {
+		processor.log.Debugf("SID with key %s does not exist in cache", key)
+	}
+	processor.cache.RemoveSid(sid)
 }
 
 func (processor *DefaultProcessor) Start() {
-	processor.log.Infoln("Starting processor")
+	holdTime := time.Second * 3
+	processor.log.Infof("Starting processing network updates with hold time %s", holdTime.String())
+
+	timer := time.NewTimer(holdTime)
+	defer timer.Stop()
+	mutexesLocked := false
+
 	for {
 		select {
 		case event := <-processor.eventChan:
+			if !mutexesLocked {
+				processor.log.Debugln("Locking cache and graph mutexes")
+				processor.cache.Lock()
+				processor.graph.Lock()
+				mutexesLocked = true
+			}
 			processor.processEvent(event)
+			timer.Reset(holdTime)
+		case <-timer.C:
+			if mutexesLocked {
+				processor.log.Debugln("Unlocking cache and graph mutexes")
+				processor.cache.Unlock()
+				processor.graph.Unlock()
+				mutexesLocked = false
+			}
 		case <-processor.quitChan:
-			processor.log.Infoln("Stopping processor")
+			if mutexesLocked {
+				processor.cache.Unlock()
+				processor.graph.Unlock()
+			}
 			return
 		}
 	}
@@ -267,7 +314,7 @@ func (processor *DefaultProcessor) processEvent(event domain.NetworkEvent) {
 		processor.addNodeToCache(eventType.Node)
 	case *domain.DeleteNodeEvent:
 		processor.log.Debugln("Received DeleteNodeEvent: ", eventType.GetKey())
-		if err := processor.deleteNodeIfExists(eventType.GetKey()); err != nil {
+		if err := processor.deleteNode(eventType.GetKey()); err != nil {
 			processor.log.Errorln("Error deleting network node: ", err)
 		}
 	case *domain.AddLinkEvent:
@@ -282,18 +329,23 @@ func (processor *DefaultProcessor) processEvent(event domain.NetworkEvent) {
 		}
 	case *domain.DeleteLinkEvent:
 		processor.log.Debugln("Received DeleteLinkEvent: ", eventType.GetKey())
-		if err := processor.deleteEdgeIfExists(eventType.GetKey()); err != nil {
+		if err := processor.deleteEdge(eventType.GetKey()); err != nil {
 			processor.log.Errorln("Error deleting edge: ", err)
 		}
-		// 	processor.addLinkToGraph(event.GetLink())
-		// case domain.AddPrefixEvent:
-		// 	processor.cache.StoreClientNetwork(event.GetPrefix())
-		// case domain.AddSidEvent:
-		// 	processor.cache.StoreSids(event.GetSid())
-		// case domain.DeleteSidEvent:
-		// 	processor.cache.DeleteSid(event.GetKey())
-		// case domain.DeletePrefixEvent:
-		// 	processor.cache.DeleteClientNetwork(event.GetKey())
+	case *domain.AddPrefixEvent:
+		processor.log.Debugln("Received AddPrefixEvent: ", eventType.Prefix.GetKey())
+		processor.addClientNetworkToCache(eventType.Prefix)
+	case *domain.DeletePrefixEvent:
+		processor.log.Debugln("Received DeletePrefixEvent: ", eventType.GetKey())
+		if err := processor.deleteClientNetwork(eventType.GetKey()); err != nil {
+			processor.log.Errorln("Error deleting client network from cache: ", err)
+		}
+	case *domain.AddSidEvent:
+		processor.log.Debugln("Received AddSidEvent: ", eventType.GetSid())
+		processor.addSidtoCache(eventType.Sid)
+	case *domain.DeleteSidEvent:
+		processor.log.Debugln("Received DeleteSidEvent: ", eventType.GetKey())
+		processor.deleteSidFromCache(eventType.GetKey())
 	}
 }
 
