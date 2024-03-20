@@ -26,3 +26,7 @@ bin/
 
 ## VS Code
 .vscode/
+
+
+## Debug
+__debug*

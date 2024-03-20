@@ -50,3 +50,15 @@ func (defaultPathRequest *DefaultPathRequest) GetContext() context.Context {
 func (defaultPathRequest *DefaultPathRequest) GetStream() api.IntentController_GetIntentPathServer {
 	return defaultPathRequest.stream
 }
+
+func (defaultPathRequest *DefaultPathRequest) Serialize() string {
+	serialization := defaultPathRequest.ipv6SourceAddress + "," + defaultPathRequest.ipv6DestinationAddress + ","
+	for i := 0; i < len(defaultPathRequest.intents); i++ {
+		if i == len(defaultPathRequest.intents)-1 {
+			serialization += defaultPathRequest.intents[i].Serialize()
+		} else {
+			serialization += defaultPathRequest.intents[i].Serialize() + ","
+		}
+	}
+	return serialization
+}

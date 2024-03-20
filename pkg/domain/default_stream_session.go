@@ -1,18 +1,20 @@
 package domain
 
 import (
+	"context"
+
 	"github.com/go-playground/validator"
 )
 
 type DefaultStreamSession struct {
-	PathRequest `validate:"required"`
-	PathResult  `validate:"required"`
+	pathRequest PathRequest `validate:"required"`
+	pathResult  PathResult  `validate:"required"`
 }
 
 func NewDefaultStreamSession(pathRequest PathRequest, pathResponse PathResult) (*DefaultStreamSession, error) {
 	defaultStreamSession := &DefaultStreamSession{
-		PathRequest: pathRequest,
-		PathResult:  pathResponse,
+		pathRequest: pathRequest,
+		pathResult:  pathResponse,
 	}
 	validator := validator.New()
 	err := validator.Struct(defaultStreamSession)
@@ -20,4 +22,20 @@ func NewDefaultStreamSession(pathRequest PathRequest, pathResponse PathResult) (
 		return nil, err
 	}
 	return defaultStreamSession, nil
+}
+
+func (streamSession *DefaultStreamSession) GetContext() context.Context {
+	return streamSession.pathRequest.GetContext()
+}
+
+func (streamSession *DefaultStreamSession) GetPathRequest() PathRequest {
+	return streamSession.pathRequest
+}
+
+func (streamSession *DefaultStreamSession) GetPathResult() PathResult {
+	return streamSession.pathResult
+}
+
+func (streamSession *DefaultStreamSession) SetPathResult(pathResult PathResult) {
+	streamSession.pathResult = pathResult
 }

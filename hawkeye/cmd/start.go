@@ -6,6 +6,7 @@ import (
 
 	"github.com/hawkv6/hawkeye/pkg/adapter"
 	"github.com/hawkv6/hawkeye/pkg/cache"
+	"github.com/hawkv6/hawkeye/pkg/calculation"
 	"github.com/hawkv6/hawkeye/pkg/config"
 	"github.com/hawkv6/hawkeye/pkg/controller"
 	"github.com/hawkv6/hawkeye/pkg/domain"
@@ -39,7 +40,8 @@ var startCmd = &cobra.Command{
 		helper := helper.NewDefaultHelper()
 		graph := graph.NewDefaultGraph()
 		cache := cache.NewDefaultCacheService()
-		processor := processor.NewDefaultProcessor(graph, cache, eventChan, helper)
+		updateChan := make(chan struct{})
+		processor := processor.NewDefaultProcessor(graph, cache, eventChan, helper, updateChan)
 
 		requestService := jagw.NewJagwRequestService(config, adapter, processor, helper)
 		if err := requestService.Init(); err != nil {
@@ -50,7 +52,8 @@ var startCmd = &cobra.Command{
 		}
 
 		messagingChannels := messaging.NewDefaultMessagingChannels()
-		controller := controller.NewDefaultController(cache, graph, messagingChannels)
+		calculator := calculation.NewDefaultCalculator(cache, graph, helper)
+		controller := controller.NewDefaultController(calculator, messagingChannels, updateChan)
 		go controller.Start()
 
 		go processor.Start()
@@ -82,12 +85,6 @@ var startCmd = &cobra.Command{
 		// TODO stop the gRPC server
 		// server.Stop()
 
-		// TODO get all linksedge from jagw https://github.com/hawkv6/hawkeye/issues/1
-		// TODO start grpc server (handle streams): https://github.com/hawkv6/hawkeye/issues/3
-		// TODO calculate based on intents: https://github.com/hawkv6/hawkeye/issues/4
-		// TODO Get SRv6 SID list from JAGW and enrich nodes
-		// TODO Get Prefix information from JAGW
-		// TODO subscribe for lslinkedge events https://github.com/hawkv6/hawkeye/issues/2
 		// TODO recaluclate based on events: https://github.com/hawkv6/hawkeye/issues/5
 	},
 }

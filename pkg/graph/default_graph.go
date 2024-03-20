@@ -96,18 +96,17 @@ func (graph *DefaultGraph) DeleteEdge(edge Edge) {
 	delete(graph.edges, edge.GetId())
 }
 
-func (graph *DefaultGraph) GetShortestPath(from Node, to Node, weightKind string) ([]Edge, error) {
+func (graph *DefaultGraph) GetShortestPath(from Node, to Node, weightType string) (PathResult, error) {
 	distances, priorityQueue := graph.initializeDijkstra(from)
 	previous := make(map[interface{}]Edge)
 
-	graph.performDijkstra(to, weightKind, distances, &priorityQueue, previous)
+	graph.performDijkstra(to, weightType, distances, &priorityQueue, previous)
 
-	path, err := graph.reconstructPath(from, to, previous)
+	path, cost, err := graph.reconstructPath(from, to, previous, weightType)
 	if err != nil {
 		return nil, err
 	}
-
-	return path, nil
+	return NewShortestPathResult(path, cost), nil
 }
 
 func (graph *DefaultGraph) initializeDijkstra(from Node) (map[interface{}]float64, PriorityQueue) {
@@ -147,16 +146,22 @@ func (graph *DefaultGraph) performDijkstra(to Node, weightKind string, distances
 	}
 }
 
-func (graph *DefaultGraph) reconstructPath(from Node, to Node, previous map[interface{}]Edge) ([]Edge, error) {
+func (graph *DefaultGraph) reconstructPath(from Node, to Node, previous map[interface{}]Edge, weightType string) ([]Edge, float64, error) {
 	path := make([]Edge, 0)
 	current := to
+	totalCost := 0.0
 	for current.GetId() != from.GetId() {
 		edge := previous[current.GetId()]
 		path = append([]Edge{edge}, path...)
+		if cost, err := edge.GetWeight(weightType); err != nil {
+			return nil, 0, err
+		} else {
+			totalCost += cost
+		}
 		current = edge.From()
 	}
 	if len(path) == 0 {
-		return nil, fmt.Errorf("No path found from node %d to node %d", from.GetId(), to.GetId())
+		return nil, 0, fmt.Errorf("No path found from node %d to node %d", from.GetId(), to.GetId())
 	}
-	return path, nil
+	return path, totalCost, nil
 }

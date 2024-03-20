@@ -4,6 +4,7 @@ import "context"
 
 type StreamSession interface {
 	GetContext() context.Context
-	PathRequest
-	PathResult
+	GetPathRequest() PathRequest
+	GetPathResult() PathResult
+	SetPathResult(PathResult)
 }

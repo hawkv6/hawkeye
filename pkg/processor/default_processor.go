@@ -20,9 +20,10 @@ type DefaultProcessor struct {
 	quitChan     chan struct{}
 	helper       helper.Helper
 	prefixCounts map[string]int
+	updateChan   chan struct{}
 }
 
-func NewDefaultProcessor(graph graph.Graph, cache cache.CacheService, eventChan chan domain.NetworkEvent, helper helper.Helper) *DefaultProcessor {
+func NewDefaultProcessor(graph graph.Graph, cache cache.CacheService, eventChan chan domain.NetworkEvent, helper helper.Helper, updateChan chan struct{}) *DefaultProcessor {
 	return &DefaultProcessor{
 		log:          logging.DefaultLogger.WithField("subsystem", Subsystem),
 		graph:        graph,
@@ -31,6 +32,7 @@ func NewDefaultProcessor(graph graph.Graph, cache cache.CacheService, eventChan 
 		helper:       helper,
 		quitChan:     make(chan struct{}),
 		prefixCounts: make(map[string]int),
+		updateChan:   updateChan,
 	}
 }
 
@@ -294,6 +296,7 @@ func (processor *DefaultProcessor) Start() {
 				processor.graph.Unlock()
 				mutexesLocked = false
 			}
+			processor.updateChan <- struct{}{}
 		case <-processor.quitChan:
 			if mutexesLocked {
 				processor.cache.Unlock()
@@ -309,28 +312,28 @@ func (processor *DefaultProcessor) processEvent(event domain.NetworkEvent) {
 	case *domain.AddNodeEvent:
 		processor.log.Debugln("Received AddNodeEvent: ", eventType.GetKey())
 		if err := processor.addNodeToGraph(eventType.Node); err != nil {
-			processor.log.Errorln("Error creating network node: ", err)
+			processor.log.Warnln("Error creating network node: ", err)
 		}
 		processor.addNodeToCache(eventType.Node)
 	case *domain.DeleteNodeEvent:
 		processor.log.Debugln("Received DeleteNodeEvent: ", eventType.GetKey())
 		if err := processor.deleteNode(eventType.GetKey()); err != nil {
-			processor.log.Errorln("Error deleting network node: ", err)
+			processor.log.Warnln("Error deleting network node: ", err)
 		}
 	case *domain.AddLinkEvent:
 		processor.log.Debugln("Received AddLinkEvent: ", eventType.GetKey())
 		if err := processor.addLinkToGraph(eventType.Link); err != nil {
-			processor.log.Errorln("Error adding link to graph: ", err)
+			processor.log.Warnln("Error adding link to graph: ", err)
 		}
 	case *domain.UpdateLinkEvent:
 		processor.log.Debugln("Received UpdateLinkEvent: ", eventType.GetKey())
 		if err := processor.updateLinkInGraph(eventType.Link); err != nil {
-			processor.log.Errorln("Error updating link in graph: ", err)
+			processor.log.Warnln("Error updating link in graph: ", err)
 		}
 	case *domain.DeleteLinkEvent:
 		processor.log.Debugln("Received DeleteLinkEvent: ", eventType.GetKey())
 		if err := processor.deleteEdge(eventType.GetKey()); err != nil {
-			processor.log.Errorln("Error deleting edge: ", err)
+			processor.log.Warnln("Error deleting edge: ", err)
 		}
 	case *domain.AddPrefixEvent:
 		processor.log.Debugln("Received AddPrefixEvent: ", eventType.Prefix.GetKey())
@@ -338,7 +341,7 @@ func (processor *DefaultProcessor) processEvent(event domain.NetworkEvent) {
 	case *domain.DeletePrefixEvent:
 		processor.log.Debugln("Received DeletePrefixEvent: ", eventType.GetKey())
 		if err := processor.deleteClientNetwork(eventType.GetKey()); err != nil {
-			processor.log.Errorln("Error deleting client network from cache: ", err)
+			processor.log.Warnln("Error deleting client network from cache: ", err)
 		}
 	case *domain.AddSidEvent:
 		processor.log.Debugln("Received AddSidEvent: ", eventType.GetSid())

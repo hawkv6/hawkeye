@@ -12,4 +12,5 @@ type PathRequest interface {
 	GetIntents() []Intent
 	GetContext() context.Context
 	GetStream() api.IntentController_GetIntentPathServer
+	Serialize() string
 }

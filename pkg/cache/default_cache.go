@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/hawkv6/hawkeye/pkg/domain"
+	"github.com/hawkv6/hawkeye/pkg/logging"
 	"github.com/sirupsen/logrus"
 )
 
@@ -21,7 +22,7 @@ type DefaultCacheService struct {
 
 func NewDefaultCacheService() *DefaultCacheService {
 	return &DefaultCacheService{
-		log:             logrus.WithField("subsystem", Subsystem),
+		log:             logging.DefaultLogger.WithField("subsystem", "cache"),
 		prefixMap:       make(map[string]domain.Prefix),
 		prefixRouterMap: make(map[string]string),
 		sidStore:        make(map[string]domain.Sid),

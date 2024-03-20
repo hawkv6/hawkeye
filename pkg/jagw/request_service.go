@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hawkv6/hawkeye/pkg/adapter"
 	"github.com/hawkv6/hawkeye/pkg/config"
@@ -183,6 +184,18 @@ func (requestService *JagwRequestService) convertLsSrv6Sids(lsSrv6Sids []*jagw.L
 	return sidList, nil
 }
 
+func (requestService *JagwRequestService) filterOutFlexAlgoSids(sidList []domain.Sid) []domain.Sid {
+	// TODO implement all fields for SID and check for algo != 0
+	var filteredSidList []domain.Sid
+	for _, sid := range sidList {
+		if strings.Contains(sid.GetSid(), ":fa:") {
+			continue
+		}
+		filteredSidList = append(filteredSidList, sid)
+	}
+	return filteredSidList
+}
+
 func (requestService *JagwRequestService) getSrv6Sids() error {
 	request := &jagw.TopologyRequest{
 		Properties: requestService.helper.GetLsSrv6SidsProperties(),
@@ -198,7 +211,8 @@ func (requestService *JagwRequestService) getSrv6Sids() error {
 	if err != nil {
 		return err
 	}
-	requestService.processor.CreateSids(sidList)
+	nodeSids := requestService.filterOutFlexAlgoSids(sidList)
+	requestService.processor.CreateSids(nodeSids)
 	return nil
 }
 

@@ -1,12 +1,11 @@
 package controller
 
 import (
-	"fmt"
-	"net"
+	"reflect"
+	"sync"
 
-	"github.com/hawkv6/hawkeye/pkg/cache"
+	"github.com/hawkv6/hawkeye/pkg/calculation"
 	"github.com/hawkv6/hawkeye/pkg/domain"
-	"github.com/hawkv6/hawkeye/pkg/graph"
 	"github.com/hawkv6/hawkeye/pkg/logging"
 	"github.com/hawkv6/hawkeye/pkg/messaging"
 	"github.com/sirupsen/logrus"
@@ -14,104 +13,83 @@ import (
 
 type DefaultController struct {
 	log             *logrus.Entry
-	cache           cache.CacheService
-	graph           graph.Graph
-	streamSessions  []domain.StreamSession
+	calculator      calculation.Calculator
+	openSessions    map[string]domain.StreamSession
 	pathRequestChan chan domain.PathRequest
 	pathResultChan  chan domain.PathResult
+	mu              sync.Mutex
+	updateChan      chan struct{}
 }
 
-func NewDefaultController(cache cache.CacheService, graph graph.Graph, messagingChannels messaging.MessagingChannels) *DefaultController {
+func NewDefaultController(calculator calculation.Calculator, messagingChannels messaging.MessagingChannels, updateChan chan struct{}) *DefaultController {
 	return &DefaultController{
 		log:             logging.DefaultLogger.WithField("subsystem", Subsystem),
-		cache:           cache,
-		graph:           graph,
-		streamSessions:  make([]domain.StreamSession, 0),
+		calculator:      calculator,
+		openSessions:    make(map[string]domain.StreamSession, 0),
 		pathRequestChan: messagingChannels.GetPathRequestChan(),
 		pathResultChan:  messagingChannels.GetPathResponseChan(),
+		mu:              sync.Mutex{},
+		updateChan:      updateChan,
 	}
 }
 
-func getNetworkAddress(ip string) net.IP {
-	ipv6Address := net.ParseIP(ip)
-	mask := net.CIDRMask(64, 128)
-	return ipv6Address.Mask(mask)
+func (controller *DefaultController) watchForContextCancellation(pathRequest domain.PathRequest, serializedPathRequest string) {
+	<-pathRequest.GetContext().Done()
+	controller.mu.Lock()
+	controller.log.Debugf("Context of path request %s has been cancelled", pathRequest)
+	delete(controller.openSessions, serializedPathRequest)
+	controller.mu.Unlock()
 }
 
-func (controller *DefaultController) getShortestPath(sourceIP, destinationIp, metric string) ([]string, error) {
-	sourceIpv6 := getNetworkAddress(sourceIP)
-	destinationIpv6 := getNetworkAddress(destinationIp)
-	sourceRouterId, ok := controller.cache.GetRouterIdFromNetworkAddress(sourceIpv6.String())
-	if !ok {
-		return nil, fmt.Errorf("Router ID not found for source IP: %s", sourceRouterId)
+func (controller *DefaultController) recalculateSessions() {
+	if len(controller.openSessions) == 0 {
+		controller.log.Debugln("No open sessions to recalculate")
+		return
 	}
-	destinationRouterId, ok := controller.cache.GetRouterIdFromNetworkAddress(destinationIpv6.String())
-	if !ok {
-		return nil, fmt.Errorf("Router ID not found for destination IP: %s", destinationRouterId)
+	controller.log.Debugln("Pending updates trigger recalculations of all open sessions")
+	for sessionKey, session := range controller.openSessions {
+		controller.log.Debugln("Recalculating session: ", sessionKey)
+		result := controller.calculator.HandlePathRequest(session.GetPathRequest())
+		newSidList := result.GetIpv6SidAddresses()
+		oldSidList := session.GetPathResult().GetIpv6SidAddresses()
+		if !reflect.DeepEqual(newSidList, oldSidList) {
+			controller.openSessions[sessionKey].SetPathResult(result)
+			controller.log.Debugln("Path result has changed for session: ", sessionKey)
+			controller.log.Debugf("Sid List changed from: %s to %s", oldSidList, newSidList)
+			controller.pathResultChan <- result
+		} else {
+			controller.log.Debugf("No change in path result for session %s", sessionKey)
+		}
 	}
-	controller.log.Debugln("Source Router ID: ", sourceRouterId)
-	controller.log.Debugln("Destination Router ID: ", destinationRouterId)
+}
 
-	source, exist := controller.graph.GetNode(sourceRouterId)
-	if !exist {
-		return nil, fmt.Errorf("Source router not found")
+func (controller *DefaultController) handlePathRequest(pathRequest domain.PathRequest) {
+	serializedPathRequest := pathRequest.Serialize()
+	controller.log.Debugln("Received path request: ", serializedPathRequest)
+	if _, ok := controller.openSessions[serializedPathRequest]; ok {
+		controller.log.Debugln("Path request already exists")
+		controller.pathResultChan <- controller.openSessions[serializedPathRequest].GetPathResult()
+	} else {
+		pathResult := controller.calculator.HandlePathRequest(pathRequest)
+		streamSession, err := domain.NewDefaultStreamSession(pathRequest, pathResult)
+		if err != nil {
+			controller.log.Errorln("Failed to create stream session: ", err)
+			return
+		}
+		controller.openSessions[serializedPathRequest] = streamSession
+		go controller.watchForContextCancellation(pathRequest, serializedPathRequest)
+		controller.pathResultChan <- pathResult
 	}
-	destination, exist := controller.graph.GetNode(destinationRouterId)
-	if !exist {
-		return nil, fmt.Errorf("Destination router not found")
-	}
-	result, err := controller.graph.GetShortestPath(source, destination, metric)
-	if err != nil {
-		return nil, err
-	}
-	edgeList := make([]string, 0)
-	for _, edge := range result {
-		to := edge.To().GetId().(string)
-		edgeList = append(edgeList, to)
-	}
-	return edgeList, nil
 }
 
 func (controller *DefaultController) Start() {
 	controller.log.Infoln("Starting controller")
 	for {
-		pathRequest := <-controller.pathRequestChan
-		controller.log.Debugln("Received path request: ", pathRequest)
-
-		ipv6SourceAddress := pathRequest.GetIpv6SourceAddress()
-		ipv6DestinationAddress := pathRequest.GetIpv6DestinationAddress()
-
-		// TODO: change logic if there are multiple intents
-		for _, intent := range pathRequest.GetIntents() {
-			switch intentType := intent.GetIntentType(); intentType {
-			case domain.IntentTypeLowLatency:
-				nodeIds, err := controller.getShortestPath(ipv6SourceAddress, ipv6DestinationAddress, "latency")
-				if err != nil {
-					controller.log.Errorln("Error getting shortest path: ", err)
-					continue
-				}
-				for i := 0; i < len(nodeIds)-1; i++ {
-					controller.log.Infof("Edge: %s -> %s", nodeIds[i], nodeIds[i+1])
-				}
-				sidList := make([]string, 0)
-				for _, node := range nodeIds {
-					sid, ok := controller.cache.GetSidFromRouterId(node)
-					if !ok {
-						controller.log.Errorln("SID not found for router: ", node)
-						continue
-					}
-					sidList = append(sidList, sid)
-				}
-				controller.log.Debugln("SID List: ", sidList)
-				pathResult, err := domain.NewDefaultPathResult(pathRequest, sidList)
-				if err != nil {
-					controller.log.Errorln("Error creating path result: ", err)
-					continue
-				}
-				controller.pathResultChan <- pathResult
-			default:
-				controller.log.Errorln("Not (yet): ", intentType)
-			}
+		select {
+		case <-controller.updateChan:
+			controller.recalculateSessions()
+		case pathRequest := <-controller.pathRequestChan:
+			controller.handlePathRequest(pathRequest)
 		}
 	}
 }
