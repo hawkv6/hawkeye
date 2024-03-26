@@ -19,3 +19,7 @@ func (result *ShortestPathResult) GetEdges() []Edge {
 func (result *ShortestPathResult) GetCost() float64 {
 	return result.cost
 }
+
+func (result *ShortestPathResult) SetCost(cost float64) {
+	result.cost = cost
+}

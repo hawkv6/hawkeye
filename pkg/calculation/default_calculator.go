@@ -3,6 +3,7 @@ package calculation
 import (
 	"fmt"
 	"net"
+	"reflect"
 
 	"github.com/hawkv6/hawkeye/pkg/cache"
 	"github.com/hawkv6/hawkeye/pkg/domain"
@@ -21,7 +22,7 @@ type DefaultCalculator struct {
 
 func NewDefaultCalculator(cache cache.CacheService, graph graph.Graph, helper helper.Helper) *DefaultCalculator {
 	return &DefaultCalculator{
-		log:    logging.DefaultLogger.WithField("subsystem", "calculator"),
+		log:    logging.DefaultLogger.WithField("subsystem", subsystem),
 		cache:  cache,
 		graph:  graph,
 		helper: helper,
@@ -34,7 +35,7 @@ func (calcultor *DefaultCalculator) getNetworkAddress(ip string) net.IP {
 	return ipv6Address.Mask(mask)
 }
 
-func (calculator *DefaultCalculator) getShortestPath(sourceIP, destinationIp, metric string) ([]string, error) {
+func (calculator *DefaultCalculator) getShortestPath(sourceIP, destinationIp, metric string) (graph.PathResult, error) {
 	sourceIpv6 := calculator.getNetworkAddress(sourceIP)
 	destinationIpv6 := calculator.getNetworkAddress(destinationIp)
 	sourceRouterId, ok := calculator.cache.GetRouterIdFromNetworkAddress(sourceIpv6.String())
@@ -60,16 +61,21 @@ func (calculator *DefaultCalculator) getShortestPath(sourceIP, destinationIp, me
 	if err != nil {
 		return nil, err
 	}
+	calculator.log.Debugf("Shortest path from %s to %s with cost %f", sourceRouterId, destinationRouterId, result.GetCost())
+	return result, nil
+}
+
+func (calculator *DefaultCalculator) getNodeList(result graph.PathResult) []string {
 	nodeList := make([]string, 0)
 	for _, edge := range result.GetEdges() {
 		to := edge.To().GetId().(string)
 		nodeList = append(nodeList, to)
 	}
-	calculator.log.Debugf("Shortest path from %s to %s: %v with cost %f", sourceRouterId, destinationRouterId, nodeList, result.GetCost())
-	return nodeList, nil
+	return nodeList
 }
 
-func (calculator *DefaultCalculator) translateNodesToSidList(nodeList []string) []string {
+func (calculator *DefaultCalculator) translateGraphResultToSidList(graphResult graph.PathResult) []string {
+	nodeList := calculator.getNodeList(graphResult)
 	calculator.log.Debugln("Node List: ", nodeList)
 	sidList := make([]string, 0)
 	for _, node := range nodeList {
@@ -85,9 +91,9 @@ func (calculator *DefaultCalculator) translateNodesToSidList(nodeList []string) 
 	return sidList
 }
 
-func (calculator *DefaultCalculator) cratePathResult(nodeIds []string, pathRequest domain.PathRequest) domain.PathResult {
-	sidList := calculator.translateNodesToSidList(nodeIds)
-	pathResult, err := domain.NewDefaultPathResult(pathRequest, sidList)
+func (calculator *DefaultCalculator) cratePathResult(graphResult graph.PathResult, pathRequest domain.PathRequest) domain.PathResult {
+	sidList := calculator.translateGraphResultToSidList(graphResult)
+	pathResult, err := domain.NewDefaultPathResult(pathRequest, graphResult, sidList)
 	if err != nil {
 		calculator.log.Errorln("Error creating path result: ", err)
 		return nil
@@ -139,6 +145,94 @@ func (calculator *DefaultCalculator) HandlePathRequest(pathRequest domain.PathRe
 		for _, intent := range intents {
 			calculator.log.Debugln("Received Intent: ", intent)
 		}
+	}
+	return nil
+}
+
+func (calculator *DefaultCalculator) checkifPathValid(pathResult domain.PathResult, weightKind string) (float64, error) {
+	totalCost := 0.0
+	edges := pathResult.GetEdges()
+	for _, edge := range edges {
+		graphEdge, exist := calculator.graph.GetEdge(edge.GetId())
+		if !exist {
+			return 0, fmt.Errorf("Path not valid, edge not found in graph: %s", edge.GetId())
+		}
+		cost, err := graphEdge.GetWeight(weightKind)
+		if err != nil {
+			return 0, err
+		}
+		totalCost += cost
+	}
+	return totalCost, nil
+}
+
+func (calculator *DefaultCalculator) validateCurrentResult(intent domain.Intent, currentpathResult domain.PathResult) error {
+	switch intentType := intent.GetIntentType(); intentType {
+	case domain.IntentTypeLowLatency:
+		return calculator.validateCurrentResultForIntent(helper.NewDefaultHelper().GetLatencyKey(), currentpathResult)
+	case domain.IntentTypeLowPacketLoss:
+		return calculator.validateCurrentResultForIntent(helper.NewDefaultHelper().GetPacketLossKey(), currentpathResult)
+	case domain.IntentTypeLowJitter:
+		return calculator.validateCurrentResultForIntent(helper.NewDefaultHelper().GetJitterKey(), currentpathResult)
+	default:
+		return fmt.Errorf("Unknown intent type: %s", intentType)
+	}
+}
+
+func (calculator *DefaultCalculator) validateCurrentResultForIntent(weightKind string, currentpathResult domain.PathResult) error {
+	cost, err := calculator.checkifPathValid(currentpathResult, weightKind)
+	if err != nil {
+		return fmt.Errorf("Current path is not valid anymore because of: %s", err)
+	}
+	if cost != currentpathResult.GetCost() {
+		calculator.log.Debugf("Cost of current path has changed from %f to %f", currentpathResult.GetCost(), cost)
+		currentpathResult.SetCost(cost)
+	}
+	return nil
+}
+
+func (calcultor *DefaultCalculator) setNewPathResult(streamSession domain.StreamSession, result domain.PathResult) {
+	calcultor.log.Debugf("Setting new path with SID list %v and cost %f", result.GetIpv6SidAddresses(), result.GetCost())
+	streamSession.SetPathResult(result)
+}
+
+func (calculator *DefaultCalculator) UpdatePathSession(streamSession domain.StreamSession) *domain.PathResult {
+	currentpathResult := streamSession.GetPathResult()
+	calculator.log.Debugln("SID list of current path is", currentpathResult.GetIpv6SidAddresses())
+	pathRequest := streamSession.GetPathRequest()
+	result := calculator.HandlePathRequest(pathRequest)
+	if !reflect.DeepEqual(result.GetIpv6SidAddresses(), currentpathResult.GetIpv6SidAddresses()) {
+		calculator.log.Debugln("Better Path found, check for applicability ")
+		intents := pathRequest.GetIntents()
+		if len(intents) != 1 {
+			// TODO change logic if there are multiple intents
+			calculator.log.Errorln("Handling of several intents not yet implemented")
+			return nil
+		}
+		calculator.log.Debugln("Validate current path and its cost")
+		err := calculator.validateCurrentResult(pathRequest.GetIntents()[0], currentpathResult)
+		if err != nil {
+			calculator.log.Errorln("Current Path is not valid anymore: ", err)
+			calculator.setNewPathResult(streamSession, result)
+			return &result
+		} else {
+			calculator.log.Debugln("Current path is valid, check if new path is better")
+		}
+		currentCost := currentpathResult.GetCost()
+		resultCost := result.GetCost()
+		if resultCost <= currentCost*0.9 {
+			calculator.log.Debugf("Cost of new path is by more than 10 percent smaller, current: %f to new: %f", currentpathResult.GetCost(), result.GetCost())
+			calculator.setNewPathResult(streamSession, result)
+			return &result
+		} else {
+			calculator.log.Debugf("Cost has not decreased by more than 10 percent current: %f new: %f", currentpathResult.GetCost(), result.GetCost())
+			calculator.log.Debugln("Current path is still applicable")
+		}
+	} else if result.GetCost() != currentpathResult.GetCost() {
+		calculator.log.Debugf("Best path unchanged but its cost has changed from %f to %f", currentpathResult.GetCost(), result.GetCost())
+		currentpathResult.SetCost(result.GetCost())
+	} else {
+		calculator.log.Debugln("No change in path result found")
 	}
 	return nil
 }

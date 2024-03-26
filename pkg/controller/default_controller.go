@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"reflect"
 	"sync"
 
 	"github.com/hawkv6/hawkeye/pkg/calculation"
@@ -48,17 +47,10 @@ func (controller *DefaultController) recalculateSessions() {
 	}
 	controller.log.Debugln("Pending updates trigger recalculations of all open sessions")
 	for sessionKey, session := range controller.openSessions {
-		controller.log.Debugln("Recalculating session: ", sessionKey)
-		result := controller.calculator.HandlePathRequest(session.GetPathRequest())
-		newSidList := result.GetIpv6SidAddresses()
-		oldSidList := session.GetPathResult().GetIpv6SidAddresses()
-		if !reflect.DeepEqual(newSidList, oldSidList) {
-			controller.openSessions[sessionKey].SetPathResult(result)
-			controller.log.Debugln("Path result has changed for session: ", sessionKey)
-			controller.log.Debugf("Sid List changed from: %s to %s", oldSidList, newSidList)
-			controller.pathResultChan <- result
-		} else {
-			controller.log.Debugf("No change in path result for session %s", sessionKey)
+		controller.log.Debugln("Recalculating for session: ", sessionKey)
+		result := controller.calculator.UpdatePathSession(session)
+		if result != nil {
+			controller.pathResultChan <- *result
 		}
 	}
 }
