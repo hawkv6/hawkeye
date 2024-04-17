@@ -2,19 +2,25 @@ package domain
 
 import "github.com/go-playground/validator"
 
+type Sid interface {
+	GetKey() string
+	GetIgpRouterId() string
+	GetSid() string
+}
+
 type SidInput struct {
 	Key         *string `validate:"required"`
 	IgpRouterId *string `validate:"required"`
 	Sid         *string `validate:"required"`
 }
 
-type DefaultSid struct {
+type DomainSid struct {
 	key         string `validate:"required"`
 	igpRouterId string `validate:"required"`
 	sid         string `validate:"required"`
 }
 
-func NewDefaultSid(key, igpRouterId, sid *string) (*DefaultSid, error) {
+func NewDomainSid(key, igpRouterId, sid *string) (*DomainSid, error) {
 	input := &SidInput{
 		Key:         key,
 		IgpRouterId: igpRouterId,
@@ -26,7 +32,7 @@ func NewDefaultSid(key, igpRouterId, sid *string) (*DefaultSid, error) {
 		return nil, err
 	}
 
-	defaultSid := &DefaultSid{
+	defaultSid := &DomainSid{
 		key:         *key,
 		igpRouterId: *igpRouterId,
 		sid:         *sid,
@@ -34,14 +40,14 @@ func NewDefaultSid(key, igpRouterId, sid *string) (*DefaultSid, error) {
 	return defaultSid, nil
 }
 
-func (s *DefaultSid) GetKey() string {
-	return s.key
+func (sid *DomainSid) GetKey() string {
+	return sid.key
 }
 
-func (s *DefaultSid) GetIgpRouterId() string {
-	return s.igpRouterId
+func (sid *DomainSid) GetIgpRouterId() string {
+	return sid.igpRouterId
 }
 
-func (s *DefaultSid) GetSid() string {
-	return s.sid
+func (sid *DomainSid) GetSid() string {
+	return sid.sid
 }

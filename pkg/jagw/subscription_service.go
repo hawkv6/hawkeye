@@ -10,7 +10,6 @@ import (
 	"github.com/hawkv6/hawkeye/pkg/domain"
 	"github.com/hawkv6/hawkeye/pkg/helper"
 	"github.com/hawkv6/hawkeye/pkg/logging"
-	"github.com/hawkv6/hawkeye/pkg/processor"
 	"github.com/jalapeno-api-gateway/jagw-go/jagw"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -23,7 +22,6 @@ type JagwSubscriptionService struct {
 	grpcClientConnection   *grpc.ClientConn
 	subscriptionClient     jagw.SubscriptionServiceClient
 	adapter                adapter.Adapter
-	processor              processor.Processor
 	quitChan               chan struct{}
 	helper                 helper.Helper
 	eventChan              chan domain.NetworkEvent
@@ -33,12 +31,11 @@ type JagwSubscriptionService struct {
 	lsSrv6SidsSubscription jagw.SubscriptionService_SubscribeToLsSrv6SidsClient
 }
 
-func NewJagwSubscriptionService(config config.Config, adapter adapter.Adapter, processor processor.Processor, helper helper.Helper, eventChan chan domain.NetworkEvent) *JagwSubscriptionService {
+func NewJagwSubscriptionService(config config.Config, adapter adapter.Adapter, helper helper.Helper, eventChan chan domain.NetworkEvent) *JagwSubscriptionService {
 	return &JagwSubscriptionService{
 		log:                    logging.DefaultLogger.WithField("subsystem", Subsystem),
 		jagwSubscriptionSocket: config.GetJagwServiceAddress() + ":" + strconv.FormatUint(uint64(config.GetJagwSubscriptionPort()), 10),
 		adapter:                adapter,
-		processor:              processor,
 		quitChan:               make(chan struct{}),
 		helper:                 helper,
 		eventChan:              eventChan,

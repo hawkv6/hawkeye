@@ -10,15 +10,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type DefaultGraph struct {
+type NetworkGraph struct {
 	log   *logrus.Entry
 	nodes map[interface{}]Node
 	edges map[interface{}]Edge
 	mu    *sync.Mutex
 }
 
-func NewDefaultGraph() *DefaultGraph {
-	return &DefaultGraph{
+func NewNetworkGraph() *NetworkGraph {
+	return &NetworkGraph{
 		log:   logging.DefaultLogger.WithField("subsystem", Subsystem),
 		nodes: make(map[interface{}]Node),
 		edges: make(map[interface{}]Edge),
@@ -26,25 +26,25 @@ func NewDefaultGraph() *DefaultGraph {
 	}
 }
 
-func (graph *DefaultGraph) Lock() {
+func (graph *NetworkGraph) Lock() {
 	graph.mu.Lock()
 }
 
-func (graph *DefaultGraph) Unlock() {
+func (graph *NetworkGraph) Unlock() {
 	graph.mu.Unlock()
 }
 
-func (graph *DefaultGraph) NodeExists(id interface{}) bool {
+func (graph *NetworkGraph) NodeExists(id interface{}) bool {
 	_, exists := graph.nodes[id]
 	return exists
 }
 
-func (graph *DefaultGraph) GetNode(id interface{}) (Node, bool) {
+func (graph *NetworkGraph) GetNode(id interface{}) (Node, bool) {
 	node, exists := graph.nodes[id]
 	return node, exists
 }
 
-func (graph *DefaultGraph) AddNode(node Node) (Node, error) {
+func (graph *NetworkGraph) AddNode(node Node) (Node, error) {
 	if graph.NodeExists(node.GetId()) {
 		return nil, fmt.Errorf("Node with id %d already exists", node.GetId())
 	}
@@ -52,24 +52,24 @@ func (graph *DefaultGraph) AddNode(node Node) (Node, error) {
 	return node, nil
 }
 
-func (graph *DefaultGraph) DeleteNode(node Node) {
+func (graph *NetworkGraph) DeleteNode(node Node) {
 	for _, edge := range node.GetEdges() {
 		graph.DeleteEdge(edge)
 	}
 	delete(graph.nodes, node.GetId())
 }
 
-func (graph *DefaultGraph) GetEdge(id interface{}) (Edge, bool) {
+func (graph *NetworkGraph) GetEdge(id interface{}) (Edge, bool) {
 	edge, exists := graph.edges[id]
 	return edge, exists
 }
 
-func (graph *DefaultGraph) EdgeExists(id interface{}) bool {
+func (graph *NetworkGraph) EdgeExists(id interface{}) bool {
 	_, exists := graph.edges[id]
 	return exists
 }
 
-func (graph *DefaultGraph) AddEdge(edge Edge) error {
+func (graph *NetworkGraph) AddEdge(edge Edge) error {
 	fromId := edge.From().GetId()
 	toId := edge.To().GetId()
 	graph.log.Debugf("Add edge from %s to %s with weights %v", fromId, toId, edge.GetAllWeights())
@@ -88,7 +88,7 @@ func (graph *DefaultGraph) AddEdge(edge Edge) error {
 	return nil
 }
 
-func (graph *DefaultGraph) DeleteEdge(edge Edge) {
+func (graph *NetworkGraph) DeleteEdge(edge Edge) {
 	from := edge.From()
 	to := edge.To()
 	from.DeleteEdge(edge.GetId())
@@ -96,7 +96,7 @@ func (graph *DefaultGraph) DeleteEdge(edge Edge) {
 	delete(graph.edges, edge.GetId())
 }
 
-func (graph *DefaultGraph) GetShortestPath(from Node, to Node, weightType string) (PathResult, error) {
+func (graph *NetworkGraph) GetShortestPath(from Node, to Node, weightType string) (PathResult, error) {
 	distances, priorityQueue := graph.initializeDijkstra(from)
 	previous := make(map[interface{}]Edge)
 
@@ -109,7 +109,7 @@ func (graph *DefaultGraph) GetShortestPath(from Node, to Node, weightType string
 	return NewShortestPathResult(path, cost), nil
 }
 
-func (graph *DefaultGraph) initializeDijkstra(from Node) (map[interface{}]float64, PriorityQueue) {
+func (graph *NetworkGraph) initializeDijkstra(from Node) (map[interface{}]float64, PriorityQueue) {
 	distances := make(map[interface{}]float64)
 	priorityQueue := make(PriorityQueue, 0)
 	for id := range graph.nodes {
@@ -122,7 +122,7 @@ func (graph *DefaultGraph) initializeDijkstra(from Node) (map[interface{}]float6
 	return distances, priorityQueue
 }
 
-func (graph *DefaultGraph) performDijkstra(to Node, weightKind string, distances map[interface{}]float64, priorityQueue *PriorityQueue, previous map[interface{}]Edge) {
+func (graph *NetworkGraph) performDijkstra(to Node, weightKind string, distances map[interface{}]float64, priorityQueue *PriorityQueue, previous map[interface{}]Edge) {
 	for !priorityQueue.IsEmpty() {
 		item := heap.Pop(priorityQueue).(*Item)
 		currentId := item.GetNodeId()
@@ -146,7 +146,7 @@ func (graph *DefaultGraph) performDijkstra(to Node, weightKind string, distances
 	}
 }
 
-func (graph *DefaultGraph) reconstructPath(from Node, to Node, previous map[interface{}]Edge, weightType string) ([]Edge, float64, error) {
+func (graph *NetworkGraph) reconstructPath(from Node, to Node, previous map[interface{}]Edge, weightType string) ([]Edge, float64, error) {
 	path := make([]Edge, 0)
 	current := to
 	totalCost := 0.0

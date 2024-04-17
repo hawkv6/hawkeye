@@ -11,21 +11,21 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type DefaultAdapter struct {
+type DomainAdapter struct {
 	log *logrus.Entry
 }
 
-func NewDefaultAdapter() *DefaultAdapter {
-	return &DefaultAdapter{
+func NewDomainAdapter() *DomainAdapter {
+	return &DomainAdapter{
 		log: logging.DefaultLogger.WithField("subsystem", Subsystem),
 	}
 }
 
-func (adapter *DefaultAdapter) ConvertNode(lsNode *jagw.LsNode) (domain.Node, error) {
-	return domain.NewDefaultNode(lsNode.Key, lsNode.IgpRouterId, lsNode.Name)
+func (adapter *DomainAdapter) ConvertNode(lsNode *jagw.LsNode) (domain.Node, error) {
+	return domain.NewDomainNode(lsNode.Key, lsNode.IgpRouterId, lsNode.Name)
 }
 
-func (adapter *DefaultAdapter) ConvertNodeEvent(lsNodeEvent *jagw.LsNodeEvent) (domain.NetworkEvent, error) {
+func (adapter *DomainAdapter) ConvertNodeEvent(lsNodeEvent *jagw.LsNodeEvent) (domain.NetworkEvent, error) {
 	if lsNodeEvent == nil || lsNodeEvent.Action == nil || lsNodeEvent.Key == nil {
 		return nil, fmt.Errorf("LsNodeEvent, action or key is nil")
 	}
@@ -42,11 +42,11 @@ func (adapter *DefaultAdapter) ConvertNodeEvent(lsNodeEvent *jagw.LsNodeEvent) (
 	}
 }
 
-func (adapter *DefaultAdapter) ConvertLink(lsLink *jagw.LsLink) (domain.Link, error) {
-	return domain.NewDefaultLink(lsLink.Key, lsLink.IgpRouterId, lsLink.RemoteIgpRouterId, lsLink.UnidirLinkDelay, lsLink.UnidirDelayVariation, lsLink.UnidirAvailableBw, lsLink.UnidirBwUtilization, lsLink.UnidirPacketLoss)
+func (adapter *DomainAdapter) ConvertLink(lsLink *jagw.LsLink) (domain.Link, error) {
+	return domain.NewDomainLink(lsLink.Key, lsLink.IgpRouterId, lsLink.RemoteIgpRouterId, lsLink.UnidirLinkDelay, lsLink.UnidirDelayVariation, lsLink.UnidirAvailableBw, lsLink.UnidirBwUtilization, lsLink.UnidirPacketLoss)
 }
 
-func (adapter *DefaultAdapter) ConvertLinkEvent(lsLinkEvent *jagw.LsLinkEvent) (domain.NetworkEvent, error) {
+func (adapter *DomainAdapter) ConvertLinkEvent(lsLinkEvent *jagw.LsLinkEvent) (domain.NetworkEvent, error) {
 	if lsLinkEvent == nil || lsLinkEvent.Action == nil || lsLinkEvent.Key == nil {
 		return nil, fmt.Errorf("LsLinkEvent, action or key is nil")
 	}
@@ -69,11 +69,11 @@ func (adapter *DefaultAdapter) ConvertLinkEvent(lsLinkEvent *jagw.LsLinkEvent) (
 	}
 }
 
-func (adapter *DefaultAdapter) ConvertPrefix(lsPrefix *jagw.LsPrefix) (domain.Prefix, error) {
-	return domain.NewDefaultPrefix(lsPrefix.Key, lsPrefix.IgpRouterId, lsPrefix.Prefix, lsPrefix.PrefixLen)
+func (adapter *DomainAdapter) ConvertPrefix(lsPrefix *jagw.LsPrefix) (domain.Prefix, error) {
+	return domain.NewDomainPrefix(lsPrefix.Key, lsPrefix.IgpRouterId, lsPrefix.Prefix, lsPrefix.PrefixLen)
 }
 
-func (adapter *DefaultAdapter) ConvertPrefixEvent(lsPrefixEvent *jagw.LsPrefixEvent) (domain.NetworkEvent, error) {
+func (adapter *DomainAdapter) ConvertPrefixEvent(lsPrefixEvent *jagw.LsPrefixEvent) (domain.NetworkEvent, error) {
 	if lsPrefixEvent == nil || lsPrefixEvent.Action == nil || lsPrefixEvent.Key == nil {
 		return nil, fmt.Errorf("LsPrefixEvent, action or key is nil")
 	}
@@ -90,11 +90,11 @@ func (adapter *DefaultAdapter) ConvertPrefixEvent(lsPrefixEvent *jagw.LsPrefixEv
 	}
 }
 
-func (adapter *DefaultAdapter) ConvertSid(lsSrv6Sid *jagw.LsSrv6Sid) (domain.Sid, error) {
-	return domain.NewDefaultSid(lsSrv6Sid.Key, lsSrv6Sid.IgpRouterId, lsSrv6Sid.Srv6Sid)
+func (adapter *DomainAdapter) ConvertSid(lsSrv6Sid *jagw.LsSrv6Sid) (domain.Sid, error) {
+	return domain.NewDomainSid(lsSrv6Sid.Key, lsSrv6Sid.IgpRouterId, lsSrv6Sid.Srv6Sid)
 }
 
-func (adapter *DefaultAdapter) ConvertSidEvent(lsSrv6SidEvent *jagw.LsSrv6SidEvent) (domain.NetworkEvent, error) {
+func (adapter *DomainAdapter) ConvertSidEvent(lsSrv6SidEvent *jagw.LsSrv6SidEvent) (domain.NetworkEvent, error) {
 	if lsSrv6SidEvent == nil || lsSrv6SidEvent.Action == nil || lsSrv6SidEvent.Key == nil {
 		return nil, fmt.Errorf("LsSrv6SidEvent, action or key is nil")
 	}
@@ -111,7 +111,7 @@ func (adapter *DefaultAdapter) ConvertSidEvent(lsSrv6SidEvent *jagw.LsSrv6SidEve
 	}
 }
 
-func (adapter *DefaultAdapter) convertValuesToDomain(apiValues []*api.Value) ([]domain.Value, error) {
+func (adapter *DomainAdapter) convertValuesToDomain(apiValues []*api.Value) ([]domain.Value, error) {
 	valueList := make([]domain.Value, 0)
 	for _, apiValue := range apiValues {
 		var value domain.Value
@@ -141,7 +141,7 @@ func (adapter *DefaultAdapter) convertValuesToDomain(apiValues []*api.Value) ([]
 	return valueList, nil
 }
 
-func (adapter *DefaultAdapter) convertIntentTypeToDomain(apiIntentType api.IntentType) (domain.IntentType, error) {
+func (adapter *DomainAdapter) convertIntentTypeToDomain(apiIntentType api.IntentType) (domain.IntentType, error) {
 	switch apiIntentType {
 	case api.IntentType_INTENT_TYPE_HIGH_BANDWIDTH:
 		return domain.IntentTypeHighBandwidth, nil
@@ -162,7 +162,7 @@ func (adapter *DefaultAdapter) convertIntentTypeToDomain(apiIntentType api.Inten
 	}
 }
 
-func (adapter *DefaultAdapter) convertIntentsToDomain(apiIntents []*api.Intent) ([]domain.Intent, error) {
+func (adapter *DomainAdapter) convertIntentsToDomain(apiIntents []*api.Intent) ([]domain.Intent, error) {
 	intentList := make([]domain.Intent, 0)
 	for _, apiIntent := range apiIntents {
 		values, err := adapter.convertValuesToDomain(apiIntent.Values)
@@ -183,15 +183,15 @@ func (adapter *DefaultAdapter) convertIntentsToDomain(apiIntents []*api.Intent) 
 	return intentList, nil
 }
 
-func (adapter *DefaultAdapter) ConvertPathRequest(pathRequest *api.PathRequest, stream api.IntentController_GetIntentPathServer, ctx context.Context) (domain.PathRequest, error) {
+func (adapter *DomainAdapter) ConvertPathRequest(pathRequest *api.PathRequest, stream api.IntentController_GetIntentPathServer, ctx context.Context) (domain.PathRequest, error) {
 	intents, err := adapter.convertIntentsToDomain(pathRequest.Intents)
 	if err != nil {
 		return nil, err
 	}
-	return domain.NewDefaultPathRequest(pathRequest.Ipv6SourceAddress, pathRequest.Ipv6DestinationAddress, intents, stream, ctx)
+	return domain.NewDomainPathRequest(pathRequest.Ipv6SourceAddress, pathRequest.Ipv6DestinationAddress, intents, stream, ctx)
 }
 
-func (adapter *DefaultAdapter) convertValuesToApi(values []domain.Value) []*api.Value {
+func (adapter *DomainAdapter) convertValuesToApi(values []domain.Value) []*api.Value {
 	apiValues := make([]*api.Value, 0, len(values))
 	for _, value := range values {
 		var apiValue *api.Value
@@ -226,7 +226,7 @@ func (adapter *DefaultAdapter) convertValuesToApi(values []domain.Value) []*api.
 	return apiValues
 }
 
-func (adapter *DefaultAdapter) convertIntentsToApi(intents []domain.Intent) []*api.Intent {
+func (adapter *DomainAdapter) convertIntentsToApi(intents []domain.Intent) []*api.Intent {
 	apiIntents := make([]*api.Intent, len(intents))
 	for index, intent := range intents {
 		values := adapter.convertValuesToApi(intent.GetValues())
@@ -239,7 +239,7 @@ func (adapter *DefaultAdapter) convertIntentsToApi(intents []domain.Intent) []*a
 	return apiIntents
 }
 
-func (adapter *DefaultAdapter) ConvertPathResult(pathResult domain.PathResult) (*api.PathResult, error) {
+func (adapter *DomainAdapter) ConvertPathResult(pathResult domain.PathResult) (*api.PathResult, error) {
 	ipv6SidAddresses := pathResult.GetIpv6SidAddresses()
 	apiPathResult := &api.PathResult{
 		Ipv6SourceAddress:      pathResult.GetIpv6SourceAddress(),

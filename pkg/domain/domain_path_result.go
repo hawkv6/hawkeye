@@ -5,14 +5,20 @@ import (
 	"github.com/hawkv6/hawkeye/pkg/graph"
 )
 
-type DefaultPathResult struct {
+type PathResult interface {
+	PathRequest
+	graph.PathResult
+	GetIpv6SidAddresses() []string
+}
+
+type DomainPathResult struct {
 	PathRequest
 	graph.PathResult
 	ipv6SidAddresses []string `validate:"required,dive,ipv6"`
 }
 
-func NewDefaultPathResult(pathRequest PathRequest, graphResult graph.PathResult, ipv6SidAddresses []string) (*DefaultPathResult, error) {
-	defaultPathResult := &DefaultPathResult{
+func NewDomainPathResult(pathRequest PathRequest, graphResult graph.PathResult, ipv6SidAddresses []string) (*DomainPathResult, error) {
+	defaultPathResult := &DomainPathResult{
 		PathRequest:      pathRequest,
 		PathResult:       graphResult,
 		ipv6SidAddresses: ipv6SidAddresses,
@@ -25,6 +31,6 @@ func NewDefaultPathResult(pathRequest PathRequest, graphResult graph.PathResult,
 	return defaultPathResult, nil
 }
 
-func (defaultPathResponse *DefaultPathResult) GetIpv6SidAddresses() []string {
-	return defaultPathResponse.ipv6SidAddresses
+func (pathResponse *DomainPathResult) GetIpv6SidAddresses() []string {
+	return pathResponse.ipv6SidAddresses
 }

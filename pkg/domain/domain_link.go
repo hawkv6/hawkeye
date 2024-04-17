@@ -4,6 +4,17 @@ import (
 	"github.com/go-playground/validator"
 )
 
+type Link interface {
+	GetKey() string
+	GetIgpRouterId() string
+	GetRemoteIgpRouterId() string
+	GetUnidirLinkDelay() uint32
+	GetUnidirDelayVariation() uint32
+	GetUnidirAvailableBandwidth() uint32
+	GetUnidirPacketLoss() float32
+	GetUnidirBandwidthUtilization() uint32
+}
+
 type LinkInput struct {
 	Key                        *string  `validate:"required"`
 	IgpRouterId                *string  `validate:"required"`
@@ -15,7 +26,7 @@ type LinkInput struct {
 	UnidirBandwidthUtilization *uint32  `validate:"required"`
 }
 
-type DefaultLink struct {
+type DomainLink struct {
 	key                        string
 	igpRouterId                string
 	remoteIgpRouterId          string
@@ -26,7 +37,7 @@ type DefaultLink struct {
 	unidirBandwidthUtilization uint32
 }
 
-func NewDefaultLink(key, igpRouterId, remoteIgpRouterId *string, unidirLinkDelay, unidirDelayVariation, unidirAvailableBandwidth, unidirBandwidthUtilization *uint32, unidirPacketLoss *float32) (*DefaultLink, error) {
+func NewDomainLink(key, igpRouterId, remoteIgpRouterId *string, unidirLinkDelay, unidirDelayVariation, unidirAvailableBandwidth, unidirBandwidthUtilization *uint32, unidirPacketLoss *float32) (*DomainLink, error) {
 	input := &LinkInput{
 		Key:                        key,
 		IgpRouterId:                igpRouterId,
@@ -43,7 +54,7 @@ func NewDefaultLink(key, igpRouterId, remoteIgpRouterId *string, unidirLinkDelay
 		return nil, err
 	}
 
-	defaultLink := &DefaultLink{
+	defaultLink := &DomainLink{
 		key:                        *key,
 		igpRouterId:                *igpRouterId,
 		remoteIgpRouterId:          *remoteIgpRouterId,
@@ -57,34 +68,34 @@ func NewDefaultLink(key, igpRouterId, remoteIgpRouterId *string, unidirLinkDelay
 	return defaultLink, nil
 }
 
-func (l *DefaultLink) GetKey() string {
+func (l *DomainLink) GetKey() string {
 	return l.key
 }
 
-func (l *DefaultLink) GetIgpRouterId() string {
+func (l *DomainLink) GetIgpRouterId() string {
 	return l.igpRouterId
 }
 
-func (l *DefaultLink) GetRemoteIgpRouterId() string {
+func (l *DomainLink) GetRemoteIgpRouterId() string {
 	return l.remoteIgpRouterId
 }
 
-func (l *DefaultLink) GetUnidirLinkDelay() uint32 {
+func (l *DomainLink) GetUnidirLinkDelay() uint32 {
 	return l.unidirLinkDelay
 }
 
-func (l *DefaultLink) GetUnidirDelayVariation() uint32 {
+func (l *DomainLink) GetUnidirDelayVariation() uint32 {
 	return l.unidirDelayVariation
 }
 
-func (l *DefaultLink) GetUnidirAvailableBandwidth() uint32 {
+func (l *DomainLink) GetUnidirAvailableBandwidth() uint32 {
 	return l.unidirAvailableBandwidth
 }
 
-func (l *DefaultLink) GetUnidirPacketLoss() float32 {
+func (l *DomainLink) GetUnidirPacketLoss() float32 {
 	return l.unidirPacketLoss
 }
 
-func (l *DefaultLink) GetUnidirBandwidthUtilization() uint32 {
+func (l *DomainLink) GetUnidirBandwidthUtilization() uint32 {
 	return l.unidirBandwidthUtilization
 }

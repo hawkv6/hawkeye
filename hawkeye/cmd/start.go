@@ -36,12 +36,12 @@ var startCmd = &cobra.Command{
 		log.Infoln("Config created successfully")
 
 		eventChan := make(chan domain.NetworkEvent)
-		adapter := adapter.NewDefaultAdapter()
+		adapter := adapter.NewDomainAdapter()
 		helper := helper.NewDefaultHelper()
-		graph := graph.NewDefaultGraph()
-		cache := cache.NewDefaultCacheService()
+		graph := graph.NewNetworkGraph()
+		cache := cache.NewInMemoryCache()
 		updateChan := make(chan struct{})
-		processor := processor.NewDefaultProcessor(graph, cache, eventChan, helper, updateChan)
+		processor := processor.NewNetworkProcessor(graph, cache, eventChan, helper, updateChan)
 
 		requestService := jagw.NewJagwRequestService(config, adapter, processor, helper)
 		if err := requestService.Init(); err != nil {
@@ -51,14 +51,14 @@ var startCmd = &cobra.Command{
 			log.Fatalf("Error starting JAGW Request Service: %v", err)
 		}
 
-		messagingChannels := messaging.NewDefaultMessagingChannels()
-		calculator := calculation.NewDefaultCalculator(cache, graph, helper)
-		controller := controller.NewDefaultController(calculator, messagingChannels, updateChan)
+		messagingChannels := messaging.NewPathMessagingChannels()
+		manager := calculation.NewCalculationManager(cache, graph, helper)
+		controller := controller.NewSessionController(manager, messagingChannels, updateChan)
 		go controller.Start()
 
 		go processor.Start()
 
-		subscriptionService := jagw.NewJagwSubscriptionService(config, adapter, processor, helper, eventChan)
+		subscriptionService := jagw.NewJagwSubscriptionService(config, adapter, helper, eventChan)
 		if err := subscriptionService.Init(); err != nil {
 			log.Fatalf("Error initializing JAGW Subscription Service: %v", err)
 		}
@@ -66,7 +66,7 @@ var startCmd = &cobra.Command{
 			log.Fatalf("Error starting JAGW Subscription Service: %v", err)
 		}
 
-		server := messaging.NewDefaultMessagingServer(adapter, config, messagingChannels)
+		server := messaging.NewGrpcMessagingServer(adapter, config, messagingChannels)
 
 		if err := server.Start(); err != nil {
 			log.Fatalf("Error starting gRPC server: %v", err)

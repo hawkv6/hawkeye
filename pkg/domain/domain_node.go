@@ -2,19 +2,25 @@ package domain
 
 import "github.com/go-playground/validator"
 
+type Node interface {
+	GetKey() string
+	GetIgpRouterId() string
+	GetName() string
+}
+
 type NodeInput struct {
 	Key         *string `validate:"required"`
 	IgpRouterId *string `validate:"required"`
 	Name        *string `validate:"required"`
 }
 
-type DefaultNode struct {
+type DomainNode struct {
 	key         string
 	igpRouterId string
 	name        string
 }
 
-func NewDefaultNode(key, igpRouterId, name *string) (*DefaultNode, error) {
+func NewDomainNode(key, igpRouterId, name *string) (*DomainNode, error) {
 	input := &NodeInput{
 		Key:         key,
 		IgpRouterId: igpRouterId,
@@ -26,7 +32,7 @@ func NewDefaultNode(key, igpRouterId, name *string) (*DefaultNode, error) {
 		return nil, err
 	}
 
-	defaultNode := &DefaultNode{
+	defaultNode := &DomainNode{
 		key:         *key,
 		igpRouterId: *igpRouterId,
 		name:        *name,
@@ -34,14 +40,14 @@ func NewDefaultNode(key, igpRouterId, name *string) (*DefaultNode, error) {
 	return defaultNode, nil
 }
 
-func (n *DefaultNode) GetKey() string {
+func (n *DomainNode) GetKey() string {
 	return n.key
 }
 
-func (n *DefaultNode) GetIgpRouterId() string {
+func (n *DomainNode) GetIgpRouterId() string {
 	return n.igpRouterId
 }
 
-func (n *DefaultNode) GetName() string {
+func (n *DomainNode) GetName() string {
 	return n.name
 }

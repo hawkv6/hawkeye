@@ -12,10 +12,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type DefaultProcessor struct {
+type NetworkProcessor struct {
 	log          *logrus.Entry
 	graph        graph.Graph
-	cache        cache.CacheService
+	cache        cache.Cache
 	eventChan    chan domain.NetworkEvent
 	quitChan     chan struct{}
 	helper       helper.Helper
@@ -23,8 +23,8 @@ type DefaultProcessor struct {
 	updateChan   chan struct{}
 }
 
-func NewDefaultProcessor(graph graph.Graph, cache cache.CacheService, eventChan chan domain.NetworkEvent, helper helper.Helper, updateChan chan struct{}) *DefaultProcessor {
-	return &DefaultProcessor{
+func NewNetworkProcessor(graph graph.Graph, cache cache.Cache, eventChan chan domain.NetworkEvent, helper helper.Helper, updateChan chan struct{}) *NetworkProcessor {
+	return &NetworkProcessor{
 		log:          logging.DefaultLogger.WithField("subsystem", Subsystem),
 		graph:        graph,
 		cache:        cache,
@@ -36,14 +36,14 @@ func NewDefaultProcessor(graph graph.Graph, cache cache.CacheService, eventChan 
 	}
 }
 
-func (processor *DefaultProcessor) setNodeName(node domain.Node, graphNode graph.Node) {
+func (processor *NetworkProcessor) setNodeName(node domain.Node, graphNode graph.Node) {
 	nodeName := node.GetName()
 	if graphNode.GetName() != nodeName {
 		graphNode.SetName(nodeName)
 	}
 }
 
-func (processor *DefaultProcessor) addNodeToGraph(node domain.Node) error {
+func (processor *NetworkProcessor) addNodeToGraph(node domain.Node) error {
 	id := node.GetIgpRouterId()
 	graphNode, exist := processor.graph.GetNode(id)
 	if exist {
@@ -51,7 +51,7 @@ func (processor *DefaultProcessor) addNodeToGraph(node domain.Node) error {
 	} else {
 		processor.log.Debugf("Add node %s to graph with igp router id %s", node.GetName(), id)
 		var err error
-		graphNode, err = processor.graph.AddNode(graph.NewDefaultNode(id))
+		graphNode, err = processor.graph.AddNode(graph.NewNetworkNode(id))
 		if err != nil {
 			return err
 		}
@@ -60,12 +60,12 @@ func (processor *DefaultProcessor) addNodeToGraph(node domain.Node) error {
 	return nil
 }
 
-func (processor *DefaultProcessor) addNodeToCache(node domain.Node) {
+func (processor *NetworkProcessor) addNodeToCache(node domain.Node) {
 	processor.log.Debugf("Add node %s to cache with igp router id id %s", node.GetName(), node.GetIgpRouterId())
 	processor.cache.StoreNode(node)
 }
 
-func (processor *DefaultProcessor) deleteNode(key string) error {
+func (processor *NetworkProcessor) deleteNode(key string) error {
 	node, ok := processor.cache.GetNodeByKey(key)
 	if !ok {
 		return fmt.Errorf("Node with key %s does not exist in cache", key)
@@ -79,7 +79,7 @@ func (processor *DefaultProcessor) deleteNode(key string) error {
 	return nil
 }
 
-func (processor *DefaultProcessor) CreateGraphNodes(nodes []domain.Node) error {
+func (processor *NetworkProcessor) CreateGraphNodes(nodes []domain.Node) error {
 	for _, node := range nodes {
 		if err := processor.addNodeToGraph(node); err != nil {
 			return err
@@ -89,7 +89,7 @@ func (processor *DefaultProcessor) CreateGraphNodes(nodes []domain.Node) error {
 	return nil
 }
 
-func (processor *DefaultProcessor) CreateGraphEdges(links []domain.Link) error {
+func (processor *NetworkProcessor) CreateGraphEdges(links []domain.Link) error {
 	for _, link := range links {
 		if err := processor.addLinkToGraph(link); err != nil {
 			return err
@@ -98,7 +98,7 @@ func (processor *DefaultProcessor) CreateGraphEdges(links []domain.Link) error {
 	return nil
 }
 
-func (processor *DefaultProcessor) getLinkWeights(link domain.Link) map[string]float64 {
+func (processor *NetworkProcessor) getLinkWeights(link domain.Link) map[string]float64 {
 	return map[string]float64{
 		processor.helper.GetLatencyKey():            float64(link.GetUnidirLinkDelay()),
 		processor.helper.GetJitterKey():             float64(link.GetUnidirDelayVariation()),
@@ -108,7 +108,7 @@ func (processor *DefaultProcessor) getLinkWeights(link domain.Link) map[string]f
 	}
 }
 
-func (processor *DefaultProcessor) getOrCreateNode(nodeId string) (graph.Node, error) {
+func (processor *NetworkProcessor) getOrCreateNode(nodeId string) (graph.Node, error) {
 	// it's possible that link events are received before node events
 	// so we need to ensure the node exists in the graph before adding the edge
 	if processor.graph.NodeExists(nodeId) {
@@ -118,7 +118,7 @@ func (processor *DefaultProcessor) getOrCreateNode(nodeId string) (graph.Node, e
 	node, exists := processor.cache.GetNodeByIgpRouterId(nodeId)
 	if !exists {
 		processor.log.Errorf("Node with igp router id %s not in cache - create it only in graph", nodeId)
-		return processor.graph.AddNode(graph.NewDefaultNode(nodeId))
+		return processor.graph.AddNode(graph.NewNetworkNode(nodeId))
 	}
 	if err := processor.addNodeToGraph(node); err != nil {
 		return nil, err
@@ -127,7 +127,7 @@ func (processor *DefaultProcessor) getOrCreateNode(nodeId string) (graph.Node, e
 	return graphNode, nil
 }
 
-func (processor *DefaultProcessor) deleteEdge(key string) error {
+func (processor *NetworkProcessor) deleteEdge(key string) error {
 	if processor.graph.EdgeExists(key) {
 		edge, exist := processor.graph.GetEdge(key)
 		if !exist {
@@ -140,7 +140,7 @@ func (processor *DefaultProcessor) deleteEdge(key string) error {
 	return fmt.Errorf("Edge with key %s does not exist in graph", key)
 }
 
-func (processor *DefaultProcessor) addEdgeToGraph(edge graph.Edge) error {
+func (processor *NetworkProcessor) addEdgeToGraph(edge graph.Edge) error {
 	processor.log.Debugf("Add edge with key %s to graph between %s and %s", edge.GetId(), edge.From().GetName(), edge.To().GetName())
 	if err := processor.graph.AddEdge(edge); err != nil {
 		return err
@@ -148,7 +148,7 @@ func (processor *DefaultProcessor) addEdgeToGraph(edge graph.Edge) error {
 	return nil
 }
 
-func (processor *DefaultProcessor) addLinkToGraph(link domain.Link) error {
+func (processor *NetworkProcessor) addLinkToGraph(link domain.Link) error {
 	from, err := processor.getOrCreateNode(link.GetIgpRouterId())
 	if err != nil {
 		return err
@@ -167,12 +167,12 @@ func (processor *DefaultProcessor) addLinkToGraph(link domain.Link) error {
 				return fmt.Errorf("Link contains zero values, link %s is created during next update", key)
 			}
 		}
-		return processor.addEdgeToGraph(graph.NewDefaultEdge(key, from, to, weights))
+		return processor.addEdgeToGraph(graph.NewNetworkEdge(key, from, to, weights))
 	}
 	return nil
 }
 
-func (processor *DefaultProcessor) setEdgeWeight(edge graph.Edge, key string, value float64) error {
+func (processor *NetworkProcessor) setEdgeWeight(edge graph.Edge, key string, value float64) error {
 	if value == 0 {
 		return fmt.Errorf("Value is 0, not setting %s", key)
 	}
@@ -186,7 +186,7 @@ func (processor *DefaultProcessor) setEdgeWeight(edge graph.Edge, key string, va
 	return nil
 }
 
-func (processor *DefaultProcessor) updateLinkInGraph(link domain.Link) error {
+func (processor *NetworkProcessor) updateLinkInGraph(link domain.Link) error {
 	key := link.GetKey()
 	processor.log.Debugln("Updating link in graph with key: ", key)
 	edge, exist := processor.graph.GetEdge(key)
@@ -203,7 +203,7 @@ func (processor *DefaultProcessor) updateLinkInGraph(link domain.Link) error {
 	return nil
 }
 
-func (processor *DefaultProcessor) addClientNetworkToCache(prefix domain.Prefix) {
+func (processor *NetworkProcessor) addClientNetworkToCache(prefix domain.Prefix) {
 	networkAddress := prefix.GetPrefix()
 	subnetLength := prefix.GetPrefixLength()
 	if subnetLength == 128 {
@@ -223,13 +223,13 @@ func (processor *DefaultProcessor) addClientNetworkToCache(prefix domain.Prefix)
 	}
 }
 
-func (processor *DefaultProcessor) CreateClientNetworks(prefixes []domain.Prefix) {
+func (processor *NetworkProcessor) CreateClientNetworks(prefixes []domain.Prefix) {
 	for _, prefix := range prefixes {
 		processor.addClientNetworkToCache(prefix)
 	}
 }
 
-func (processor *DefaultProcessor) deleteClientNetwork(key string) error {
+func (processor *NetworkProcessor) deleteClientNetwork(key string) error {
 	prefix, ok := processor.cache.GetClientNetworkByKey(key)
 	if !ok {
 		return fmt.Errorf("Network with key %s does not exist in cache", key)
@@ -250,18 +250,18 @@ func (processor *DefaultProcessor) deleteClientNetwork(key string) error {
 	return nil
 }
 
-func (processor *DefaultProcessor) addSidtoCache(sid domain.Sid) {
+func (processor *NetworkProcessor) addSidtoCache(sid domain.Sid) {
 	processor.log.Debugf("Add SRv6 SID %s to cache", sid.GetSid())
 	processor.cache.StoreSid(sid)
 }
 
-func (processor *DefaultProcessor) CreateSids(sids []domain.Sid) {
+func (processor *NetworkProcessor) CreateSids(sids []domain.Sid) {
 	for _, sid := range sids {
 		processor.addSidtoCache(sid)
 	}
 }
 
-func (processor *DefaultProcessor) deleteSidFromCache(key string) {
+func (processor *NetworkProcessor) deleteSidFromCache(key string) {
 	processor.log.Debugf("Delete SRv6 SID %s from cache", key)
 	sid, ok := processor.cache.GetSidByKey(key)
 	if !ok {
@@ -270,7 +270,7 @@ func (processor *DefaultProcessor) deleteSidFromCache(key string) {
 	processor.cache.RemoveSid(sid)
 }
 
-func (processor *DefaultProcessor) Start() {
+func (processor *NetworkProcessor) Start() {
 	holdTime := time.Second * 3
 	processor.log.Infof("Starting processing network updates with hold time %s", holdTime.String())
 
@@ -307,7 +307,7 @@ func (processor *DefaultProcessor) Start() {
 	}
 }
 
-func (processor *DefaultProcessor) processEvent(event domain.NetworkEvent) {
+func (processor *NetworkProcessor) processEvent(event domain.NetworkEvent) {
 	switch eventType := event.(type) {
 	case *domain.AddNodeEvent:
 		processor.log.Debugln("Received AddNodeEvent: ", eventType.GetKey())
@@ -352,7 +352,7 @@ func (processor *DefaultProcessor) processEvent(event domain.NetworkEvent) {
 	}
 }
 
-func (processor *DefaultProcessor) Stop() {
+func (processor *NetworkProcessor) Stop() {
 	processor.log.Infoln("Stopping processor")
 	close(processor.quitChan)
 }

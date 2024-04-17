@@ -6,7 +6,7 @@ import (
 
 const Subsystem = "cache"
 
-type CacheService interface {
+type Cache interface {
 	Lock()
 	Unlock()
 	StoreClientNetwork(prefix domain.Prefix)

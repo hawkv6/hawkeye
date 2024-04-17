@@ -4,6 +4,12 @@ import (
 	"github.com/go-playground/validator"
 )
 
+type Intent interface {
+	GetIntentType() IntentType
+	GetValues() []Value
+	Serialize() string
+}
+
 type DefaultIntent struct {
 	intentType IntentType `validate:"required, min=0"`
 	values     []Value

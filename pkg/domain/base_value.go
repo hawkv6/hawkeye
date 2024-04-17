@@ -1,5 +1,11 @@
 package domain
 
+type Value interface {
+	GetValueType() ValueType
+	GetNumberValue() int32
+	GetStringValue() string
+}
+
 type BaseValue struct {
 	valueType ValueType
 }

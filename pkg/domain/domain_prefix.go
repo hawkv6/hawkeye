@@ -2,20 +2,27 @@ package domain
 
 import "github.com/go-playground/validator"
 
+type Prefix interface {
+	GetKey() string
+	GetIgpRouterId() string
+	GetPrefix() string
+	GetPrefixLength() uint8
+}
+
 type PrefixInput struct {
 	Key          *string `validate:"required"`
 	IgpRouterId  *string `validate:"required"`
 	Prefix       *string `validate:"required"`
 	PrefixLength *int32  `validate:"required,min=0,max=128"`
 }
-type DefaultPrefix struct {
+type DomainPrefix struct {
 	key          string
 	igpRouterId  string
 	prefix       string
 	prefixLength uint8
 }
 
-func NewDefaultPrefix(key, igpRouterId, prefix *string, prefixLength *int32) (*DefaultPrefix, error) {
+func NewDomainPrefix(key, igpRouterId, prefix *string, prefixLength *int32) (*DomainPrefix, error) {
 	input := &PrefixInput{
 		Key:          key,
 		IgpRouterId:  igpRouterId,
@@ -28,7 +35,7 @@ func NewDefaultPrefix(key, igpRouterId, prefix *string, prefixLength *int32) (*D
 		return nil, err
 	}
 
-	lsPrefixAdapter := &DefaultPrefix{
+	lsPrefixAdapter := &DomainPrefix{
 		key:          *key,
 		igpRouterId:  *igpRouterId,
 		prefix:       *prefix,
@@ -37,18 +44,18 @@ func NewDefaultPrefix(key, igpRouterId, prefix *string, prefixLength *int32) (*D
 	return lsPrefixAdapter, nil
 }
 
-func (p *DefaultPrefix) GetKey() string {
-	return p.key
+func (prefix *DomainPrefix) GetKey() string {
+	return prefix.key
 }
 
-func (p *DefaultPrefix) GetIgpRouterId() string {
-	return p.igpRouterId
+func (prefix *DomainPrefix) GetIgpRouterId() string {
+	return prefix.igpRouterId
 }
 
-func (p *DefaultPrefix) GetPrefix() string {
-	return p.prefix
+func (prefix *DomainPrefix) GetPrefix() string {
+	return prefix.prefix
 }
 
-func (p *DefaultPrefix) GetPrefixLength() uint8 {
-	return p.prefixLength
+func (prefix *DomainPrefix) GetPrefixLength() uint8 {
+	return prefix.prefixLength
 }

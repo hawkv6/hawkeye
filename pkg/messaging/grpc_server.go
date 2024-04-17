@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc/peer"
 )
 
-type DefaultMessagingServer struct {
+type GrpcMessagingServer struct {
 	api.UnimplementedIntentControllerServer
 	log             *logrus.Entry
 	adapter         adapter.Adapter
@@ -25,8 +25,8 @@ type DefaultMessagingServer struct {
 	pathResultChan  chan domain.PathResult
 }
 
-func NewDefaultMessagingServer(adapter adapter.Adapter, config config.Config, messagingChannels MessagingChannels) *DefaultMessagingServer {
-	return &DefaultMessagingServer{
+func NewGrpcMessagingServer(adapter adapter.Adapter, config config.Config, messagingChannels MessagingChannels) *GrpcMessagingServer {
+	return &GrpcMessagingServer{
 		log:             logging.DefaultLogger.WithField("subsystem", Subsystem),
 		adapter:         adapter,
 		grpcPort:        config.GetGrpcPort(),
@@ -35,7 +35,7 @@ func NewDefaultMessagingServer(adapter adapter.Adapter, config config.Config, me
 	}
 }
 
-func (server *DefaultMessagingServer) Start() error {
+func (server *GrpcMessagingServer) Start() error {
 	listenAddress := fmt.Sprintf(":%d", server.grpcPort)
 	list, err := net.Listen("tcp", listenAddress)
 	if err != nil {
@@ -51,7 +51,7 @@ func (server *DefaultMessagingServer) Start() error {
 	return nil
 }
 
-func (server *DefaultMessagingServer) GetIntentPath(stream api.IntentController_GetIntentPathServer) error {
+func (server *GrpcMessagingServer) GetIntentPath(stream api.IntentController_GetIntentPathServer) error {
 	ctx := stream.Context()
 	peerInfo, ok := peer.FromContext(ctx)
 	if ok {
@@ -80,7 +80,7 @@ func (server *DefaultMessagingServer) GetIntentPath(stream api.IntentController_
 	}
 }
 
-func (server *DefaultMessagingServer) GetIntentPathResponse(stream api.IntentController_GetIntentPathServer, ctx context.Context) {
+func (server *GrpcMessagingServer) GetIntentPathResponse(stream api.IntentController_GetIntentPathServer, ctx context.Context) {
 	for {
 		select {
 		case pathResult := <-server.pathResultChan:
