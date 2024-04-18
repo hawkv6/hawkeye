@@ -44,6 +44,9 @@ func (helper *DefaultHelper) GetLsSrv6SidsProperties() []string {
 	return []string{"Key", "IgpRouterId", "Srv6Sid"}
 }
 
+func (helper *DefaultHelper) GetDefaultKey() string {
+	return "default"
+}
 func (helper *DefaultHelper) GetLatencyKey() string {
 	return "latency"
 }

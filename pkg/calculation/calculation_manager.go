@@ -149,7 +149,7 @@ func (manager *CalculationManager) CalculateBestPath(pathRequest domain.PathRequ
 	return nil
 }
 
-func (manager *CalculationManager) checkifPathValid(pathResult domain.PathResult, weightKind string) (float64, error) {
+func (manager *CalculationManager) checkifPathValid(pathResult domain.PathResult, weightType string) (float64, error) {
 	totalCost := 0.0
 	edges := pathResult.GetEdges()
 	for _, edge := range edges {
@@ -157,7 +157,7 @@ func (manager *CalculationManager) checkifPathValid(pathResult domain.PathResult
 		if !exist {
 			return 0, fmt.Errorf("Path not valid, edge not found in graph: %s", edge.GetId())
 		}
-		cost, err := graphEdge.GetWeight(weightKind)
+		cost, err := graphEdge.GetWeight(weightType)
 		if err != nil {
 			return 0, err
 		}
@@ -179,8 +179,8 @@ func (manager *CalculationManager) validateCurrentResult(intent domain.Intent, c
 	}
 }
 
-func (manager *CalculationManager) validateCurrentResultForIntent(weightKind string, currentpathResult domain.PathResult) error {
-	cost, err := manager.checkifPathValid(currentpathResult, weightKind)
+func (manager *CalculationManager) validateCurrentResultForIntent(weightType string, currentpathResult domain.PathResult) error {
+	cost, err := manager.checkifPathValid(currentpathResult, weightType)
 	if err != nil {
 		return fmt.Errorf("Current path is not valid anymore because of: %s", err)
 	}

@@ -13,5 +13,5 @@ type Graph interface {
 	GetEdge(id interface{}) (Edge, bool)
 	EdgeExists(id interface{}) bool
 	DeleteEdge(edge Edge)
-	GetShortestPath(from Node, to Node, weightKind string) (PathResult, error)
+	GetShortestPath(from Node, to Node, weightType string) (PathResult, error)
 }

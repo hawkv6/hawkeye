@@ -6,23 +6,26 @@ import (
 	"math"
 	"sync"
 
+	"github.com/hawkv6/hawkeye/pkg/helper"
 	"github.com/hawkv6/hawkeye/pkg/logging"
 	"github.com/sirupsen/logrus"
 )
 
 type NetworkGraph struct {
-	log   *logrus.Entry
-	nodes map[interface{}]Node
-	edges map[interface{}]Edge
-	mu    *sync.Mutex
+	log    *logrus.Entry
+	nodes  map[interface{}]Node
+	edges  map[interface{}]Edge
+	mu     *sync.Mutex
+	helper helper.Helper
 }
 
-func NewNetworkGraph() *NetworkGraph {
+func NewNetworkGraph(helper helper.Helper) *NetworkGraph {
 	return &NetworkGraph{
-		log:   logging.DefaultLogger.WithField("subsystem", Subsystem),
-		nodes: make(map[interface{}]Node),
-		edges: make(map[interface{}]Edge),
-		mu:    &sync.Mutex{},
+		log:    logging.DefaultLogger.WithField("subsystem", Subsystem),
+		nodes:  make(map[interface{}]Node),
+		edges:  make(map[interface{}]Edge),
+		mu:     &sync.Mutex{},
+		helper: helper,
 	}
 }
 
@@ -100,7 +103,9 @@ func (graph *NetworkGraph) GetShortestPath(from Node, to Node, weightType string
 	distances, priorityQueue := graph.initializeDijkstra(from)
 	previous := make(map[interface{}]Edge)
 
-	graph.performDijkstra(to, weightType, distances, &priorityQueue, previous)
+	if err := graph.performDijkstra(to, weightType, distances, &priorityQueue, previous); err != nil {
+		return nil, err
+	}
 
 	path, cost, err := graph.reconstructPath(from, to, previous, weightType)
 	if err != nil {
@@ -117,12 +122,12 @@ func (graph *NetworkGraph) initializeDijkstra(from Node) (map[interface{}]float6
 	}
 	heap.Init(&priorityQueue)
 	distances[from.GetId()] = 0
-	heap.Push(&priorityQueue, &Item{nodeId: from.GetId(), distance: 0, index: 0})
+	heap.Push(&priorityQueue, &Item{nodeId: from.GetId(), distance: distances[from.GetId()], index: 0})
 
 	return distances, priorityQueue
 }
 
-func (graph *NetworkGraph) performDijkstra(to Node, weightKind string, distances map[interface{}]float64, priorityQueue *PriorityQueue, previous map[interface{}]Edge) {
+func (graph *NetworkGraph) performDijkstra(to Node, weightType string, distances map[interface{}]float64, priorityQueue *PriorityQueue, previous map[interface{}]Edge) error {
 	for !priorityQueue.IsEmpty() {
 		item := heap.Pop(priorityQueue).(*Item)
 		currentId := item.GetNodeId()
@@ -131,11 +136,18 @@ func (graph *NetworkGraph) performDijkstra(to Node, weightKind string, distances
 		}
 		for _, edge := range graph.nodes[currentId].GetEdges() {
 			neighbor := edge.To()
-			weight, err := edge.GetWeight(weightKind)
+			weight, err := edge.GetWeight(weightType)
 			if err != nil {
-				return
+				return err
 			}
-			alternativeDistance := distances[currentId] + weight
+			var alternativeDistance float64
+			if weightType == helper.NewDefaultHelper().GetPacketLossKey() {
+				packetLossTransform := -math.Log(1 - weight)
+				alternativeDistance = distances[currentId] + packetLossTransform
+			} else {
+				alternativeDistance = distances[currentId] + weight
+			}
+
 			if alternativeDistance < distances[neighbor.GetId()] {
 				neighborId := neighbor.GetId()
 				distances[neighborId] = alternativeDistance
@@ -144,19 +156,28 @@ func (graph *NetworkGraph) performDijkstra(to Node, weightKind string, distances
 			}
 		}
 	}
+	return nil
 }
 
 func (graph *NetworkGraph) reconstructPath(from Node, to Node, previous map[interface{}]Edge, weightType string) ([]Edge, float64, error) {
 	path := make([]Edge, 0)
 	current := to
-	totalCost := 0.0
+	var totalCost float64
+	if weightType != helper.NewDefaultHelper().GetPacketLossKey() {
+		totalCost = 0
+	} else {
+		totalCost = 1
+	}
 	for current.GetId() != from.GetId() {
 		edge := previous[current.GetId()]
 		path = append([]Edge{edge}, path...)
-		if cost, err := edge.GetWeight(weightType); err != nil {
+		cost, err := edge.GetWeight(weightType)
+		if err != nil {
 			return nil, 0, err
-		} else {
+		} else if weightType != helper.NewDefaultHelper().GetPacketLossKey() {
 			totalCost += cost
+		} else {
+			totalCost *= cost
 		}
 		current = edge.From()
 	}
