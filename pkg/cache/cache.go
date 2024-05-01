@@ -1,8 +1,6 @@
 package cache
 
-import (
-	"github.com/hawkv6/hawkeye/pkg/domain"
-)
+import "github.com/hawkv6/hawkeye/pkg/domain"
 
 const Subsystem = "cache"
 

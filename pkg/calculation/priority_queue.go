@@ -1,4 +1,4 @@
-package graph
+package calculation
 
 import (
 	"container/heap"

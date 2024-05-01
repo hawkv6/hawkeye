@@ -7,9 +7,4 @@ type Helper interface {
 	GetLsLinkProperties() []string
 	GetLsPrefixProperties() []string
 	GetLsSrv6SidsProperties() []string
-	GetLatencyKey() string
-	GetJitterKey() string
-	GetAvailableBandwidthKey() string
-	GetUtilizedBandwidthKey() string
-	GetPacketLossKey() string
 }

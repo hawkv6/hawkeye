@@ -98,13 +98,13 @@ func (processor *NetworkProcessor) CreateGraphEdges(links []domain.Link) error {
 	return nil
 }
 
-func (processor *NetworkProcessor) getLinkWeights(link domain.Link) map[string]float64 {
-	return map[string]float64{
-		processor.helper.GetLatencyKey():            float64(link.GetUnidirLinkDelay()),
-		processor.helper.GetJitterKey():             float64(link.GetUnidirDelayVariation()),
-		processor.helper.GetAvailableBandwidthKey(): float64(link.GetUnidirAvailableBandwidth()),
-		processor.helper.GetUtilizedBandwidthKey():  float64(link.GetUnidirBandwidthUtilization()),
-		processor.helper.GetPacketLossKey():         float64(link.GetUnidirPacketLoss()),
+func (processor *NetworkProcessor) getLinkWeights(link domain.Link) map[helper.WeightKey]float64 {
+	return map[helper.WeightKey]float64{
+		helper.LatencyKey:            float64(link.GetUnidirLinkDelay()),
+		helper.JitterKey:             float64(link.GetUnidirDelayVariation()),
+		helper.AvailableBandwidthKey: float64(link.GetUnidirAvailableBandwidth()),
+		helper.UtilizedBandwidthKey:  float64(link.GetUnidirBandwidthUtilization()),
+		helper.PacketLossKey:         float64(link.GetUnidirPacketLoss()),
 	}
 }
 
@@ -172,7 +172,7 @@ func (processor *NetworkProcessor) addLinkToGraph(link domain.Link) error {
 	return nil
 }
 
-func (processor *NetworkProcessor) setEdgeWeight(edge graph.Edge, key string, value float64) error {
+func (processor *NetworkProcessor) setEdgeWeight(edge graph.Edge, key helper.WeightKey, value float64) error {
 	if value == 0 {
 		return fmt.Errorf("Value is 0, not setting %s", key)
 	}

@@ -1,15 +1,19 @@
 package graph
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/hawkv6/hawkeye/pkg/helper"
+)
 
 type NetworkEdge struct {
 	id      interface{}
 	from    Node
 	to      Node
-	weights map[string]float64
+	weights map[helper.WeightKey]float64
 }
 
-func NewNetworkEdge(id interface{}, from Node, to Node, weights map[string]float64) *NetworkEdge {
+func NewNetworkEdge(id interface{}, from Node, to Node, weights map[helper.WeightKey]float64) *NetworkEdge {
 	return &NetworkEdge{
 		id:      id,
 		from:    from,
@@ -30,11 +34,11 @@ func (edge *NetworkEdge) To() Node {
 	return edge.to
 }
 
-func (edge *NetworkEdge) GetAllWeights() map[string]float64 {
+func (edge *NetworkEdge) GetAllWeights() map[helper.WeightKey]float64 {
 	return edge.weights
 }
 
-func (edge *NetworkEdge) GetWeight(kind string) (float64, error) {
+func (edge *NetworkEdge) GetWeight(kind helper.WeightKey) (float64, error) {
 	weight, ok := edge.weights[kind]
 	if !ok {
 		return 0, fmt.Errorf("weight kind %s not found", kind)
@@ -42,6 +46,6 @@ func (edge *NetworkEdge) GetWeight(kind string) (float64, error) {
 	return weight, nil
 }
 
-func (edge *NetworkEdge) SetWeight(kind string, weight float64) {
+func (edge *NetworkEdge) SetWeight(kind helper.WeightKey, weight float64) {
 	edge.weights[kind] = weight
 }

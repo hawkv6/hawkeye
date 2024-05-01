@@ -7,20 +7,20 @@ import (
 
 type PathResult interface {
 	PathRequest
-	graph.PathResult
+	graph.Path
 	GetIpv6SidAddresses() []string
 }
 
 type DomainPathResult struct {
 	PathRequest
-	graph.PathResult
+	graph.Path
 	ipv6SidAddresses []string `validate:"required,dive,ipv6"`
 }
 
-func NewDomainPathResult(pathRequest PathRequest, graphResult graph.PathResult, ipv6SidAddresses []string) (*DomainPathResult, error) {
+func NewDomainPathResult(pathRequest PathRequest, shortestPath graph.Path, ipv6SidAddresses []string) (*DomainPathResult, error) {
 	defaultPathResult := &DomainPathResult{
 		PathRequest:      pathRequest,
-		PathResult:       graphResult,
+		Path:             shortestPath,
 		ipv6SidAddresses: ipv6SidAddresses,
 	}
 	validator := validator.New()

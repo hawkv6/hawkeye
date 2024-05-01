@@ -44,25 +44,13 @@ func (helper *DefaultHelper) GetLsSrv6SidsProperties() []string {
 	return []string{"Key", "IgpRouterId", "Srv6Sid"}
 }
 
-func (helper *DefaultHelper) GetDefaultKey() string {
-	return "default"
-}
-func (helper *DefaultHelper) GetLatencyKey() string {
-	return "latency"
-}
+type WeightKey string
 
-func (helper *DefaultHelper) GetJitterKey() string {
-	return "jitter"
-}
-
-func (helper *DefaultHelper) GetAvailableBandwidthKey() string {
-	return "availableBandwidth"
-}
-
-func (helper *DefaultHelper) GetUtilizedBandwidthKey() string {
-	return "utilizedBandwith"
-}
-
-func (helper *DefaultHelper) GetPacketLossKey() string {
-	return "loss"
-}
+const (
+	DefaultKey            WeightKey = "default"
+	LatencyKey            WeightKey = "latency"
+	JitterKey             WeightKey = "jitter"
+	AvailableBandwidthKey WeightKey = "availableBandwidth"
+	UtilizedBandwidthKey  WeightKey = "utilizedBandwith"
+	PacketLossKey         WeightKey = "loss"
+)

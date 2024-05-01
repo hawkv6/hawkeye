@@ -1,9 +1,7 @@
 package graph
 
 import (
-	"container/heap"
 	"fmt"
-	"math"
 	"sync"
 
 	"github.com/hawkv6/hawkeye/pkg/helper"
@@ -45,6 +43,10 @@ func (graph *NetworkGraph) NodeExists(id interface{}) bool {
 func (graph *NetworkGraph) GetNode(id interface{}) (Node, bool) {
 	node, exists := graph.nodes[id]
 	return node, exists
+}
+
+func (graph *NetworkGraph) GetNodes() map[interface{}]Node {
+	return graph.nodes
 }
 
 func (graph *NetworkGraph) AddNode(node Node) (Node, error) {
@@ -97,92 +99,4 @@ func (graph *NetworkGraph) DeleteEdge(edge Edge) {
 	from.DeleteEdge(edge.GetId())
 	to.DeleteEdge(edge.GetId())
 	delete(graph.edges, edge.GetId())
-}
-
-func (graph *NetworkGraph) GetShortestPath(from Node, to Node, weightType string) (PathResult, error) {
-	distances, priorityQueue := graph.initializeDijkstra(from)
-	previous := make(map[interface{}]Edge)
-
-	if err := graph.performDijkstra(to, weightType, distances, &priorityQueue, previous); err != nil {
-		return nil, err
-	}
-
-	path, cost, err := graph.reconstructPath(from, to, previous, weightType)
-	if err != nil {
-		return nil, err
-	}
-	return NewShortestPathResult(path, cost), nil
-}
-
-func (graph *NetworkGraph) initializeDijkstra(from Node) (map[interface{}]float64, PriorityQueue) {
-	distances := make(map[interface{}]float64)
-	priorityQueue := make(PriorityQueue, 0)
-	for id := range graph.nodes {
-		distances[id] = math.Inf(1)
-	}
-	heap.Init(&priorityQueue)
-	distances[from.GetId()] = 0
-	heap.Push(&priorityQueue, &Item{nodeId: from.GetId(), distance: distances[from.GetId()], index: 0})
-
-	return distances, priorityQueue
-}
-
-func (graph *NetworkGraph) performDijkstra(to Node, weightType string, distances map[interface{}]float64, priorityQueue *PriorityQueue, previous map[interface{}]Edge) error {
-	for !priorityQueue.IsEmpty() {
-		item := heap.Pop(priorityQueue).(*Item)
-		currentId := item.GetNodeId()
-		if currentId == to.GetId() {
-			break
-		}
-		for _, edge := range graph.nodes[currentId].GetEdges() {
-			neighbor := edge.To()
-			weight, err := edge.GetWeight(weightType)
-			if err != nil {
-				return err
-			}
-			var alternativeDistance float64
-			if weightType == helper.NewDefaultHelper().GetPacketLossKey() {
-				packetLossTransform := -math.Log(1 - weight)
-				alternativeDistance = distances[currentId] + packetLossTransform
-			} else {
-				alternativeDistance = distances[currentId] + weight
-			}
-
-			if alternativeDistance < distances[neighbor.GetId()] {
-				neighborId := neighbor.GetId()
-				distances[neighborId] = alternativeDistance
-				previous[neighborId] = edge
-				heap.Push(priorityQueue, &Item{nodeId: neighborId, distance: alternativeDistance})
-			}
-		}
-	}
-	return nil
-}
-
-func (graph *NetworkGraph) reconstructPath(from Node, to Node, previous map[interface{}]Edge, weightType string) ([]Edge, float64, error) {
-	path := make([]Edge, 0)
-	current := to
-	var totalCost float64
-	if weightType != helper.NewDefaultHelper().GetPacketLossKey() {
-		totalCost = 0
-	} else {
-		totalCost = 1
-	}
-	for current.GetId() != from.GetId() {
-		edge := previous[current.GetId()]
-		path = append([]Edge{edge}, path...)
-		cost, err := edge.GetWeight(weightType)
-		if err != nil {
-			return nil, 0, err
-		} else if weightType != helper.NewDefaultHelper().GetPacketLossKey() {
-			totalCost += cost
-		} else {
-			totalCost *= cost
-		}
-		current = edge.From()
-	}
-	if len(path) == 0 {
-		return nil, 0, fmt.Errorf("No path found from node %d to node %d", from.GetId(), to.GetId())
-	}
-	return path, totalCost, nil
 }
