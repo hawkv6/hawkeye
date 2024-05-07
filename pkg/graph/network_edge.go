@@ -1,8 +1,6 @@
 package graph
 
 import (
-	"fmt"
-
 	"github.com/hawkv6/hawkeye/pkg/helper"
 )
 
@@ -38,12 +36,8 @@ func (edge *NetworkEdge) GetAllWeights() map[helper.WeightKey]float64 {
 	return edge.weights
 }
 
-func (edge *NetworkEdge) GetWeight(kind helper.WeightKey) (float64, error) {
-	weight, ok := edge.weights[kind]
-	if !ok {
-		return 0, fmt.Errorf("weight kind %s not found", kind)
-	}
-	return weight, nil
+func (edge *NetworkEdge) GetWeight(kind helper.WeightKey) float64 {
+	return edge.weights[kind]
 }
 
 func (edge *NetworkEdge) SetWeight(kind helper.WeightKey, weight float64) {

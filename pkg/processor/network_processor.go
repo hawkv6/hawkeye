@@ -176,10 +176,8 @@ func (processor *NetworkProcessor) setEdgeWeight(edge graph.Edge, key helper.Wei
 	if value == 0 {
 		return fmt.Errorf("Value is 0, not setting %s", key)
 	}
-	currentValue, err := edge.GetWeight(key)
-	if err != nil {
-		return fmt.Errorf("Error getting %s weight: %v", key, err)
-	}
+	currentValue := edge.GetWeight(key)
+
 	if currentValue != value {
 		edge.SetWeight(key, value)
 	}

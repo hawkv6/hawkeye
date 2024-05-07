@@ -134,7 +134,7 @@ func (manager *CalculationManager) findPathForSingleIntent(intent domain.Intent,
 		manager.log.Errorln("Error getting shortest path: ", err)
 		return nil
 	}
-	manager.log.Debugf("Shortest Path found with cost %g: ", path.GetCost())
+	manager.log.Debugf("Shortest Path found with weight %g: ", path.GetCost())
 	return manager.createPathResult(path, pathRequest)
 
 }
@@ -165,10 +165,7 @@ func (manager *CalculationManager) checkifPathValid(pathResult domain.PathResult
 		if !exist {
 			return 0, fmt.Errorf("Path not valid, edge not found in graph: %s", edge.GetId())
 		}
-		cost, err := graphEdge.GetWeight(weightType)
-		if err != nil {
-			return 0, err
-		}
+		cost := graphEdge.GetWeight(weightType)
 		totalCost += cost
 	}
 	return totalCost, nil
