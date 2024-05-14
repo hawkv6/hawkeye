@@ -2,6 +2,10 @@ package graph
 
 type Path interface {
 	GetEdges() []Edge
-	GetCost() float64
-	SetCost(float64)
+	GetTotalCost() float64
+	SetTotalCost(float64)
+	GetBottleneckEdge() Edge
+	GetBottleneckValue() float64
+	SetBottleneckEdge(Edge)
+	SetBottleneckValue(float64)
 }

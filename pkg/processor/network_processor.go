@@ -104,6 +104,7 @@ func (processor *NetworkProcessor) getLinkWeights(link domain.Link) map[helper.W
 		helper.JitterKey:             float64(link.GetUnidirDelayVariation()),
 		helper.AvailableBandwidthKey: float64(link.GetUnidirAvailableBandwidth()),
 		helper.UtilizedBandwidthKey:  float64(link.GetUnidirBandwidthUtilization()),
+		helper.RemainingBandwidthKey: float64(link.GetUnidirAvailableBandwidth() - link.GetUnidirBandwidthUtilization()),
 		helper.PacketLossKey:         float64(link.GetUnidirPacketLoss()),
 	}
 }

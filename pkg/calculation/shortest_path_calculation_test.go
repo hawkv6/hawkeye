@@ -135,7 +135,7 @@ func TestNetworkGraph_GetShortestPath(t *testing.T) {
 			},
 			want: Result{
 				edgeNumbers: []int{3, 7, 10, 9},
-				totalCost:   0.01 * 0.01 * 0.01 * 0.01, // packet loss of edge 3 * edge 7 * edge 10 * edge 9
+				totalCost:   1 - (1-0.01)*(1-0.01)*(1-0.01)*(1-0.01), // ~0.04%, packet loss of edge 3 * edge 7 * edge 10 * edge 9 -> 1% on each link gives in the end 0.04% loss
 			},
 			wantErr: false,
 		},
@@ -159,8 +159,8 @@ func TestNetworkGraph_GetShortestPath(t *testing.T) {
 			if !reflect.DeepEqual(got.GetEdges(), shortestPath) {
 				t.Errorf("DefaultGraph.GetShortestPath() = %v, want %v", got.GetEdges(), shortestPath)
 			}
-			if !almostEqual(got.GetCost(), tt.want.totalCost) {
-				t.Errorf("DefaultGraph.GetShortestPath() = %v, want %v", got.GetCost(), tt.want.totalCost)
+			if !almostEqual(got.GetTotalCost(), tt.want.totalCost) {
+				t.Errorf("DefaultGraph.GetShortestPath() = %v, want %v", got.GetTotalCost(), tt.want.totalCost)
 			}
 		})
 	}

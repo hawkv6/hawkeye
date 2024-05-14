@@ -63,6 +63,10 @@ func (controller *SessionController) handlePathRequest(pathRequest domain.PathRe
 		controller.pathResultChan <- controller.openSessions[serializedPathRequest].GetPathResult()
 	} else {
 		pathResult := controller.manager.CalculateBestPath(pathRequest)
+		if pathResult == nil {
+			controller.log.Errorln("Failed to calculate path result")
+			return
+		}
 		streamSession, err := domain.NewDefaultStreamSession(pathRequest, pathResult)
 		if err != nil {
 			controller.log.Errorln("Failed to create stream session: ", err)

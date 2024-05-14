@@ -48,9 +48,7 @@ func NewShortestPathCalculation(network graph.Graph, source, destination graph.N
 
 func (calculation *ShortestPathCalculation) Execute() (graph.Path, error) {
 	calculation.initializeDijkstra()
-	if err := calculation.performDijkstra(); err != nil {
-		return nil, err
-	}
+	calculation.performDijkstra()
 	return calculation.reconstructPath()
 }
 
@@ -92,30 +90,22 @@ func (calculation *ShortestPathCalculation) calculateAlternativeDistance(current
 	return calculation.weights[currentId] + weight
 }
 
-func (calculation *ShortestPathCalculation) handleMaxCalculation(currentId interface{}, weight float64, neighborId interface{}, edge graph.Edge) error {
-	if calculation.weightType != helper.AvailableBandwidthKey {
-		return fmt.Errorf("CalculationTypeMax is only supported for High Bandwidth Path Calculation")
-	}
+func (calculation *ShortestPathCalculation) handleMaxCalculation(currentId interface{}, weight float64, neighborId interface{}, edge graph.Edge) {
 	if _, ok := calculation.visitedNodes[neighborId]; !ok {
 		minimum := math.Min(calculation.weights[currentId], weight)
 		if minimum > calculation.weights[neighborId] {
 			calculation.updateMetricsAndPrevious(neighborId, minimum, edge)
 		}
 	}
-	return nil
 }
 
-func (calculation *ShortestPathCalculation) handleMinCalculation(currentId interface{}, weight float64, neighborId interface{}, edge graph.Edge) error {
-	if calculation.weightType != helper.AvailableBandwidthKey {
-		return fmt.Errorf("CalculationTypeMin is only supported for Low Bandwidth Path Calculation")
-	}
+func (calculation *ShortestPathCalculation) handleMinCalculation(currentId interface{}, weight float64, neighborId interface{}, edge graph.Edge) {
 	if _, ok := calculation.visitedNodes[neighborId]; !ok {
 		minimum := math.Min(calculation.weights[currentId], weight)
 		if minimum < calculation.weights[neighborId] {
 			calculation.updateMetricsAndPrevious(neighborId, minimum, edge)
 		}
 	}
-	return nil
 }
 
 func (calculation *ShortestPathCalculation) handleDefaultCalculation(currentId interface{}, weight float64, neighborId interface{}, edge graph.Edge) {
@@ -127,22 +117,21 @@ func (calculation *ShortestPathCalculation) handleDefaultCalculation(currentId i
 	}
 }
 
-func (calculation *ShortestPathCalculation) relaxEdge(currentId interface{}, edge graph.Edge) error {
+func (calculation *ShortestPathCalculation) relaxEdge(currentId interface{}, edge graph.Edge) {
 	neighbor := edge.To()
 	weight := edge.GetWeight(calculation.weightType)
 	neighborId := neighbor.GetId()
 
 	if calculation.calculationType == CalculationTypeMax {
-		return calculation.handleMaxCalculation(currentId, weight, neighborId, edge)
+		calculation.handleMaxCalculation(currentId, weight, neighborId, edge)
 	} else if calculation.calculationType == CalculationTypeMin {
-		return calculation.handleMinCalculation(currentId, weight, neighborId, edge)
+		calculation.handleMinCalculation(currentId, weight, neighborId, edge)
 	} else {
 		calculation.handleDefaultCalculation(currentId, weight, neighborId, edge)
 	}
-	return nil
 }
 
-func (calculation *ShortestPathCalculation) performDijkstra() error {
+func (calculation *ShortestPathCalculation) performDijkstra() {
 	for !calculation.priorityQueue.IsEmpty() {
 		item := heap.Pop(&calculation.priorityQueue).(*Item)
 		calculation.visitedNodes[item.GetNodeId()] = true
@@ -152,43 +141,39 @@ func (calculation *ShortestPathCalculation) performDijkstra() error {
 		}
 		currentNode, _ := calculation.graph.GetNode(currentId)
 		for _, edge := range currentNode.GetEdges() {
-			if err := calculation.relaxEdge(currentId, edge); err != nil {
-				return err
-			}
+			calculation.relaxEdge(currentId, edge)
 		}
 	}
-	return nil
 }
 
-func (calculation ShortestPathCalculation) reconstructPath() (graph.Path, error) {
-	path := make([]graph.Edge, 0)
-	current := calculation.destination
-	if calculation.calculationType == CalculationTypeSum {
-		var totalCost float64
-		if calculation.weightType != helper.PacketLossKey {
-			totalCost = 0
-		} else {
-			totalCost = 1
-		}
-		for current.GetId() != calculation.source.GetId() {
-			edge := calculation.EdgeToPrevious[current.GetId()]
-			path = append([]graph.Edge{edge}, path...)
-			cost := edge.GetWeight(calculation.weightType)
-			if calculation.weightType != helper.PacketLossKey {
-				totalCost += cost
-			} else {
-				totalCost *= 1 - cost
-			}
-			current = edge.From()
-		}
-		if calculation.weightType == helper.PacketLossKey {
-			totalCost = 1 - totalCost
-		}
-		if len(path) == 0 {
-			return nil, fmt.Errorf("No path found from node %d to node %d", calculation.source.GetId(), calculation.destination.GetId())
-		}
-		return graph.NewShortestPath(path, totalCost), nil
+func (calculation *ShortestPathCalculation) reconstructSumPath(current graph.Node, path []graph.Edge) (graph.Path, error) {
+	var totalCost float64
+	if calculation.weightType != helper.PacketLossKey {
+		totalCost = 0
+	} else {
+		totalCost = 1
 	}
+	for current.GetId() != calculation.source.GetId() {
+		edge := calculation.EdgeToPrevious[current.GetId()]
+		path = append([]graph.Edge{edge}, path...)
+		cost := edge.GetWeight(calculation.weightType)
+		if calculation.weightType != helper.PacketLossKey {
+			totalCost += cost
+		} else {
+			totalCost *= 1 - cost
+		}
+		current = edge.From()
+	}
+	if calculation.weightType == helper.PacketLossKey {
+		totalCost = 1 - totalCost
+	}
+	if len(path) == 0 {
+		return nil, fmt.Errorf("No path found from node %d to node %d", calculation.source.GetId(), calculation.destination.GetId())
+	}
+	return graph.NewShortestPathWithTotalCost(path, totalCost), nil
+}
+
+func (calculation *ShortestPathCalculation) reconstructMinPath(current graph.Node, path []graph.Edge) (graph.Path, error) {
 	var minEdge graph.Edge
 	minEdgeBandwidth := math.Inf(1)
 	for current.GetId() != calculation.source.GetId() {
@@ -200,10 +185,17 @@ func (calculation ShortestPathCalculation) reconstructPath() (graph.Path, error)
 		path = append([]graph.Edge{edge}, path...)
 		current = edge.From()
 	}
-	calculation.log.Debugf("Minimum Bandwidth Edge found with %v bandwidth %g: ", minEdge, minEdgeBandwidth)
-
 	if len(path) == 0 {
 		return nil, fmt.Errorf("No path found from node %d to node %d", calculation.source.GetId(), calculation.destination.GetId())
 	}
-	return graph.NewShortestPath(path, minEdgeBandwidth), nil
+	calculation.log.Debugf("Bottleneck found with %v bandwidth %g: ", minEdge, minEdgeBandwidth)
+	return graph.NewShortestPathWithBottleneck(path, minEdge, minEdgeBandwidth), nil
+}
+
+func (calculation ShortestPathCalculation) reconstructPath() (graph.Path, error) {
+	path := make([]graph.Edge, 0)
+	if calculation.calculationType == CalculationTypeSum {
+		return calculation.reconstructSumPath(calculation.destination, path)
+	}
+	return calculation.reconstructMinPath(calculation.destination, path)
 }

@@ -52,5 +52,8 @@ const (
 	JitterKey             WeightKey = "jitter"
 	AvailableBandwidthKey WeightKey = "availableBandwidth"
 	UtilizedBandwidthKey  WeightKey = "utilizedBandwith"
+	RemainingBandwidthKey WeightKey = "remainingBandwidth"
 	PacketLossKey         WeightKey = "loss"
 )
+
+const FlappingThreshold = 0.1 // If better path is found with 10% less cost, then it is considered as better path

@@ -2,6 +2,7 @@ package calculation
 
 import (
 	"fmt"
+	"math"
 	"net"
 	"reflect"
 
@@ -98,6 +99,8 @@ func (manager *CalculationManager) getWeightKeyAndCalcType(intentType domain.Int
 		return helper.PacketLossKey, CalculationTypeSum
 	case domain.IntentTypeLowJitter:
 		return helper.JitterKey, CalculationTypeSum
+	case domain.IntentLowUtilization:
+		return helper.RemainingBandwidthKey, CalculationTypeMax
 	default:
 		return "", ""
 	}
@@ -134,16 +137,32 @@ func (manager *CalculationManager) findPathForSingleIntent(intent domain.Intent,
 		manager.log.Errorln("Error getting shortest path: ", err)
 		return nil
 	}
-	manager.log.Debugf("Shortest Path found with weight %g: ", path.GetCost())
+	if calcType == CalculationTypeSum {
+		manager.log.Debugf("Shortest Path found with cost %g: ", path.GetTotalCost())
+	} else {
+		manager.log.Debugf("Shortest Path found with bottleneck %g: ", path.GetBottleneckValue())
+		manager.log.Debugf("Bottleneck edge for this new path is: %v", path.GetBottleneckEdge())
+	}
 	return manager.createPathResult(path, pathRequest)
 
 }
 
-func (manager *CalculationManager) CalculateBestPath(pathRequest domain.PathRequest) domain.PathResult {
+func (manager *CalculationManager) lockElements() {
+	manager.log.Debugln("Locking cache and graph mutexes")
 	manager.graph.Lock()
 	manager.cache.Lock()
-	defer manager.graph.Unlock()
-	defer manager.cache.Unlock()
+}
+
+func (manager *CalculationManager) unlockElements() {
+	manager.log.Debugln("Unlocking cache and graph mutexes")
+	manager.graph.Unlock()
+	manager.cache.Unlock()
+}
+
+func (manager *CalculationManager) CalculateBestPath(pathRequest domain.PathRequest) domain.PathResult {
+	manager.lockElements()
+	defer manager.unlockElements()
+
 	intents := pathRequest.GetIntents()
 	if len(intents) == 1 {
 		return manager.findPathForSingleIntent(intents[0], pathRequest)
@@ -157,87 +176,114 @@ func (manager *CalculationManager) CalculateBestPath(pathRequest domain.PathRequ
 	return nil
 }
 
-func (manager *CalculationManager) checkifPathValid(pathResult domain.PathResult, weightType helper.WeightKey) (float64, error) {
+func (manager *CalculationManager) calculateTotalCost(pathResult domain.PathResult, weightType helper.WeightKey) error {
 	totalCost := 0.0
 	edges := pathResult.GetEdges()
 	for _, edge := range edges {
 		graphEdge, exist := manager.graph.GetEdge(edge.GetId())
 		if !exist {
-			return 0, fmt.Errorf("Path not valid, edge not found in graph: %s", edge.GetId())
+			return fmt.Errorf("Path not valid, edge not found in graph: %s", edge.GetId())
 		}
 		cost := graphEdge.GetWeight(weightType)
 		totalCost += cost
 	}
-	return totalCost, nil
-}
-
-func (manager *CalculationManager) validateCurrentResult(intent domain.Intent, currentpathResult domain.PathResult) error {
-	switch intentType := intent.GetIntentType(); intentType {
-	case domain.IntentTypeLowLatency:
-		return manager.validateCurrentResultForIntent(helper.LatencyKey, currentpathResult)
-	case domain.IntentTypeLowPacketLoss:
-		return manager.validateCurrentResultForIntent(helper.PacketLossKey, currentpathResult)
-	case domain.IntentTypeLowJitter:
-		return manager.validateCurrentResultForIntent(helper.JitterKey, currentpathResult)
-	default:
-		return fmt.Errorf("Unknown intent type: %s", intentType)
-	}
-}
-
-func (manager *CalculationManager) validateCurrentResultForIntent(weightType helper.WeightKey, currentpathResult domain.PathResult) error {
-	cost, err := manager.checkifPathValid(currentpathResult, weightType)
-	if err != nil {
-		return fmt.Errorf("Current path is not valid anymore because of: %s", err)
-	}
-	if cost != currentpathResult.GetCost() {
-		manager.log.Debugf("Cost of current path has changed from %f to %f", currentpathResult.GetCost(), cost)
-		currentpathResult.SetCost(cost)
+	if pathResult.GetTotalCost() != totalCost {
+		manager.log.Debugf("Total cost of current applied path changed from %f to %f", pathResult.GetTotalCost(), totalCost)
+		pathResult.SetTotalCost(totalCost)
 	}
 	return nil
 }
 
-func (calcultor *CalculationManager) setNewPathResult(streamSession domain.StreamSession, result domain.PathResult) {
-	calcultor.log.Debugf("Setting new path with SID list %v and cost %f", result.GetIpv6SidAddresses(), result.GetCost())
-	streamSession.SetPathResult(result)
+func (manager *CalculationManager) calculateMinimumValue(pathResult domain.PathResult, weightType helper.WeightKey) error {
+	minValue := math.Inf(1)
+	var bottleneckEdge graph.Edge
+	edges := pathResult.GetEdges()
+	for _, edge := range edges {
+		graphEdge, exist := manager.graph.GetEdge(edge.GetId())
+		if !exist {
+			return fmt.Errorf("Path not valid, edge not found in graph: %s", edge.GetId())
+		}
+		cost := graphEdge.GetWeight(weightType)
+		if cost < minValue {
+			bottleneckEdge = graphEdge
+			minValue = cost
+		}
+	}
+	if pathResult.GetBottleneckEdge() != bottleneckEdge {
+		manager.log.Debugf("Bottleneck edge of current applied path changed from %v to %v", pathResult.GetBottleneckEdge(), bottleneckEdge)
+		manager.log.Debugf("Bottleneck value of current applied path changed from %f to %f", pathResult.GetBottleneckValue(), minValue)
+		pathResult.SetBottleneckEdge(bottleneckEdge)
+		pathResult.SetBottleneckValue(minValue)
+	} else if pathResult.GetBottleneckValue() != minValue {
+		manager.log.Debugf("Bottleneck value of current applied path changed from %f to %f", pathResult.GetBottleneckValue(), minValue)
+		pathResult.SetBottleneckValue(minValue)
+	}
+	return nil
+}
+
+func (manager *CalculationManager) validateCurrentResult(currentpathResult domain.PathResult, weightKey helper.WeightKey, calcType CalculationType) error {
+	if calcType == CalculationTypeSum {
+		return manager.calculateTotalCost(currentpathResult, weightKey)
+	}
+	return manager.calculateMinimumValue(currentpathResult, weightKey)
 }
 
 func (manager *CalculationManager) CalculatePathUpdate(streamSession domain.StreamSession) *domain.PathResult {
-	currentpathResult := streamSession.GetPathResult()
-	manager.log.Debugln("SID list of current path is", currentpathResult.GetIpv6SidAddresses())
+	manager.lockElements()
+	defer manager.unlockElements()
+
+	currentPathResult := streamSession.GetPathResult()
+	currentAppliedSidList := currentPathResult.GetIpv6SidAddresses()
+	manager.log.Debugln("SID list of current path is", currentAppliedSidList)
+
 	pathRequest := streamSession.GetPathRequest()
-	result := manager.CalculateBestPath(pathRequest)
-	if !reflect.DeepEqual(result.GetIpv6SidAddresses(), currentpathResult.GetIpv6SidAddresses()) {
-		manager.log.Debugln("Better Path found, check for applicability ")
-		intents := pathRequest.GetIntents()
-		if len(intents) != 1 {
-			// TODO change logic if there are multiple intents
-			manager.log.Errorln("Handling of several intents not yet implemented")
+	intents := pathRequest.GetIntents()
+	manager.log.Debugln("Recalculate path with new network state")
+	newPathResult := manager.findPathForSingleIntent(pathRequest.GetIntents()[0], pathRequest)
+
+	if !reflect.DeepEqual(newPathResult.GetIpv6SidAddresses(), currentAppliedSidList) {
+		manager.log.Debugln("Better Path found, check for applicability.")
+		manager.log.Debugln("Validate current path and its cost")
+		weightKey, calcType := manager.getWeightKeyAndCalcType(intents[0].GetIntentType())
+		if err := manager.validateCurrentResult(currentPathResult, weightKey, calcType); err != nil { // TODO adapt if there several intents
+			manager.log.Errorln("Current Path is not valid anymore, new path will be applied: ", err)
+			streamSession.SetPathResult(newPathResult)
+			return &newPathResult
+		}
+
+		manager.log.Debugln("Current path is still valid, check if new path is better")
+		if calcType == CalculationTypeSum {
+			newPathTotalCost := newPathResult.GetTotalCost()
+			currentPathTotalCost := currentPathResult.GetTotalCost()
+			if newPathTotalCost < currentPathTotalCost*(1-helper.FlappingThreshold) {
+				manager.log.Debugf("New path will be applied, cost of new path is by more than 10 percent smaller, current: %f to new: %f", currentPathTotalCost, newPathTotalCost)
+				streamSession.SetPathResult(newPathResult)
+				return &newPathResult
+			} else {
+				manager.log.Debugf("No path changes, cost of new path is not smaller by more than 10 percent, current: %f to new: %f", currentPathTotalCost, newPathTotalCost)
+			}
+		} else {
+			newPathMinimumValue := newPathResult.GetBottleneckValue()
+			newPathMinimumEdge := newPathResult.GetBottleneckEdge()
+			currentPathMinimumValue := currentPathResult.GetBottleneckValue()
+			currentPathMinimumEdge := currentPathResult.GetBottleneckEdge()
+			if newPathMinimumValue < currentPathMinimumValue*(1-helper.FlappingThreshold) {
+				manager.log.Debugf("Bottleneck in old path was %v with value %g: ", currentPathMinimumEdge, currentPathMinimumValue)
+				manager.log.Debugf("Bottleneck in new path is %v with value %g: ", newPathMinimumEdge, newPathMinimumValue)
+				manager.log.Debugf("New Path will be applied, bottleneck of new path is by more than 10 percent smaller, current: %f to new: %f", currentPathMinimumValue, newPathMinimumValue)
+				streamSession.SetPathResult(newPathResult)
+				return &newPathResult
+			} else {
+				manager.log.Debugf("No path changes, cost of new path is not smaller by more than 10 percent, current: %f to new: %f", currentPathMinimumValue, newPathMinimumValue)
+			}
+		}
+	} else {
+		manager.log.Debugln("SID List is equal - no change in path found")
+		weightKey, calcType := manager.getWeightKeyAndCalcType(intents[0].GetIntentType())
+		if err := manager.validateCurrentResult(currentPathResult, weightKey, calcType); err != nil { // TODO adapt if there several intents
+			manager.log.Errorln("Current Path is not valid anymore, new path will be applied: ", err)
 			return nil
 		}
-		manager.log.Debugln("Validate current path and its cost")
-		err := manager.validateCurrentResult(pathRequest.GetIntents()[0], currentpathResult)
-		if err != nil {
-			manager.log.Errorln("Current Path is not valid anymore: ", err)
-			manager.setNewPathResult(streamSession, result)
-			return &result
-		} else {
-			manager.log.Debugln("Current path is valid, check if new path is better")
-		}
-		currentCost := currentpathResult.GetCost()
-		resultCost := result.GetCost()
-		if resultCost <= currentCost*0.9 {
-			manager.log.Debugf("Cost of new path is by more than 10 percent smaller, current: %f to new: %f", currentpathResult.GetCost(), result.GetCost())
-			manager.setNewPathResult(streamSession, result)
-			return &result
-		} else {
-			manager.log.Debugf("Cost has not decreased by more than 10 percent current: %f new: %f", currentpathResult.GetCost(), result.GetCost())
-			manager.log.Debugln("Current path is still applicable")
-		}
-	} else if result.GetCost() != currentpathResult.GetCost() {
-		manager.log.Debugf("Best path unchanged but its cost has changed from %f to %f", currentpathResult.GetCost(), result.GetCost())
-		currentpathResult.SetCost(result.GetCost())
-	} else {
-		manager.log.Debugln("No change in path result found")
 	}
 	return nil
 }

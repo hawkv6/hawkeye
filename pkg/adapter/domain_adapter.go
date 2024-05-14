@@ -157,6 +157,8 @@ func (adapter *DomainAdapter) convertIntentTypeToDomain(apiIntentType api.Intent
 		return domain.IntentTypeFlexAlgo, nil
 	case api.IntentType_INTENT_TYPE_SFC:
 		return domain.IntentTypeSFC, nil
+	case api.IntentType_INTENT_TYPE_LOW_UTILIZATION:
+		return domain.IntentLowUtilization, nil
 	default:
 		return domain.IntentTypeUnspecified, fmt.Errorf("Intent type unspecified")
 	}
