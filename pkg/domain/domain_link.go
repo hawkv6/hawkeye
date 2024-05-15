@@ -10,6 +10,7 @@ type Link interface {
 	GetRemoteIgpRouterId() string
 	GetUnidirLinkDelay() uint32
 	GetUnidirDelayVariation() uint32
+	GetMaxLinkBWKbps() uint64
 	GetUnidirAvailableBandwidth() uint32
 	GetUnidirPacketLoss() float32
 	GetUnidirBandwidthUtilization() uint32
@@ -21,6 +22,7 @@ type LinkInput struct {
 	RemoteIgpRouterId          *string  `validate:"required"`
 	UnidirLinkDelay            *uint32  `validate:"required"`
 	UnidirDelayVariation       *uint32  `validate:"required"`
+	MaxLinkBWKbps              *uint64  `validate:"required,min=1"`
 	UnidirAvailableBw          *uint32  `validate:"required"`
 	UnidirPacketLoss           *float32 `validate:"required,min=0"`
 	UnidirBandwidthUtilization *uint32  `validate:"required"`
@@ -32,18 +34,20 @@ type DomainLink struct {
 	remoteIgpRouterId          string
 	unidirLinkDelay            uint32
 	unidirDelayVariation       uint32
+	maxLinkBWKbps              uint64
 	unidirAvailableBandwidth   uint32
 	unidirPacketLoss           float32
 	unidirBandwidthUtilization uint32
 }
 
-func NewDomainLink(key, igpRouterId, remoteIgpRouterId *string, unidirLinkDelay, unidirDelayVariation, unidirAvailableBandwidth, unidirBandwidthUtilization *uint32, unidirPacketLoss *float32) (*DomainLink, error) {
+func NewDomainLink(key, igpRouterId, remoteIgpRouterId *string, unidirLinkDelay, unidirDelayVariation *uint32, maxLinkBWKbps *uint64, unidirAvailableBandwidth, unidirBandwidthUtilization *uint32, unidirPacketLoss *float32) (*DomainLink, error) {
 	input := &LinkInput{
 		Key:                        key,
 		IgpRouterId:                igpRouterId,
 		RemoteIgpRouterId:          remoteIgpRouterId,
 		UnidirLinkDelay:            unidirLinkDelay,
 		UnidirDelayVariation:       unidirDelayVariation,
+		MaxLinkBWKbps:              maxLinkBWKbps,
 		UnidirAvailableBw:          unidirAvailableBandwidth,
 		UnidirPacketLoss:           unidirPacketLoss,
 		UnidirBandwidthUtilization: unidirBandwidthUtilization,
@@ -60,6 +64,7 @@ func NewDomainLink(key, igpRouterId, remoteIgpRouterId *string, unidirLinkDelay,
 		remoteIgpRouterId:          *remoteIgpRouterId,
 		unidirLinkDelay:            *unidirLinkDelay,
 		unidirDelayVariation:       *unidirDelayVariation,
+		maxLinkBWKbps:              *maxLinkBWKbps,
 		unidirAvailableBandwidth:   *unidirAvailableBandwidth,
 		unidirPacketLoss:           *unidirPacketLoss,
 		unidirBandwidthUtilization: *unidirBandwidthUtilization,
@@ -86,6 +91,10 @@ func (l *DomainLink) GetUnidirLinkDelay() uint32 {
 
 func (l *DomainLink) GetUnidirDelayVariation() uint32 {
 	return l.unidirDelayVariation
+}
+
+func (l *DomainLink) GetMaxLinkBWKbps() uint64 {
+	return l.maxLinkBWKbps
 }
 
 func (l *DomainLink) GetUnidirAvailableBandwidth() uint32 {

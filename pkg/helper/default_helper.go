@@ -28,6 +28,7 @@ func (helper *DefaultHelper) GetLsLinkProperties() []string {
 		"RemoteIgpRouterId",
 		"UnidirLinkDelay",
 		"UnidirDelayVariation",
+		"MaxLinkBWKbps",
 		"UnidirAvailableBW",
 		"UnidirPacketLoss",
 		"UnidirBWUtilization",
@@ -50,9 +51,9 @@ const (
 	DefaultKey            WeightKey = "default"
 	LatencyKey            WeightKey = "latency"
 	JitterKey             WeightKey = "jitter"
+	MaximumLinkBandwidth  WeightKey = "maximumLinkBandwidth"
 	AvailableBandwidthKey WeightKey = "availableBandwidth"
 	UtilizedBandwidthKey  WeightKey = "utilizedBandwith"
-	RemainingBandwidthKey WeightKey = "remainingBandwidth"
 	PacketLossKey         WeightKey = "loss"
 )
 

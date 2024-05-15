@@ -92,7 +92,7 @@ func (manager *CalculationManager) getWeightKeyAndCalcType(intentType domain.Int
 	case domain.IntentTypeHighBandwidth:
 		return helper.AvailableBandwidthKey, CalculationTypeMax
 	case domain.IntentTypeLowBandwidth:
-		return helper.AvailableBandwidthKey, CalculationTypeMin
+		return helper.MaximumLinkBandwidth, CalculationTypeMin
 	case domain.IntentTypeLowLatency:
 		return helper.LatencyKey, CalculationTypeSum
 	case domain.IntentTypeLowPacketLoss:
@@ -100,7 +100,7 @@ func (manager *CalculationManager) getWeightKeyAndCalcType(intentType domain.Int
 	case domain.IntentTypeLowJitter:
 		return helper.JitterKey, CalculationTypeSum
 	case domain.IntentLowUtilization:
-		return helper.RemainingBandwidthKey, CalculationTypeMax
+		return helper.UtilizedBandwidthKey, CalculationTypeSum
 	default:
 		return "", ""
 	}
