@@ -108,12 +108,3 @@ func (cache *InMemoryCache) GetNodeByIgpRouterId(igpRouterId string) (domain.Nod
 		return node, ok
 	}
 }
-
-func (cache *InMemoryCache) StoreLink(link domain.Link) {
-	cache.linkMap[link.GetKey()] = link
-}
-
-func (cache *InMemoryCache) GetLinkByKey(key string) (domain.Link, bool) {
-	link, ok := cache.linkMap[key]
-	return link, ok
-}

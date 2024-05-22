@@ -1,8 +1,11 @@
 package calculation
 
 import (
+	"fmt"
 	"math"
+	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/hawkv6/hawkeye/pkg/graph"
@@ -158,10 +161,58 @@ func TestNetworkGraph_GetShortestPath(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got.GetEdges(), shortestPath) {
 				t.Errorf("DefaultGraph.GetShortestPath() = %v, want %v", got.GetEdges(), shortestPath)
+			} else {
+				diagram := generatePlantUMLDiagram(nodes, got.GetEdges(), tt.name, got.GetTotalCost())
+				fmt.Println(diagram)
+				err := os.WriteFile(fmt.Sprintf("../../test/uml/%s.uml", tt.name), []byte(diagram), 0644)
+				if err != nil {
+					t.Errorf("Failed to save PlantUML diagram: %v", err)
+				}
 			}
 			if !almostEqual(got.GetTotalCost(), tt.want.totalCost) {
 				t.Errorf("DefaultGraph.GetShortestPath() = %v, want %v", got.GetTotalCost(), tt.want.totalCost)
 			}
 		})
 	}
+}
+
+func generatePlantUMLDiagram(nodes map[int]graph.Node, shortestPath []graph.Edge, title string, totalCost float64) string {
+	var builder strings.Builder
+
+	builder.WriteString("@startuml\n")
+
+	builder.WriteString(fmt.Sprintf("title %s\n", title))
+	builder.WriteString(fmt.Sprintf("caption Total cost: %f\n", totalCost))
+
+	for _, node := range nodes {
+		id := node.GetId()
+		builder.WriteString(fmt.Sprintf("node \"%d\" as n%d\n", id, id))
+	}
+
+	shortestPathEdges := make(map[interface{}]bool)
+	for _, edge := range shortestPath {
+		shortestPathEdges[edge.GetId()] = true
+	}
+
+	for _, node := range nodes {
+		for _, edge := range node.GetEdges() {
+			color := ""
+			if shortestPathEdges[edge.GetId()] {
+				color = " #red"
+			}
+			weights := edge.GetAllWeights()
+			from := edge.From().GetId()
+			to := edge.To().GetId()
+			if color == "" {
+				builder.WriteString(fmt.Sprintf("n%d -- n%d : \"%d <-> %d \\nDefault: %f\\nLatency: %fms\\nJitter: %fus\\nLoss: %f\"\n",
+					from, to, from, to, weights[helper.DefaultKey], weights[helper.LatencyKey], weights[helper.JitterKey], weights[helper.PacketLossKey]))
+			} else {
+				builder.WriteString(fmt.Sprintf("n%d -- n%d %s : \"%d <-> %d \\nDefault: %f\\nLatency: %fms\\nJitter: %fus\\nLoss: %f\" SPF \n",
+					from, to, color, from, to, weights[helper.DefaultKey], weights[helper.LatencyKey], weights[helper.JitterKey], weights[helper.PacketLossKey]))
+			}
+		}
+	}
+	builder.WriteString("@enduml\n")
+
+	return builder.String()
 }

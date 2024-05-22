@@ -18,18 +18,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	jagwServiceAddress   string
-	jagwRequestPort      string
-	jagwSubscriptionPort string
-	grpcPort             string
-)
-
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Starts the Hawkeye controller",
 	Run: func(cmd *cobra.Command, args []string) {
-		config, err := config.NewDefaultConfig(jagwServiceAddress, jagwRequestPort, jagwSubscriptionPort, grpcPort)
+		config, err := config.NewFullConfig(jagwServiceAddress, jagwRequestPort, jagwSubscriptionPort, grpcPort)
 		if err != nil {
 			log.Fatalf("Error creating config: %v", err)
 		}

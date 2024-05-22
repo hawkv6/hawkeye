@@ -13,26 +13,30 @@ import (
 )
 
 type NetworkProcessor struct {
-	log          *logrus.Entry
-	graph        graph.Graph
-	cache        cache.Cache
-	eventChan    chan domain.NetworkEvent
-	quitChan     chan struct{}
-	helper       helper.Helper
-	prefixCounts map[string]int
-	updateChan   chan struct{}
+	log               *logrus.Entry
+	graph             graph.Graph
+	cache             cache.Cache
+	eventChan         chan domain.NetworkEvent
+	quitChan          chan struct{}
+	prefixCounts      map[string]int
+	updateChan        chan struct{}
+	latencyMetrics    []float64
+	jitterMetrics     []float64
+	packetLossMetrics []float64
 }
 
 func NewNetworkProcessor(graph graph.Graph, cache cache.Cache, eventChan chan domain.NetworkEvent, helper helper.Helper, updateChan chan struct{}) *NetworkProcessor {
 	return &NetworkProcessor{
-		log:          logging.DefaultLogger.WithField("subsystem", Subsystem),
-		graph:        graph,
-		cache:        cache,
-		eventChan:    eventChan,
-		helper:       helper,
-		quitChan:     make(chan struct{}),
-		prefixCounts: make(map[string]int),
-		updateChan:   updateChan,
+		log:               logging.DefaultLogger.WithField("subsystem", Subsystem),
+		graph:             graph,
+		cache:             cache,
+		eventChan:         eventChan,
+		quitChan:          make(chan struct{}),
+		prefixCounts:      make(map[string]int),
+		updateChan:        updateChan,
+		latencyMetrics:    []float64{},
+		jitterMetrics:     []float64{},
+		packetLossMetrics: []float64{},
 	}
 }
 
@@ -149,25 +153,48 @@ func (processor *NetworkProcessor) addEdgeToGraph(edge graph.Edge) error {
 	return nil
 }
 
+func (processor *NetworkProcessor) GetLatencyMetrics() []float64 {
+	return processor.latencyMetrics
+}
+
+func (processor *NetworkProcessor) GetJitterMetrics() []float64 {
+	return processor.jitterMetrics
+}
+
+func (processor *NetworkProcessor) GetPacketLossMetrics() []float64 {
+	return processor.packetLossMetrics
+}
+
+func (processor *NetworkProcessor) addWeightToMetrics(weightKey helper.WeightKey, value float64) {
+	if weightKey == helper.LatencyKey {
+		processor.latencyMetrics = append(processor.latencyMetrics, value)
+	} else if weightKey == helper.JitterKey {
+		processor.jitterMetrics = append(processor.jitterMetrics, value)
+	} else if weightKey == helper.PacketLossKey {
+		processor.packetLossMetrics = append(processor.packetLossMetrics, value)
+	}
+}
+
 func (processor *NetworkProcessor) addLinkToGraph(link domain.Link) error {
-	from, err := processor.getOrCreateNode(link.GetIgpRouterId())
-	if err != nil {
-		return err
-	}
-
-	to, err := processor.getOrCreateNode(link.GetRemoteIgpRouterId())
-	if err != nil {
-		return err
-	}
-
 	key := link.GetKey()
 	if !processor.graph.EdgeExists(key) {
 		weights := processor.getLinkWeights(link)
-		for _, weight := range weights {
-			if weight == 0 {
-				return fmt.Errorf("Link contains zero values, link %s is created during next update", key)
+		for weightKey, value := range weights {
+			if value == 0 {
+				return fmt.Errorf("Link contains zero values (%s), link %s is created during next update", weightKey, key)
 			}
+			processor.addWeightToMetrics(weightKey, value)
 		}
+		from, err := processor.getOrCreateNode(link.GetIgpRouterId())
+		if err != nil {
+			return err
+		}
+
+		to, err := processor.getOrCreateNode(link.GetRemoteIgpRouterId())
+		if err != nil {
+			return err
+		}
+
 		return processor.addEdgeToGraph(graph.NewNetworkEdge(key, from, to, weights))
 	}
 	return nil
@@ -198,7 +225,6 @@ func (processor *NetworkProcessor) updateLinkInGraph(link domain.Link) error {
 			return err
 		}
 	}
-	processor.cache.StoreLink(link)
 	return nil
 }
 

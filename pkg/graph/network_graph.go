@@ -69,6 +69,10 @@ func (graph *NetworkGraph) GetEdge(id interface{}) (Edge, bool) {
 	return edge, exists
 }
 
+func (graph *NetworkGraph) GetEdges() map[interface{}]Edge {
+	return graph.edges
+}
+
 func (graph *NetworkGraph) EdgeExists(id interface{}) bool {
 	_, exists := graph.edges[id]
 	return exists

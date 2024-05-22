@@ -20,8 +20,14 @@
 # Go workspace file
 go.work
 
-## Binary folder
+# Binary folder
 bin/
+
+# png folder
+png/
+
+# 
+test/uml
 
 
 ## VS Code

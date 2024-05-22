@@ -18,6 +18,4 @@ type Cache interface {
 	StoreNode(node domain.Node)
 	GetNodeByKey(string) (domain.Node, bool)
 	GetNodeByIgpRouterId(string) (domain.Node, bool)
-	StoreLink(link domain.Link)
-	GetLinkByKey(string) (domain.Link, bool)
 }

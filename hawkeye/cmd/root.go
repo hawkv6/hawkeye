@@ -5,7 +5,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var log = logging.DefaultLogger.WithField("subsystem", "cmd")
+var (
+	log                  = logging.DefaultLogger.WithField("subsystem", "cmd")
+	jagwServiceAddress   string
+	jagwRequestPort      string
+	jagwSubscriptionPort string
+	grpcPort             string
+)
 
 func markRequiredFlags(cmd *cobra.Command, flags []string) {
 	for _, flag := range flags {
@@ -13,6 +19,7 @@ func markRequiredFlags(cmd *cobra.Command, flags []string) {
 			log.Fatal(err)
 		}
 	}
+
 }
 
 var rootCmd = &cobra.Command{

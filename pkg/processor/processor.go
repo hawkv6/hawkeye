@@ -11,4 +11,7 @@ type Processor interface {
 	CreateSids([]domain.Sid)
 	Start()
 	Stop()
+	GetLatencyMetrics() []float64
+	GetJitterMetrics() []float64
+	GetPacketLossMetrics() []float64
 }

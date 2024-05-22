@@ -12,6 +12,7 @@ type Graph interface {
 	NodeExists(id interface{}) bool
 	AddEdge(edge Edge) error
 	GetEdge(id interface{}) (Edge, bool)
+	GetEdges() map[interface{}]Edge
 	EdgeExists(id interface{}) bool
 	DeleteEdge(edge Edge)
 }
