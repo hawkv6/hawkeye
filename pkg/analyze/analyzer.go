@@ -3,6 +3,7 @@ package analyze
 import (
 	"fmt"
 	"image/color"
+	"math"
 
 	"github.com/hawkv6/hawkeye/pkg/logging"
 	"github.com/hawkv6/hawkeye/pkg/processor"
@@ -102,6 +103,61 @@ func (analyzer *MetricAnalyzer) calculateStatisticalIndicators(metricName string
 
 }
 
+func (analyzer *MetricAnalyzer) countOccurrences(values []float64, binSize float64) map[float64]int {
+	counts := make(map[float64]int)
+	for _, value := range values {
+		// Round to the nearest bin.
+		bin := math.Round(value/binSize) * binSize
+		counts[bin]++
+	}
+	return counts
+}
+
+func (analyzer *MetricAnalyzer) createHistogramWithBoxPlot(metricName string, metrics []float64, folderName string) {
+	p := plot.New()
+	p.Title.Text = metricName + " histogram"
+	p.X.Label.Text = "Value"
+	p.Y.Label.Text = "Frequency"
+
+	n := len(metrics)
+
+	binSize := 0.001
+
+	counts := analyzer.countOccurrences(metrics, binSize)
+
+	metricPts := make(plotter.XYs, len(counts))
+	index := 0
+	for bin, count := range counts {
+		metricPts[index] = plotter.XY{X: float64(bin), Y: float64(count)}
+		index++
+	}
+	max := 0.0
+	for _, count := range counts {
+		if float64(count) > max {
+			max = float64(count)
+		}
+	}
+
+	h, err := plotter.NewHistogram(metricPts, len(counts))
+	if err != nil {
+		analyzer.log.Fatalf("Error creating histogram %s", err)
+	}
+	h.LogY = true
+	p.Add(h)
+
+	values := plotter.Values(metrics)
+	boxPlot, err := plotter.NewBoxPlot(vg.Length(10), float64(n), values)
+	if err != nil {
+		analyzer.log.Fatalf("Error creating box plot %s", err)
+	}
+	boxPlot.Horizontal = true
+	p.Add(boxPlot)
+
+	if err := p.Save(8*vg.Inch, 8*vg.Inch, fmt.Sprintf("../png/%s/histogram_%s.png", folderName, metricName)); err != nil {
+		analyzer.log.Fatalf("Error saving %s plot histogram to PNG", err)
+	}
+}
+
 func (analyzer *MetricAnalyzer) createPlot(metricName string, metrics []float64, color color.RGBA, shape int, dashes []vg.Length, folderName string) (*plotter.Line, *plotter.Scatter) {
 	p := plot.New()
 	p.Title.Text = fmt.Sprintf("%s values", metricName)
@@ -135,6 +191,7 @@ func (analyzer *MetricAnalyzer) createPlot(metricName string, metrics []float64,
 func (analyzer *MetricAnalyzer) analyzeOriginalMetric(metricName string, metrics []float64, color color.RGBA, shape int, dashes []vg.Length) (*plotter.Line, *plotter.Scatter) {
 	analyzer.log.Debugf("Analyzing original %s metrics", metricName)
 	analyzer.calculateStatisticalIndicators(metricName, metrics)
+	analyzer.createHistogramWithBoxPlot(metricName, metrics, "original")
 	return analyzer.createPlot(metricName, metrics, color, shape, dashes, "original")
 }
 
@@ -163,6 +220,7 @@ func (analyzer *MetricAnalyzer) analyzeOriginalMetrics() {
 	latencyLine, latencyPoints := analyzer.analyzeOriginalMetric("latency", analyzer.latencyMetrics, color.RGBA{R: 0, G: 126, B: 107, A: 255}, 0, nil)
 	jitterLine, jitterPoints := analyzer.analyzeOriginalMetric("jitter", analyzer.jitterMetrics, color.RGBA{R: 140, G: 25, B: 95, A: 255}, 1, []vg.Length{vg.Points(5), vg.Points(5)})
 	packetLossLine, packetLossPoints := analyzer.analyzeOriginalMetric("packet_loss", analyzer.packetLossMetrics, color.RGBA{R: 215, G: 40, B: 100, A: 255}, 2, []vg.Length{vg.Points(2), vg.Points(2)})
+
 	analyzer.combinePlots(latencyLine, jitterLine, packetLossLine, latencyPoints, jitterPoints, packetLossPoints, "Original Network Metrics", "Index", "Values", "../png/original/combined_network_metrics.png")
 }
 
@@ -195,6 +253,7 @@ func (analyzer *MetricAnalyzer) analyzeMetricRobustNormalized(metricName string,
 	analyzer.log.Debugf("Analyzing robust normalized %s metrics", metricName)
 	robustNormalizedMetrics := analyzer.applyRobustNormalization(metricName, metrics)
 	analyzer.calculateStatisticalIndicators(metricName, robustNormalizedMetrics)
+	analyzer.createHistogramWithBoxPlot(metricName, robustNormalizedMetrics, "robust")
 	return analyzer.createPlot(metricName, robustNormalizedMetrics, color, shape, dashes, "robust")
 }
 
@@ -224,6 +283,7 @@ func (analyzer *MetricAnalyzer) analyzeMetricStandardScaled(metricName string, m
 	analyzer.log.Debugf("Analyzing standard scaled %s metrics", metricName)
 	standardScaledMetrics := analyzer.applyStandardScale(metricName, metrics)
 	analyzer.calculateStatisticalIndicators(metricName, standardScaledMetrics)
+	analyzer.createHistogramWithBoxPlot(metricName, standardScaledMetrics, "standard")
 	return analyzer.createPlot(metricName, standardScaledMetrics, color, shape, dashes, "standard")
 }
 
@@ -252,6 +312,7 @@ func (analyzer *MetricAnalyzer) analyzeMetricMinMaxScaled(metricName string, met
 	analyzer.log.Debugf("Analyzing min max scaled %s metrics", metricName)
 	minMaxScaledMetrics := analyzer.applyMinMaxScaling(metricName, metrics)
 	analyzer.calculateStatisticalIndicators(metricName, minMaxScaledMetrics)
+	analyzer.createHistogramWithBoxPlot(metricName, minMaxScaledMetrics, "minmax")
 	return analyzer.createPlot(metricName, minMaxScaledMetrics, color, shape, dashes, "minmax")
 }
 
