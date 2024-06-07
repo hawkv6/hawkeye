@@ -6,7 +6,7 @@ import (
 	"math"
 
 	"github.com/hawkv6/hawkeye/pkg/logging"
-	"github.com/hawkv6/hawkeye/pkg/processor"
+	"github.com/hawkv6/hawkeye/pkg/normalizer"
 	"github.com/montanaflynn/stats"
 	"github.com/sirupsen/logrus"
 	"gonum.org/v1/plot"
@@ -20,30 +20,31 @@ type Analyzer interface {
 }
 
 type MetricAnalyzer struct {
-	log               *logrus.Entry
-	processor         processor.Processor
-	latencyMetrics    []float64
-	jitterMetrics     []float64
-	packetLossMetrics []float64
+	log                         *logrus.Entry
+	normalizer                  normalizer.Normalizer
+	currentLatencyMetrics       []float64
+	currentJitterMetrics        []float64
+	currentPacketLossMetrics    []float64
+	normalizedLatencyMetrics    []float64
+	normalizedJitterMetrics     []float64
+	normalizedPacketLossMetrics []float64
+	folderName                  string
+	plotName                    string
 }
 
-func NewMetricAnalyzer(processor processor.Processor) *MetricAnalyzer {
+func NewMetricAnalyzer(normalizer normalizer.Normalizer, folderName, plotName string) *MetricAnalyzer {
 	return &MetricAnalyzer{
-		log:               logging.DefaultLogger.WithField("subsystem", "analyze"),
-		processor:         processor,
-		latencyMetrics:    make([]float64, 0),
-		jitterMetrics:     make([]float64, 0),
-		packetLossMetrics: make([]float64, 0),
+		log:                         logging.DefaultLogger.WithField("subsystem", "analyze"),
+		normalizer:                  normalizer,
+		folderName:                  folderName,
+		plotName:                    plotName,
+		currentLatencyMetrics:       normalizer.GetCurrentLatencyValues(),
+		currentJitterMetrics:        normalizer.GetCurrentJitterValues(),
+		currentPacketLossMetrics:    normalizer.GetCurrentPacketLossValues(),
+		normalizedLatencyMetrics:    normalizer.GetNormalizedLatencyValues(),
+		normalizedJitterMetrics:     normalizer.GetNormalizedJitterValues(),
+		normalizedPacketLossMetrics: normalizer.GetNormalizedPacketLossValues(),
 	}
-}
-
-func (analyzer *MetricAnalyzer) calculateMedian(metricName string, data stats.Float64Data) float64 {
-	median, err := stats.Median(data)
-	if err != nil {
-		analyzer.log.Fatalf("Error calculating median %s", metricName)
-	}
-	analyzer.log.Debugf("Median %s: %f", metricName, median)
-	return median
 }
 
 func (analyzer *MetricAnalyzer) calculateMean(metricName string, data stats.Float64Data) float64 {
@@ -64,13 +65,17 @@ func (analyzer *MetricAnalyzer) calculateStandardDeviation(metricName string, da
 	return standardDeviation
 }
 
-func (analyzer *MetricAnalyzer) calculateInterQuartileRange(metricName string, data stats.Float64Data) float64 {
-	iqr, err := stats.InterQuartileRange(data)
+func (analyzer *MetricAnalyzer) calculateQuartiles(metricName string, data stats.Float64Data) (stats.Quartiles, float64) {
+	quartiles, err := stats.Quartile(data)
 	if err != nil {
-		analyzer.log.Fatalf("Error calculating IQR %s", metricName)
+		analyzer.log.Fatalf("Error calculating quartiles %s", metricName)
 	}
-	analyzer.log.Debugf("IQR %s: %f", metricName, iqr)
-	return iqr
+	analyzer.log.Debugln("Q1: ", quartiles.Q1)
+	analyzer.log.Debugln("Q2 / Median: ", quartiles.Q2)
+	analyzer.log.Debugln("Q3", quartiles.Q3)
+	interQuartileRange := quartiles.Q3 - quartiles.Q1
+	analyzer.log.Debugln("Interquartile Range", interQuartileRange)
+	return quartiles, interQuartileRange
 }
 
 func (analyzer *MetricAnalyzer) calculateMin(metricName string, data stats.Float64Data) float64 {
@@ -91,16 +96,24 @@ func (analyzer *MetricAnalyzer) calculateMax(metricName string, data stats.Float
 	return max
 }
 
+func (analyzer *MetricAnalyzer) findOutliers(data stats.Float64Data) stats.Outliers {
+	outliers, err := data.QuartileOutliers()
+	if err != nil {
+		fmt.Println("Error in outliers calculation: ", err)
+	}
+	return outliers
+}
+
 func (analyzer *MetricAnalyzer) calculateStatisticalIndicators(metricName string, metrics []float64) {
 	data := stats.LoadRawData(metrics)
-	median := analyzer.calculateMedian(metricName, data)
 	mean := analyzer.calculateMean(metricName, data)
 	standardDeviation := analyzer.calculateStandardDeviation(metricName, data)
-	interQuartileRange := analyzer.calculateInterQuartileRange(metricName, data)
+	quartiles, interQuartileRange := analyzer.calculateQuartiles(metricName, data)
+	median := quartiles.Q2
 	min := analyzer.calculateMin(metricName, data)
 	max := analyzer.calculateMax(metricName, data)
-	analyzer.log.Debugf("Stastical Indicators %s: Median: %f,  Mean: %f, Standard Deviation: %f, Interquartile Range: %f, min: %f, max: %f", metricName, median, mean, standardDeviation, interQuartileRange, min, max)
-
+	outliers := analyzer.findOutliers(data)
+	analyzer.log.Debugf("Stastical Indicators %s: Median: %f,  Mean: %f, Standard Deviation: %f, Q1: %f, Q3: %f Interquartile Range: %f, min: %f, max: %f, outliers: %+v", metricName, median, mean, standardDeviation, quartiles.Q1, quartiles.Q3, interQuartileRange, min, max, outliers)
 }
 
 func (analyzer *MetricAnalyzer) countOccurrences(values []float64, binSize float64) map[float64]int {
@@ -121,7 +134,7 @@ func (analyzer *MetricAnalyzer) createHistogramWithBoxPlot(metricName string, me
 
 	n := len(metrics)
 
-	binSize := 0.001
+	binSize := 0.0000001
 
 	counts := analyzer.countOccurrences(metrics, binSize)
 
@@ -188,13 +201,6 @@ func (analyzer *MetricAnalyzer) createPlot(metricName string, metrics []float64,
 	return metricLine, metricPoints
 }
 
-func (analyzer *MetricAnalyzer) analyzeOriginalMetric(metricName string, metrics []float64, color color.RGBA, shape int, dashes []vg.Length) (*plotter.Line, *plotter.Scatter) {
-	analyzer.log.Debugf("Analyzing original %s metrics", metricName)
-	analyzer.calculateStatisticalIndicators(metricName, metrics)
-	analyzer.createHistogramWithBoxPlot(metricName, metrics, "original")
-	return analyzer.createPlot(metricName, metrics, color, shape, dashes, "original")
-}
-
 func (anlayzer *MetricAnalyzer) combinePlots(latencyLine, jitterLine, packetLossLine *plotter.Line, latencyPoints, jitterPoints, packetLossPoints *plotter.Scatter, title, xLabel, yLabel string, filename string) {
 	p := plot.New()
 	p.Title.Text = title
@@ -216,120 +222,104 @@ func (anlayzer *MetricAnalyzer) combinePlots(latencyLine, jitterLine, packetLoss
 	}
 }
 
-func (analyzer *MetricAnalyzer) analyzeOriginalMetrics() {
-	latencyLine, latencyPoints := analyzer.analyzeOriginalMetric("latency", analyzer.latencyMetrics, color.RGBA{R: 0, G: 126, B: 107, A: 255}, 0, nil)
-	jitterLine, jitterPoints := analyzer.analyzeOriginalMetric("jitter", analyzer.jitterMetrics, color.RGBA{R: 140, G: 25, B: 95, A: 255}, 1, []vg.Length{vg.Points(5), vg.Points(5)})
-	packetLossLine, packetLossPoints := analyzer.analyzeOriginalMetric("packet_loss", analyzer.packetLossMetrics, color.RGBA{R: 215, G: 40, B: 100, A: 255}, 2, []vg.Length{vg.Points(2), vg.Points(2)})
-
-	analyzer.combinePlots(latencyLine, jitterLine, packetLossLine, latencyPoints, jitterPoints, packetLossPoints, "Original Network Metrics", "Index", "Values", "../png/original/combined_network_metrics.png")
+func (analyzer *MetricAnalyzer) analyzeMetric(metricName, plotName, folderName string, metrics []float64, color color.RGBA, shape int, dashes []vg.Length) (*plotter.Line, *plotter.Scatter) {
+	analyzer.log.Debugf("Analyzing %s %s ", plotName, metricName)
+	analyzer.calculateStatisticalIndicators(metricName, metrics)
+	analyzer.createHistogramWithBoxPlot(metricName, metrics, folderName)
+	return analyzer.createPlot(metricName, metrics, color, shape, dashes, folderName)
 }
 
-func (analyzer *MetricAnalyzer) findOutliers(data stats.Float64Data) {
-	outliers, err := data.QuartileOutliers()
-	if err != nil {
-		fmt.Println("Error in outliers calculation: ", err)
-	}
-	fmt.Println("Outliers: ", outliers)
+func (analyzer *MetricAnalyzer) createAnalysis(latencyMetrics, jitterMetrics, packetLossMetrics []float64, plotName, folderName string) {
+	latencyLine, latencyPoints := analyzer.analyzeMetric("latency", plotName, folderName, latencyMetrics, color.RGBA{R: 0, G: 126, B: 107, A: 255}, 0, nil)
+	jitterLine, jitterPoints := analyzer.analyzeMetric("jitter", plotName, folderName, jitterMetrics, color.RGBA{R: 140, G: 25, B: 95, A: 255}, 1, []vg.Length{vg.Points(5), vg.Points(5)})
+	packetLossLine, packetLossPoints := analyzer.analyzeMetric("packet_loss", plotName, folderName, packetLossMetrics, color.RGBA{R: 215, G: 40, B: 100, A: 255}, 2, []vg.Length{vg.Points(2), vg.Points(2)})
+	analyzer.combinePlots(latencyLine, jitterLine, packetLossLine, latencyPoints, jitterPoints, packetLossPoints, plotName, "Index", "Values", fmt.Sprintf("../png/%s/combined_network_metrics.png", folderName))
 }
 
-func (analyzer *MetricAnalyzer) applyRobustNormalization(metricName string, metrics []float64) []float64 {
-	data := stats.LoadRawData(metrics)
-	median := analyzer.calculateMedian(metricName, data)
-	interQuartileRange := analyzer.calculateInterQuartileRange(metricName, data)
+// func (analyzer *MetricAnalyzer) applyStandardScale(metricName string, metrics []float64) []float64 {
+// 	data := stats.LoadRawData(metrics)
+// 	mean := analyzer.calculateMean(metricName, data)
+// 	standardDeviation := analyzer.calculateStandardDeviation(metricName, data)
 
-	normalizedWithRobust := make([]float64, len(metrics))
-	for i, value := range metrics {
-		normalizedWithRobust[i] = (value - median) / interQuartileRange
-	}
+// 	normalizedWithStandard := make([]float64, len(metrics))
+// 	for i, value := range metrics {
+// 		normalizedWithStandard[i] = (value - mean) / standardDeviation
+// 	}
 
-	analyzer.log.Debugf("%s normalized with robust: %v", metricName, normalizedWithRobust)
+// 	analyzer.log.Debugf("%s normalized with standard scaling: %v", metricName, normalizedWithStandard)
 
-	analyzer.findOutliers(data)
+// 	return normalizedWithStandard
+// }
 
-	return normalizedWithRobust
-}
+// func (analyzer *MetricAnalyzer) analyzeMetricStandardScaled(metricName string, metrics []float64, color color.RGBA, shape int, dashes []vg.Length) (*plotter.Line, *plotter.Scatter) {
+// 	analyzer.log.Debugf("Analyzing standard scaled %s metrics", metricName)
+// 	standardScaledMetrics := analyzer.applyStandardScale(metricName, metrics)
+// 	analyzer.calculateStatisticalIndicators(metricName, standardScaledMetrics)
+// 	analyzer.createHistogramWithBoxPlot(metricName, standardScaledMetrics, "standard")
+// 	return analyzer.createPlot(metricName, standardScaledMetrics, color, shape, dashes, "standard")
+// }
 
-func (analyzer *MetricAnalyzer) analyzeMetricRobustNormalized(metricName string, metrics []float64, color color.RGBA, shape int, dashes []vg.Length) (*plotter.Line, *plotter.Scatter) {
-	analyzer.log.Debugf("Analyzing robust normalized %s metrics", metricName)
-	robustNormalizedMetrics := analyzer.applyRobustNormalization(metricName, metrics)
-	analyzer.calculateStatisticalIndicators(metricName, robustNormalizedMetrics)
-	analyzer.createHistogramWithBoxPlot(metricName, robustNormalizedMetrics, "robust")
-	return analyzer.createPlot(metricName, robustNormalizedMetrics, color, shape, dashes, "robust")
-}
+// func (analyzer *MetricAnalyzer) analyzeStandardScaling() {
+// 	latencyLine, latencyPoints := analyzer.analyzeMetricStandardScaled("latency", analyzer.currentLatencyMetrics, color.RGBA{R: 0, G: 126, B: 107, A: 255}, 0, nil)
+// 	jitterLine, jitterPoints := analyzer.analyzeMetricStandardScaled("jitter", analyzer.currentJitterMetrics, color.RGBA{R: 140, G: 25, B: 95, A: 255}, 1, []vg.Length{vg.Points(5), vg.Points(5)})
+// 	packetLossLine, packetLossPoints := analyzer.analyzeMetricStandardScaled("packet_loss", analyzer.currentPacketLossMetrics, color.RGBA{R: 215, G: 40, B: 100, A: 255}, 2, []vg.Length{vg.Points(2), vg.Points(2)})
+// 	analyzer.combinePlots(latencyLine, jitterLine, packetLossLine, latencyPoints, jitterPoints, packetLossPoints, "Standard Scaling", "Index", "Values", "../png/standard/combined_network_metrics.png")
+// }
 
-func (analyzer *MetricAnalyzer) analyzeRobustNormalization() {
-	latencyLine, latencyPoints := analyzer.analyzeMetricRobustNormalized("latency", analyzer.latencyMetrics, color.RGBA{R: 0, G: 126, B: 107, A: 255}, 0, nil)
-	jitterLine, jitterPoints := analyzer.analyzeMetricRobustNormalized("jitter", analyzer.jitterMetrics, color.RGBA{R: 140, G: 25, B: 95, A: 255}, 1, []vg.Length{vg.Points(5), vg.Points(5)})
-	packetLossLine, packetLossPoints := analyzer.analyzeMetricRobustNormalized("packet_loss", analyzer.packetLossMetrics, color.RGBA{R: 215, G: 40, B: 100, A: 255}, 2, []vg.Length{vg.Points(2), vg.Points(2)})
-	analyzer.combinePlots(latencyLine, jitterLine, packetLossLine, latencyPoints, jitterPoints, packetLossPoints, "Robust Normalization", "Index", "Values", "../png/robust/combined_network_metrics.png")
-}
+// func (analyzer *MetricAnalyzer) applyMinMaxScaling(metricName string, metrics []float64, min, max float64) []float64 {
+// 	normalizedWithMinMax := make([]float64, len(metrics))
+// 	for i, value := range metrics {
+// 		normalizedWithMinMax[i] = (value - min) / (max - min)
+// 		if normalizedWithMinMax[i] > 1 {
+// 			normalizedWithMinMax[i] = 1
+// 		} else if normalizedWithMinMax[i] < 0 {
+// 			normalizedWithMinMax[i] = 0
+// 		}
+// 	}
+// 	analyzer.log.Debugf("%s normalized with min max scaling: %v", metricName, normalizedWithMinMax)
+// 	return normalizedWithMinMax
+// }
 
-func (analyzer *MetricAnalyzer) applyStandardScale(metricName string, metrics []float64) []float64 {
-	data := stats.LoadRawData(metrics)
-	mean := analyzer.calculateMean(metricName, data)
-	standardDeviation := analyzer.calculateStandardDeviation(metricName, data)
+// func (analyzer *MetricAnalyzer) callMinMaxScaling(metricName string, metrics []float64) []float64 {
+// 	min := analyzer.calculateMin(metricName, stats.LoadRawData(metrics))
+// 	max := analyzer.calculateMax(metricName, stats.LoadRawData(metrics))
+// 	return analyzer.applyMinMaxScaling(metricName, metrics, min, max)
+// }
 
-	normalizedWithStandard := make([]float64, len(metrics))
-	for i, value := range metrics {
-		normalizedWithStandard[i] = (value - mean) / standardDeviation
-	}
+// func (analyzer *MetricAnalyzer) analyzeMetricMinMaxScaled(metricName string, metrics []float64, color color.RGBA, shape int, dashes []vg.Length) (*plotter.Line, *plotter.Scatter) {
+// 	analyzer.log.Debugf("Analyzing min max scaled %s metrics", metricName)
+// 	minMaxScaledMetrics := analyzer.callMinMaxScaling(metricName, metrics)
+// 	analyzer.calculateStatisticalIndicators(metricName, minMaxScaledMetrics)
+// 	analyzer.createHistogramWithBoxPlot(metricName, minMaxScaledMetrics, "minmax")
+// 	return analyzer.createPlot(metricName, minMaxScaledMetrics, color, shape, dashes, "minmax")
+// }
 
-	analyzer.log.Debugf("%s normalized with standard scaling: %v", metricName, normalizedWithStandard)
+// func (analyzer *MetricAnalyzer) analyzeMinMaxScaling() {
+// 	latencyLine, latencyPoints := analyzer.analyzeMetricMinMaxScaled("latency", analyzer.currentLatencyMetrics, color.RGBA{R: 0, G: 126, B: 107, A: 255}, 0, nil)
+// 	jitterLine, jitterPoints := analyzer.analyzeMetricMinMaxScaled("jitter", analyzer.currentJitterMetrics, color.RGBA{R: 140, G: 25, B: 95, A: 255}, 1, []vg.Length{vg.Points(5), vg.Points(5)})
+// 	packetLossLine, packetLossPoints := analyzer.analyzeMetricMinMaxScaled("packet_loss", analyzer.currentPacketLossMetrics, color.RGBA{R: 215, G: 40, B: 100, A: 255}, 2, []vg.Length{vg.Points(2), vg.Points(2)})
+// 	analyzer.combinePlots(latencyLine, jitterLine, packetLossLine, latencyPoints, jitterPoints, packetLossPoints, "Min Max Scaling", "Index", "Values", "../png/minmax/combined_network_metrics.png")
+// }
 
-	return normalizedWithStandard
-}
+// func (analyzer *MetricAnalyzer) analyzeMetricIqrBasedMinMaxScaled(metricName string, metrics []float64, color color.RGBA, shape int, dashes []vg.Length) (*plotter.Line, *plotter.Scatter) {
+// 	analyzer.log.Debugf("Analyzing IQR based min max scaled %s metrics", metricName)
+// 	quartiles, interQuartileRange := analyzer.calculateQuartiles(metricName, metrics)
+// 	min := math.Max(quartiles.Q1-1.5*interQuartileRange, 0)
+// 	max := quartiles.Q3 + 1.5*interQuartileRange
+// 	minMaxScaledMetrics := analyzer.applyMinMaxScaling(metricName, metrics, min, max)
+// 	analyzer.calculateStatisticalIndicators(metricName, minMaxScaledMetrics)
+// 	analyzer.createHistogramWithBoxPlot(metricName, minMaxScaledMetrics, "iqr-based-minmax")
+// 	return analyzer.createPlot(metricName, minMaxScaledMetrics, color, shape, dashes, "iqr-based-minmax")
+// }
 
-func (analyzer *MetricAnalyzer) analyzeMetricStandardScaled(metricName string, metrics []float64, color color.RGBA, shape int, dashes []vg.Length) (*plotter.Line, *plotter.Scatter) {
-	analyzer.log.Debugf("Analyzing standard scaled %s metrics", metricName)
-	standardScaledMetrics := analyzer.applyStandardScale(metricName, metrics)
-	analyzer.calculateStatisticalIndicators(metricName, standardScaledMetrics)
-	analyzer.createHistogramWithBoxPlot(metricName, standardScaledMetrics, "standard")
-	return analyzer.createPlot(metricName, standardScaledMetrics, color, shape, dashes, "standard")
-}
+// func (analyzer *MetricAnalyzer) analyzeIqrBasedMinMaxScaling() {
+// 	latencyLine, latencyPoints := analyzer.analyzeMetricIqrBasedMinMaxScaled("latency", analyzer.currentLatencyMetrics, color.RGBA{R: 0, G: 126, B: 107, A: 255}, 0, nil)
+// 	jitterLine, jitterPoints := analyzer.analyzeMetricIqrBasedMinMaxScaled("jitter", analyzer.currentJitterMetrics, color.RGBA{R: 140, G: 25, B: 95, A: 255}, 1, []vg.Length{vg.Points(5), vg.Points(5)})
+// 	packetLossLine, packetLossPoints := analyzer.analyzeMetricIqrBasedMinMaxScaled("packet_loss", analyzer.currentPacketLossMetrics, color.RGBA{R: 215, G: 40, B: 100, A: 255}, 2, []vg.Length{vg.Points(2), vg.Points(2)})
+// 	analyzer.combinePlots(latencyLine, jitterLine, packetLossLine, latencyPoints, jitterPoints, packetLossPoints, "Min Max Scaling IQR Based", "Index", "Values", "../png/iqr-based-minmax/combined_network_metrics.png")
+// }
 
-func (analyzer *MetricAnalyzer) analyzeStandardScaling() {
-	latencyLine, latencyPoints := analyzer.analyzeMetricStandardScaled("latency", analyzer.latencyMetrics, color.RGBA{R: 0, G: 126, B: 107, A: 255}, 0, nil)
-	jitterLine, jitterPoints := analyzer.analyzeMetricStandardScaled("jitter", analyzer.jitterMetrics, color.RGBA{R: 140, G: 25, B: 95, A: 255}, 1, []vg.Length{vg.Points(5), vg.Points(5)})
-	packetLossLine, packetLossPoints := analyzer.analyzeMetricStandardScaled("packet_loss", analyzer.packetLossMetrics, color.RGBA{R: 215, G: 40, B: 100, A: 255}, 2, []vg.Length{vg.Points(2), vg.Points(2)})
-	analyzer.combinePlots(latencyLine, jitterLine, packetLossLine, latencyPoints, jitterPoints, packetLossPoints, "Standard Scaling", "Index", "Values", "../png/standard/combined_network_metrics.png")
-}
-
-func (analyzer *MetricAnalyzer) applyMinMaxScaling(metricName string, metrics []float64) []float64 {
-	min := analyzer.calculateMin(metricName, stats.LoadRawData(metrics))
-	max := analyzer.calculateMax(metricName, stats.LoadRawData(metrics))
-
-	normalizedWithMinMax := make([]float64, len(metrics))
-	for i, value := range metrics {
-		normalizedWithMinMax[i] = (value - min) / (max - min)
-	}
-
-	analyzer.log.Debugf("%s normalized with min max scaling: %v", metricName, normalizedWithMinMax)
-
-	return normalizedWithMinMax
-}
-
-func (analyzer *MetricAnalyzer) analyzeMetricMinMaxScaled(metricName string, metrics []float64, color color.RGBA, shape int, dashes []vg.Length) (*plotter.Line, *plotter.Scatter) {
-	analyzer.log.Debugf("Analyzing min max scaled %s metrics", metricName)
-	minMaxScaledMetrics := analyzer.applyMinMaxScaling(metricName, metrics)
-	analyzer.calculateStatisticalIndicators(metricName, minMaxScaledMetrics)
-	analyzer.createHistogramWithBoxPlot(metricName, minMaxScaledMetrics, "minmax")
-	return analyzer.createPlot(metricName, minMaxScaledMetrics, color, shape, dashes, "minmax")
-}
-
-func (analyzer *MetricAnalyzer) analyzeMinMaxScaling() {
-	latencyLine, latencyPoints := analyzer.analyzeMetricMinMaxScaled("latency", analyzer.latencyMetrics, color.RGBA{R: 0, G: 126, B: 107, A: 255}, 0, nil)
-	jitterLine, jitterPoints := analyzer.analyzeMetricMinMaxScaled("jitter", analyzer.jitterMetrics, color.RGBA{R: 140, G: 25, B: 95, A: 255}, 1, []vg.Length{vg.Points(5), vg.Points(5)})
-	packetLossLine, packetLossPoints := analyzer.analyzeMetricMinMaxScaled("packet_loss", analyzer.packetLossMetrics, color.RGBA{R: 215, G: 40, B: 100, A: 255}, 2, []vg.Length{vg.Points(2), vg.Points(2)})
-	analyzer.combinePlots(latencyLine, jitterLine, packetLossLine, latencyPoints, jitterPoints, packetLossPoints, "Min Max Scaling", "Index", "Values", "../png/minmax/combined_network_metrics.png")
-}
-
-func (analyzer *MetricAnalyzer) Visualize() {
-	analyzer.latencyMetrics = analyzer.processor.GetLatencyMetrics()
-	analyzer.jitterMetrics = analyzer.processor.GetJitterMetrics()
-	analyzer.packetLossMetrics = analyzer.processor.GetPacketLossMetrics()
-
-	analyzer.analyzeOriginalMetrics()
-	analyzer.analyzeRobustNormalization()
-	analyzer.analyzeStandardScaling()
-	analyzer.analyzeMinMaxScaling()
+func (analyzer *MetricAnalyzer) Analyze() {
+	analyzer.createAnalysis(analyzer.currentLatencyMetrics, analyzer.currentJitterMetrics, analyzer.currentPacketLossMetrics, "Original Metrics", "original")
+	analyzer.createAnalysis(analyzer.normalizedLatencyMetrics, analyzer.normalizedJitterMetrics, analyzer.normalizedPacketLossMetrics, analyzer.plotName, analyzer.folderName)
 }

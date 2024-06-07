@@ -14,6 +14,12 @@ type Link interface {
 	GetUnidirAvailableBandwidth() uint32
 	GetUnidirPacketLoss() float32
 	GetUnidirBandwidthUtilization() uint32
+	SetNormalizedUnidirLinkDelay(float64)
+	SetNormalizedUnidirDelayVariation(float64)
+	SetNormalizedPacketLoss(float64)
+	GetNormalizedUnidirLinkDelay() float64
+	GetNormalizedUnidirDelayVariation() float64
+	GetNormalizedPacketLoss() float64
 }
 
 type LinkInput struct {
@@ -29,15 +35,18 @@ type LinkInput struct {
 }
 
 type DomainLink struct {
-	key                        string
-	igpRouterId                string
-	remoteIgpRouterId          string
-	unidirLinkDelay            uint32
-	unidirDelayVariation       uint32
-	maxLinkBWKbps              uint64
-	unidirAvailableBandwidth   uint32
-	unidirPacketLoss           float32
-	unidirBandwidthUtilization uint32
+	key                            string
+	igpRouterId                    string
+	remoteIgpRouterId              string
+	unidirLinkDelay                uint32
+	unidirDelayVariation           uint32
+	maxLinkBWKbps                  uint64
+	unidirAvailableBandwidth       uint32
+	unidirPacketLoss               float32
+	unidirBandwidthUtilization     uint32
+	normalizedUnidirLinkDelay      float64
+	normalizedUnidirDelayVariation float64
+	normalizedPacketLoss           float64
 }
 
 func NewDomainLink(key, igpRouterId, remoteIgpRouterId *string, unidirLinkDelay, unidirDelayVariation *uint32, maxLinkBWKbps *uint64, unidirAvailableBandwidth, unidirBandwidthUtilization *uint32, unidirPacketLoss *float32) (*DomainLink, error) {
@@ -107,4 +116,28 @@ func (l *DomainLink) GetUnidirPacketLoss() float32 {
 
 func (l *DomainLink) GetUnidirBandwidthUtilization() uint32 {
 	return l.unidirBandwidthUtilization
+}
+
+func (l *DomainLink) SetNormalizedUnidirLinkDelay(normalizedUnidirLinkDelay float64) {
+	l.normalizedUnidirLinkDelay = normalizedUnidirLinkDelay
+}
+
+func (l *DomainLink) SetNormalizedUnidirDelayVariation(normalizedUnidirDelayVariation float64) {
+	l.normalizedUnidirDelayVariation = normalizedUnidirDelayVariation
+}
+
+func (l *DomainLink) SetNormalizedPacketLoss(normalizedPacketLoss float64) {
+	l.normalizedPacketLoss = normalizedPacketLoss
+}
+
+func (l *DomainLink) GetNormalizedUnidirLinkDelay() float64 {
+	return l.normalizedUnidirLinkDelay
+}
+
+func (l *DomainLink) GetNormalizedUnidirDelayVariation() float64 {
+	return l.normalizedUnidirDelayVariation
+}
+
+func (l *DomainLink) GetNormalizedPacketLoss() float64 {
+	return l.normalizedPacketLoss
 }

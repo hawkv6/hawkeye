@@ -11,9 +11,16 @@ import (
 	"github.com/hawkv6/hawkeye/pkg/graph"
 	"github.com/hawkv6/hawkeye/pkg/helper"
 	"github.com/hawkv6/hawkeye/pkg/jagw"
+	"github.com/hawkv6/hawkeye/pkg/normalizer"
 	"github.com/hawkv6/hawkeye/pkg/processor"
 	"github.com/spf13/cobra"
 )
+
+type NormalizerCall struct {
+	normalizer.Normalizer
+	folderName string
+	plotTitle  string
+}
 
 var analyzeCmd = &cobra.Command{
 	Use:   "analyze",
@@ -31,20 +38,46 @@ var analyzeCmd = &cobra.Command{
 		graph := graph.NewNetworkGraph(helper)
 		cache := cache.NewInMemoryCache()
 		updateChan := make(chan struct{})
-		processor := processor.NewNetworkProcessor(graph, cache, eventChan, helper, updateChan)
 
-		requestService := jagw.NewJagwRequestService(config, adapter, processor, helper)
-		if err := requestService.Init(); err != nil {
-			log.Fatalf("Error initializing JAGW Request Service: %v", err)
+		normalizers := []NormalizerCall{
+			{
+				normalizer.NewRobustNormalizer(),
+				"robust",
+				"Robust Normalization",
+			},
+			{
+				normalizer.NewIQRMinMaxNormalizer(),
+				"iqr-based-minmax",
+				"IQR Min Max Normalization",
+			},
+			{
+				normalizer.NewMinMaxNormalizer(),
+				"minmax",
+				"Min Max Normalization",
+			},
+			{
+				// normalizer.NewZScoreNormalizer(), // todo rename
+				normalizer.NewStandardNormalizer(),
+				"standard",
+				"Standard Normalization",
+			},
 		}
-		if err := requestService.Start(); err != nil {
-			log.Fatalf("Error starting JAGW Request Service: %v", err)
+
+		for _, normalizer := range normalizers {
+			processor := processor.NewNetworkProcessor(graph, cache, normalizer, eventChan, helper, updateChan)
+
+			requestService := jagw.NewJagwRequestService(config, adapter, processor, helper)
+			if err := requestService.Init(); err != nil {
+				log.Fatalf("Error initializing JAGW Request Service: %v", err)
+			}
+			if err := requestService.Start(); err != nil {
+				log.Fatalf("Error starting JAGW Request Service: %v", err)
+			}
+			analyzer := analyze.NewMetricAnalyzer(normalizer, normalizer.folderName, normalizer.plotTitle)
+			analyzer.Analyze()
+			processor.Stop()
 		}
 
-		visualizer := analyze.NewMetricAnalyzer(processor)
-		visualizer.Visualize()
-
-		processor.Stop()
 	},
 }
 

@@ -14,6 +14,7 @@ import (
 	"github.com/hawkv6/hawkeye/pkg/helper"
 	"github.com/hawkv6/hawkeye/pkg/jagw"
 	"github.com/hawkv6/hawkeye/pkg/messaging"
+	"github.com/hawkv6/hawkeye/pkg/normalizer"
 	"github.com/hawkv6/hawkeye/pkg/processor"
 	"github.com/spf13/cobra"
 )
@@ -34,7 +35,8 @@ var startCmd = &cobra.Command{
 		graph := graph.NewNetworkGraph(helper)
 		cache := cache.NewInMemoryCache()
 		updateChan := make(chan struct{})
-		processor := processor.NewNetworkProcessor(graph, cache, eventChan, helper, updateChan)
+		iqrMinMaxNormalizer := normalizer.NewIQRMinMaxNormalizer()
+		processor := processor.NewNetworkProcessor(graph, cache, iqrMinMaxNormalizer, eventChan, helper, updateChan)
 
 		requestService := jagw.NewJagwRequestService(config, adapter, processor, helper)
 		if err := requestService.Init(); err != nil {
