@@ -22,6 +22,7 @@ type NetworkProcessor struct {
 	quitChan     chan struct{}
 	prefixCounts map[string]int
 	updateChan   chan struct{}
+	links        []domain.Link
 }
 
 func NewNetworkProcessor(graph graph.Graph, cache cache.Cache, normalizer normalizer.Normalizer, eventChan chan domain.NetworkEvent, helper helper.Helper, updateChan chan struct{}) *NetworkProcessor {
@@ -183,7 +184,8 @@ func (processor *NetworkProcessor) addLinkToGraph(link domain.Link) error {
 }
 
 func (processor *NetworkProcessor) setEdgeWeight(edge graph.Edge, key helper.WeightKey, value float64) error {
-	if value == 0 {
+
+	if value == 0 && key != helper.NormalizedLatencyKey && key != helper.NormalizedJitterKey && key != helper.NormalizedLossKey {
 		return fmt.Errorf("Value is 0, not setting %s", key)
 	}
 	currentValue := edge.GetWeight(key)
@@ -208,6 +210,7 @@ func (processor *NetworkProcessor) updateLinkInGraph(link domain.Link) error {
 			return err
 		}
 	}
+	processor.links = append(processor.links, link)
 	return nil
 }
 
@@ -278,6 +281,26 @@ func (processor *NetworkProcessor) deleteSidFromCache(key string) {
 	processor.cache.RemoveSid(sid)
 }
 
+func (processor *NetworkProcessor) normalizeUpdatedLinks() {
+	processor.normalizer.Normalize(processor.links)
+	for _, link := range processor.links {
+		edge, exist := processor.graph.GetEdge(link.GetKey())
+		if !exist {
+			processor.log.Warnf("Link with key %s does not exist in graph", link.GetKey())
+			continue
+		}
+		weights := make(map[helper.WeightKey]float64)
+		processor.addNormalizedLinkWeights(weights, link)
+		for weightKey, value := range weights {
+			if err := processor.setEdgeWeight(edge, weightKey, value); err != nil {
+				processor.log.Warnf("Error setting edge weight %s: %v", weightKey, err)
+			}
+		}
+
+	}
+	processor.links = make([]domain.Link, 0)
+}
+
 func (processor *NetworkProcessor) Start() {
 	holdTime := time.Second * 3
 	processor.log.Infof("Starting processing network updates with hold time %s", holdTime.String())
@@ -285,6 +308,8 @@ func (processor *NetworkProcessor) Start() {
 	timer := time.NewTimer(holdTime)
 	defer timer.Stop()
 	mutexesLocked := false
+
+	processor.links = make([]domain.Link, 0)
 
 	for {
 		select {
@@ -304,7 +329,11 @@ func (processor *NetworkProcessor) Start() {
 				processor.graph.Unlock()
 				mutexesLocked = false
 			}
-			processor.updateChan <- struct{}{}
+			if len(processor.links) > 0 {
+				processor.log.Debugln("Normalize updated links")
+				processor.normalizeUpdatedLinks()
+				processor.updateChan <- struct{}{}
+			}
 		case <-processor.quitChan:
 			if mutexesLocked {
 				processor.cache.Unlock()

@@ -33,6 +33,10 @@ func (normalizer *MinMaxNormalizer) normalizeAndSetValue(value float64, min floa
 }
 
 func (normalizer *MinMaxNormalizer) normalizeLinks(links []domain.Link) {
+	normalizer.log.Debugln("Normalize links using min-max normalization")
+	normalizer.log.Debugln("Min latency: ", normalizer.minLatency, " Max latency: ", normalizer.maxLatency)
+	normalizer.log.Debugln("Min jitter: ", normalizer.minJitter, " Max jitter: ", normalizer.maxJitter)
+	normalizer.log.Debugln("Min packet loss: ", normalizer.minPacketLoss, " Max packet loss: ", normalizer.maxPacketLoss)
 	for i := 0; i < len(links); i++ {
 		link := links[i]
 		delay := float64(link.GetUnidirLinkDelay())

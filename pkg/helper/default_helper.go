@@ -60,4 +60,6 @@ const (
 	NormalizedLossKey     WeightKey = "normalizedLoss"
 )
 
-const FlappingThreshold = 0.1 // If better path is found with 10% less cost, then it is considered as better path
+const FlappingThreshold = 0.1 // If better path is found with 10% less cost, then it is considered as better path; TODO make it configurable via env variable
+
+const RollingWindowSize = 5 // make it configurable via env variable

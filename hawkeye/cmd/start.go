@@ -31,14 +31,17 @@ var startCmd = &cobra.Command{
 
 		eventChan := make(chan domain.NetworkEvent)
 		adapter := adapter.NewDomainAdapter()
-		helper := helper.NewDefaultHelper()
-		graph := graph.NewNetworkGraph(helper)
+		defaultHelper := helper.NewDefaultHelper()
+		graph := graph.NewNetworkGraph(defaultHelper)
 		cache := cache.NewInMemoryCache()
 		updateChan := make(chan struct{})
-		iqrMinMaxNormalizer := normalizer.NewIQRMinMaxNormalizer()
-		processor := processor.NewNetworkProcessor(graph, cache, iqrMinMaxNormalizer, eventChan, helper, updateChan)
+		latencyQueue := normalizer.NewNormalizationQueue(helper.RollingWindowSize)
+		jitterQueue := normalizer.NewNormalizationQueue(helper.RollingWindowSize)
+		packetLossQueue := normalizer.NewNormalizationQueue(helper.RollingWindowSize)
+		iqrMinMaxNormalizer := normalizer.NewIQRMinMaxNormalizer(latencyQueue, jitterQueue, packetLossQueue)
+		processor := processor.NewNetworkProcessor(graph, cache, iqrMinMaxNormalizer, eventChan, defaultHelper, updateChan)
 
-		requestService := jagw.NewJagwRequestService(config, adapter, processor, helper)
+		requestService := jagw.NewJagwRequestService(config, adapter, processor, defaultHelper)
 		if err := requestService.Init(); err != nil {
 			log.Fatalf("Error initializing JAGW Request Service: %v", err)
 		}
@@ -47,13 +50,13 @@ var startCmd = &cobra.Command{
 		}
 
 		messagingChannels := messaging.NewPathMessagingChannels()
-		manager := calculation.NewCalculationManager(cache, graph, helper)
+		manager := calculation.NewCalculationManager(cache, graph, defaultHelper)
 		controller := controller.NewSessionController(manager, messagingChannels, updateChan)
 		go controller.Start()
 
 		go processor.Start()
 
-		subscriptionService := jagw.NewJagwSubscriptionService(config, adapter, helper, eventChan)
+		subscriptionService := jagw.NewJagwSubscriptionService(config, adapter, defaultHelper, eventChan)
 		if err := subscriptionService.Init(); err != nil {
 			log.Fatalf("Error initializing JAGW Subscription Service: %v", err)
 		}

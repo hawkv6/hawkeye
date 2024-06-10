@@ -34,10 +34,14 @@ var analyzeCmd = &cobra.Command{
 
 		eventChan := make(chan domain.NetworkEvent)
 		adapter := adapter.NewDomainAdapter()
-		helper := helper.NewDefaultHelper()
-		graph := graph.NewNetworkGraph(helper)
+		defaultHelper := helper.NewDefaultHelper()
+		graph := graph.NewNetworkGraph(defaultHelper)
 		cache := cache.NewInMemoryCache()
 		updateChan := make(chan struct{})
+
+		latencyQueue := normalizer.NewNormalizationQueue(helper.RollingWindowSize)
+		jitterQueue := normalizer.NewNormalizationQueue(helper.RollingWindowSize)
+		packetLossQueue := normalizer.NewNormalizationQueue(helper.RollingWindowSize)
 
 		normalizers := []NormalizerCall{
 			{
@@ -46,7 +50,7 @@ var analyzeCmd = &cobra.Command{
 				"Robust Normalization",
 			},
 			{
-				normalizer.NewIQRMinMaxNormalizer(),
+				normalizer.NewIQRMinMaxNormalizer(latencyQueue, jitterQueue, packetLossQueue),
 				"iqr-based-minmax",
 				"IQR Min Max Normalization",
 			},
@@ -63,9 +67,9 @@ var analyzeCmd = &cobra.Command{
 		}
 
 		for _, normalizer := range normalizers {
-			processor := processor.NewNetworkProcessor(graph, cache, normalizer, eventChan, helper, updateChan)
+			processor := processor.NewNetworkProcessor(graph, cache, normalizer, eventChan, defaultHelper, updateChan)
 
-			requestService := jagw.NewJagwRequestService(config, adapter, processor, helper)
+			requestService := jagw.NewJagwRequestService(config, adapter, processor, defaultHelper)
 			if err := requestService.Init(); err != nil {
 				log.Fatalf("Error initializing JAGW Request Service: %v", err)
 			}
