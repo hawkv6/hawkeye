@@ -5,7 +5,7 @@ import (
 	"github.com/montanaflynn/stats"
 )
 
-type StandardNormalizer struct {
+type ZScoreNormalizer struct {
 	*BaseNormalizer
 	meanLatency                 float64
 	meanJitter                  float64
@@ -15,19 +15,19 @@ type StandardNormalizer struct {
 	standardDeviationPacketLoss float64
 }
 
-func NewStandardNormalizer() *StandardNormalizer {
-	return &StandardNormalizer{
+func NewZScoreNormalizer() *ZScoreNormalizer {
+	return &ZScoreNormalizer{
 		BaseNormalizer: NewBaseNormalizer(),
 	}
 }
 
-func (normalizer *StandardNormalizer) normalizeAndSetValue(value, mean, standardDeviation float64, setNormalizedValue func(float64)) float64 {
-	normalizedValue := (value - mean) / standardDeviation
-	setNormalizedValue(normalizedValue)
-	return normalizedValue
+func (normalizer *ZScoreNormalizer) normalizeAndSetValue(value, mean, standardDeviation float64, setNormalizedValue func(float64)) float64 {
+	zscore := (value - mean) / standardDeviation
+	setNormalizedValue(zscore)
+	return zscore
 }
 
-func (normalizer *StandardNormalizer) normalizeLinks(links []domain.Link) {
+func (normalizer *ZScoreNormalizer) normalizeLinks(links []domain.Link) {
 	for i := 0; i < len(links); i++ {
 		link := links[i]
 		delay := float64(link.GetUnidirLinkDelay())
@@ -39,7 +39,7 @@ func (normalizer *StandardNormalizer) normalizeLinks(links []domain.Link) {
 	}
 }
 
-func (normalizer *StandardNormalizer) setNormalizationIndicators(metrics []float64, mean, standardDeviation *float64) {
+func (normalizer *ZScoreNormalizer) setNormalizationIndicators(metrics []float64, mean, standardDeviation *float64) {
 	data := stats.LoadRawData(metrics)
 
 	if currentMean, err := stats.Mean(data); err != nil {
@@ -57,7 +57,7 @@ func (normalizer *StandardNormalizer) setNormalizationIndicators(metrics []float
 	}
 }
 
-func (normalizer *StandardNormalizer) Normalize(links []domain.Link) {
+func (normalizer *ZScoreNormalizer) Normalize(links []domain.Link) {
 	normalizer.initializeNormalization(links)
 	normalizer.setNormalizationIndicators(normalizer.currentLatencyValues, &normalizer.meanLatency, &normalizer.standardDeviationLatency)
 	normalizer.setNormalizationIndicators(normalizer.currentJitterValues, &normalizer.meanJitter, &normalizer.standardDeviationJitter)

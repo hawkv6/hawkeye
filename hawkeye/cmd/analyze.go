@@ -56,10 +56,9 @@ var analyzeCmd = &cobra.Command{
 				"Min Max Normalization",
 			},
 			{
-				// normalizer.NewZScoreNormalizer(), // todo rename
-				normalizer.NewStandardNormalizer(),
-				"standard",
-				"Standard Normalization",
+				normalizer.NewZScoreNormalizer(),
+				"zscore",
+				"Z-Score Normalization",
 			},
 		}
 
