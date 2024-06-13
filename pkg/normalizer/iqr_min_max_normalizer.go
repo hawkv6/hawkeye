@@ -48,7 +48,7 @@ func (normalizer *IQRMinMaxNormalizer) calculateNormalizationIndicators(data sta
 	iqrAverage := q3Average - q1Average
 	normalizer.log.Debugln("Rolling IQR: ", iqrAverage)
 
-	*upperFence = math.Min(q1Average+1.5*iqrAverage, queue.GetAverageMax())
+	*upperFence = math.Min(q3Average+1.5*iqrAverage, queue.GetAverageMax())
 	normalizer.log.Debugln("Upper fence calculated - rolling Q1 + 1.5 * rolling IQR: ", *upperFence)
 	*lowerFence = math.Max(q1Average-1.5*iqrAverage, queue.GetAverageMin())
 	normalizer.log.Debugln("Lower fence calculated - rolling Q1 - 1.5 * rolling IQR: ", *lowerFence)
