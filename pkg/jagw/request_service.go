@@ -40,7 +40,7 @@ func NewJagwRequestService(config config.Config, adapter adapter.Adapter, proces
 
 func (requestService *JagwRequestService) Init() error {
 	requestService.log.Debugln("Initializing JAGW Request Service")
-	grpcClientConnection, err := grpc.Dial(requestService.jagwRequestSocket,
+	grpcClientConnection, err := grpc.NewClient(requestService.jagwRequestSocket,
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err

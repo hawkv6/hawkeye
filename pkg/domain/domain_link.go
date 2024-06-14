@@ -19,19 +19,22 @@ type Link interface {
 	SetNormalizedPacketLoss(float64)
 	GetNormalizedUnidirLinkDelay() float64
 	GetNormalizedUnidirDelayVariation() float64
-	GetNormalizedPacketLoss() float64
+	GetNormalizedUnidirPacketLoss() float64
 }
 
 type LinkInput struct {
-	Key                        *string  `validate:"required"`
-	IgpRouterId                *string  `validate:"required"`
-	RemoteIgpRouterId          *string  `validate:"required"`
-	UnidirLinkDelay            *uint32  `validate:"required"`
-	UnidirDelayVariation       *uint32  `validate:"required"`
-	MaxLinkBWKbps              *uint64  `validate:"required,min=1"`
-	UnidirAvailableBw          *uint32  `validate:"required"`
-	UnidirPacketLoss           *float32 `validate:"required,min=0"`
-	UnidirBandwidthUtilization *uint32  `validate:"required"`
+	Key                            *string  `validate:"required"`
+	IgpRouterId                    *string  `validate:"required"`
+	RemoteIgpRouterId              *string  `validate:"required"`
+	UnidirLinkDelay                *uint32  `validate:"required"`
+	UnidirDelayVariation           *uint32  `validate:"required"`
+	MaxLinkBWKbps                  *uint64  `validate:"required,min=1"`
+	UnidirAvailableBw              *uint32  `validate:"required"`
+	UnidirPacketLoss               *float32 `validate:"required,min=0"`
+	UnidirBandwidthUtilization     *uint32  `validate:"required"`
+	NormalizedUnidirLinkDelay      *float64 `validate:"required,min=0,max=1"`
+	NormalizedUnidirDelayVariation *float64 `validate:"required,min=0,max=1"`
+	NormalizedUnidirPacketLoss     *float64 `validate:"required,min=0,max=1"`
 }
 
 type DomainLink struct {
@@ -46,20 +49,23 @@ type DomainLink struct {
 	unidirBandwidthUtilization     uint32
 	normalizedUnidirLinkDelay      float64
 	normalizedUnidirDelayVariation float64
-	normalizedPacketLoss           float64
+	normalizedUnidirPacketLoss     float64
 }
 
-func NewDomainLink(key, igpRouterId, remoteIgpRouterId *string, unidirLinkDelay, unidirDelayVariation *uint32, maxLinkBWKbps *uint64, unidirAvailableBandwidth, unidirBandwidthUtilization *uint32, unidirPacketLoss *float32) (*DomainLink, error) {
+func NewDomainLink(key, igpRouterId, remoteIgpRouterId *string, unidirLinkDelay, unidirDelayVariation *uint32, maxLinkBWKbps *uint64, unidirAvailableBandwidth, unidirBandwidthUtilization *uint32, unidirPacketLoss *float32, normalizedUnidirLinkDelay, normalizedUnidirDelayVariation, normalizedUnidirPacketLoss *float64) (*DomainLink, error) {
 	input := &LinkInput{
-		Key:                        key,
-		IgpRouterId:                igpRouterId,
-		RemoteIgpRouterId:          remoteIgpRouterId,
-		UnidirLinkDelay:            unidirLinkDelay,
-		UnidirDelayVariation:       unidirDelayVariation,
-		MaxLinkBWKbps:              maxLinkBWKbps,
-		UnidirAvailableBw:          unidirAvailableBandwidth,
-		UnidirPacketLoss:           unidirPacketLoss,
-		UnidirBandwidthUtilization: unidirBandwidthUtilization,
+		Key:                            key,
+		IgpRouterId:                    igpRouterId,
+		RemoteIgpRouterId:              remoteIgpRouterId,
+		UnidirLinkDelay:                unidirLinkDelay,
+		UnidirDelayVariation:           unidirDelayVariation,
+		MaxLinkBWKbps:                  maxLinkBWKbps,
+		UnidirAvailableBw:              unidirAvailableBandwidth,
+		UnidirPacketLoss:               unidirPacketLoss,
+		UnidirBandwidthUtilization:     unidirBandwidthUtilization,
+		NormalizedUnidirLinkDelay:      normalizedUnidirLinkDelay,
+		NormalizedUnidirDelayVariation: normalizedUnidirDelayVariation,
+		NormalizedUnidirPacketLoss:     normalizedUnidirPacketLoss,
 	}
 
 	validate := validator.New()
@@ -68,76 +74,79 @@ func NewDomainLink(key, igpRouterId, remoteIgpRouterId *string, unidirLinkDelay,
 	}
 
 	defaultLink := &DomainLink{
-		key:                        *key,
-		igpRouterId:                *igpRouterId,
-		remoteIgpRouterId:          *remoteIgpRouterId,
-		unidirLinkDelay:            *unidirLinkDelay,
-		unidirDelayVariation:       *unidirDelayVariation,
-		maxLinkBWKbps:              *maxLinkBWKbps,
-		unidirAvailableBandwidth:   *unidirAvailableBandwidth,
-		unidirPacketLoss:           *unidirPacketLoss,
-		unidirBandwidthUtilization: *unidirBandwidthUtilization,
+		key:                            *key,
+		igpRouterId:                    *igpRouterId,
+		remoteIgpRouterId:              *remoteIgpRouterId,
+		unidirLinkDelay:                *unidirLinkDelay,
+		unidirDelayVariation:           *unidirDelayVariation,
+		maxLinkBWKbps:                  *maxLinkBWKbps,
+		unidirAvailableBandwidth:       *unidirAvailableBandwidth,
+		unidirPacketLoss:               *unidirPacketLoss,
+		unidirBandwidthUtilization:     *unidirBandwidthUtilization,
+		normalizedUnidirLinkDelay:      *normalizedUnidirLinkDelay,
+		normalizedUnidirDelayVariation: *normalizedUnidirDelayVariation,
+		normalizedUnidirPacketLoss:     *normalizedUnidirPacketLoss,
 	}
 
 	return defaultLink, nil
 }
 
-func (l *DomainLink) GetKey() string {
-	return l.key
+func (link *DomainLink) GetKey() string {
+	return link.key
 }
 
-func (l *DomainLink) GetIgpRouterId() string {
-	return l.igpRouterId
+func (link *DomainLink) GetIgpRouterId() string {
+	return link.igpRouterId
 }
 
-func (l *DomainLink) GetRemoteIgpRouterId() string {
-	return l.remoteIgpRouterId
+func (link *DomainLink) GetRemoteIgpRouterId() string {
+	return link.remoteIgpRouterId
 }
 
-func (l *DomainLink) GetUnidirLinkDelay() uint32 {
-	return l.unidirLinkDelay
+func (link *DomainLink) GetUnidirLinkDelay() uint32 {
+	return link.unidirLinkDelay
 }
 
-func (l *DomainLink) GetUnidirDelayVariation() uint32 {
-	return l.unidirDelayVariation
+func (link *DomainLink) GetUnidirDelayVariation() uint32 {
+	return link.unidirDelayVariation
 }
 
-func (l *DomainLink) GetMaxLinkBWKbps() uint64 {
-	return l.maxLinkBWKbps
+func (link *DomainLink) GetMaxLinkBWKbps() uint64 {
+	return link.maxLinkBWKbps
 }
 
-func (l *DomainLink) GetUnidirAvailableBandwidth() uint32 {
-	return l.unidirAvailableBandwidth
+func (link *DomainLink) GetUnidirAvailableBandwidth() uint32 {
+	return link.unidirAvailableBandwidth
 }
 
-func (l *DomainLink) GetUnidirPacketLoss() float32 {
-	return l.unidirPacketLoss
+func (link *DomainLink) GetUnidirPacketLoss() float32 {
+	return link.unidirPacketLoss
 }
 
-func (l *DomainLink) GetUnidirBandwidthUtilization() uint32 {
-	return l.unidirBandwidthUtilization
+func (link *DomainLink) GetUnidirBandwidthUtilization() uint32 {
+	return link.unidirBandwidthUtilization
 }
 
-func (l *DomainLink) SetNormalizedUnidirLinkDelay(normalizedUnidirLinkDelay float64) {
-	l.normalizedUnidirLinkDelay = normalizedUnidirLinkDelay
+func (link *DomainLink) SetNormalizedUnidirLinkDelay(normalizedUnidirLinkDelay float64) {
+	link.normalizedUnidirLinkDelay = normalizedUnidirLinkDelay
 }
 
-func (l *DomainLink) SetNormalizedUnidirDelayVariation(normalizedUnidirDelayVariation float64) {
-	l.normalizedUnidirDelayVariation = normalizedUnidirDelayVariation
+func (link *DomainLink) SetNormalizedUnidirDelayVariation(normalizedUnidirDelayVariation float64) {
+	link.normalizedUnidirDelayVariation = normalizedUnidirDelayVariation
 }
 
-func (l *DomainLink) SetNormalizedPacketLoss(normalizedPacketLoss float64) {
-	l.normalizedPacketLoss = normalizedPacketLoss
+func (link *DomainLink) SetNormalizedPacketLoss(normalizedPacketLoss float64) {
+	link.normalizedUnidirPacketLoss = normalizedPacketLoss
 }
 
-func (l *DomainLink) GetNormalizedUnidirLinkDelay() float64 {
-	return l.normalizedUnidirLinkDelay
+func (link *DomainLink) GetNormalizedUnidirLinkDelay() float64 {
+	return link.normalizedUnidirLinkDelay
 }
 
-func (l *DomainLink) GetNormalizedUnidirDelayVariation() float64 {
-	return l.normalizedUnidirDelayVariation
+func (link *DomainLink) GetNormalizedUnidirDelayVariation() float64 {
+	return link.normalizedUnidirDelayVariation
 }
 
-func (l *DomainLink) GetNormalizedPacketLoss() float64 {
-	return l.normalizedPacketLoss
+func (link *DomainLink) GetNormalizedUnidirPacketLoss() float64 {
+	return link.normalizedUnidirPacketLoss
 }

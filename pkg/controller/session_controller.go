@@ -35,7 +35,7 @@ func NewSessionController(manager calculation.Manager, messagingChannels messagi
 func (controller *SessionController) watchForContextCancellation(pathRequest domain.PathRequest, serializedPathRequest string) {
 	<-pathRequest.GetContext().Done()
 	controller.mu.Lock()
-	controller.log.Debugf("Context of path request %s has been cancelled", pathRequest)
+	controller.log.Debugf("Context of path request %s has been cancelled", pathRequest.Serialize())
 	delete(controller.openSessions, serializedPathRequest)
 	controller.mu.Unlock()
 }

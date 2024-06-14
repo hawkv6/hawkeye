@@ -28,10 +28,13 @@ func (helper *DefaultHelper) GetLsLinkProperties() []string {
 		"RemoteIgpRouterId",
 		"UnidirLinkDelay",
 		"UnidirDelayVariation",
-		"MaxLinkBWKbps",
-		"UnidirAvailableBW",
+		"MaxLinkBwKbps",
+		"UnidirAvailableBw",
 		"UnidirPacketLoss",
-		"UnidirBWUtilization",
+		"UnidirBwUtilization",
+		"NormalizedUnidirLinkDelay",
+		"NormalizedUnidirDelayVariation",
+		"NormalizedUnidirPacketLoss",
 	}
 	helper.log.Debugln("LsLink properties", linkProperties)
 	return linkProperties

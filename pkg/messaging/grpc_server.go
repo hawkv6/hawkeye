@@ -62,7 +62,7 @@ func (server *GrpcMessagingServer) GetIntentPath(stream api.IntentController_Get
 		if err != nil {
 			ctx.Done()
 			if err == io.EOF {
-				server.log.Debugf("Stream has with %s ended", peerInfo.Addr)
+				server.log.Debugf("Stream %s ended", peerInfo.Addr)
 				return nil
 			} else {
 				server.log.Errorln("Error receiving message: ", err)

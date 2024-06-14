@@ -22,7 +22,6 @@ type NetworkProcessor struct {
 	quitChan     chan struct{}
 	prefixCounts map[string]int
 	updateChan   chan struct{}
-	links        []domain.Link
 }
 
 func NewNetworkProcessor(graph graph.Graph, cache cache.Cache, normalizer normalizer.Normalizer, eventChan chan domain.NetworkEvent, helper helper.Helper, updateChan chan struct{}) *NetworkProcessor {
@@ -92,7 +91,6 @@ func (processor *NetworkProcessor) CreateGraphNodes(nodes []domain.Node) error {
 }
 
 func (processor *NetworkProcessor) CreateGraphEdges(links []domain.Link) error {
-	processor.normalizer.Normalize(links)
 	for _, link := range links {
 		if err := processor.addLinkToGraph(link); err != nil {
 			return err
@@ -109,13 +107,10 @@ func (processor *NetworkProcessor) getCurrentLinkWeights(link domain.Link) map[h
 		helper.AvailableBandwidthKey: float64(link.GetUnidirAvailableBandwidth()),
 		helper.UtilizedBandwidthKey:  float64(link.GetUnidirBandwidthUtilization()),
 		helper.PacketLossKey:         float64(link.GetUnidirPacketLoss()),
+		helper.NormalizedLatencyKey:  link.GetNormalizedUnidirLinkDelay(),
+		helper.NormalizedJitterKey:   link.GetNormalizedUnidirDelayVariation(),
+		helper.NormalizedLossKey:     link.GetNormalizedUnidirPacketLoss(),
 	}
-}
-
-func (processor *NetworkProcessor) addNormalizedLinkWeights(weights map[helper.WeightKey]float64, link domain.Link) {
-	weights[helper.NormalizedLatencyKey] = link.GetNormalizedUnidirLinkDelay()
-	weights[helper.NormalizedJitterKey] = link.GetNormalizedUnidirDelayVariation()
-	weights[helper.NormalizedLossKey] = link.GetNormalizedPacketLoss()
 }
 
 func (processor *NetworkProcessor) getOrCreateNode(nodeId string) (graph.Node, error) {
@@ -167,7 +162,6 @@ func (processor *NetworkProcessor) addLinkToGraph(link domain.Link) error {
 				return fmt.Errorf("Link contains zero values (%s), link %s is created during next update", weightKey, key)
 			}
 		}
-		processor.addNormalizedLinkWeights(weights, link)
 		from, err := processor.getOrCreateNode(link.GetIgpRouterId())
 		if err != nil {
 			return err
@@ -204,13 +198,11 @@ func (processor *NetworkProcessor) updateLinkInGraph(link domain.Link) error {
 		processor.log.Debugf("Link with key %s does not exist in graph, create it", key)
 		return processor.addLinkToGraph(link)
 	}
-	// TODO adapt for normalized values
 	for weightKey, weightValue := range processor.getCurrentLinkWeights(link) {
 		if err := processor.setEdgeWeight(edge, weightKey, weightValue); err != nil {
 			return err
 		}
 	}
-	processor.links = append(processor.links, link)
 	return nil
 }
 
@@ -281,35 +273,13 @@ func (processor *NetworkProcessor) deleteSidFromCache(key string) {
 	processor.cache.RemoveSid(sid)
 }
 
-func (processor *NetworkProcessor) normalizeUpdatedLinks() {
-	processor.normalizer.Normalize(processor.links)
-	for _, link := range processor.links {
-		edge, exist := processor.graph.GetEdge(link.GetKey())
-		if !exist {
-			processor.log.Warnf("Link with key %s does not exist in graph", link.GetKey())
-			continue
-		}
-		weights := make(map[helper.WeightKey]float64)
-		processor.addNormalizedLinkWeights(weights, link)
-		for weightKey, value := range weights {
-			if err := processor.setEdgeWeight(edge, weightKey, value); err != nil {
-				processor.log.Warnf("Error setting edge weight %s: %v", weightKey, err)
-			}
-		}
-
-	}
-	processor.links = make([]domain.Link, 0)
-}
-
 func (processor *NetworkProcessor) Start() {
-	holdTime := time.Second * 3
+	holdTime := time.Second * 3 // TODO make it configurable via env variable
 	processor.log.Infof("Starting processing network updates with hold time %s", holdTime.String())
 
 	timer := time.NewTimer(holdTime)
 	defer timer.Stop()
 	mutexesLocked := false
-
-	processor.links = make([]domain.Link, 0)
 
 	for {
 		select {
@@ -329,11 +299,7 @@ func (processor *NetworkProcessor) Start() {
 				processor.graph.Unlock()
 				mutexesLocked = false
 			}
-			if len(processor.links) > 0 {
-				processor.log.Debugln("Normalize updated links")
-				processor.normalizeUpdatedLinks()
-				processor.updateChan <- struct{}{}
-			}
+			processor.updateChan <- struct{}{}
 		case <-processor.quitChan:
 			if mutexesLocked {
 				processor.cache.Unlock()

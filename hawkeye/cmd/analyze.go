@@ -5,10 +5,7 @@ import (
 
 	"github.com/hawkv6/hawkeye/pkg/adapter"
 	"github.com/hawkv6/hawkeye/pkg/analyze"
-	"github.com/hawkv6/hawkeye/pkg/cache"
 	"github.com/hawkv6/hawkeye/pkg/config"
-	"github.com/hawkv6/hawkeye/pkg/domain"
-	"github.com/hawkv6/hawkeye/pkg/graph"
 	"github.com/hawkv6/hawkeye/pkg/helper"
 	"github.com/hawkv6/hawkeye/pkg/jagw"
 	"github.com/hawkv6/hawkeye/pkg/normalizer"
@@ -32,12 +29,8 @@ var analyzeCmd = &cobra.Command{
 		}
 		log.Infoln("Config created successfully")
 
-		eventChan := make(chan domain.NetworkEvent)
 		adapter := adapter.NewDomainAdapter()
 		defaultHelper := helper.NewDefaultHelper()
-		graph := graph.NewNetworkGraph(defaultHelper)
-		cache := cache.NewInMemoryCache()
-		updateChan := make(chan struct{})
 
 		latencyQueue := normalizer.NewNormalizationQueue(helper.RollingWindowSize)
 		jitterQueue := normalizer.NewNormalizationQueue(helper.RollingWindowSize)
@@ -67,7 +60,7 @@ var analyzeCmd = &cobra.Command{
 		}
 
 		for _, normalizer := range normalizers {
-			processor := processor.NewNetworkProcessor(graph, cache, normalizer, eventChan, defaultHelper, updateChan)
+			processor := processor.NewAnalyzeProcessor(normalizer.Normalizer)
 
 			requestService := jagw.NewJagwRequestService(config, adapter, processor, defaultHelper)
 			if err := requestService.Init(); err != nil {
@@ -80,7 +73,6 @@ var analyzeCmd = &cobra.Command{
 			analyzer.Analyze()
 			processor.Stop()
 		}
-
 	},
 }
 
