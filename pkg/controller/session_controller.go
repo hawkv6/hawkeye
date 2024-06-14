@@ -48,8 +48,11 @@ func (controller *SessionController) recalculateSessions() {
 	controller.log.Debugln("Pending updates trigger recalculations of all open sessions")
 	for sessionKey, session := range controller.openSessions {
 		controller.log.Debugln("Recalculating for session: ", sessionKey)
-		result := controller.manager.CalculatePathUpdate(session)
-		if result != nil {
+		result, err := controller.manager.CalculatePathUpdate(session)
+		if err != nil {
+			controller.log.Errorln("Failed to recalculate path update: ", err)
+			controller.pathResultChan <- nil
+		} else {
 			controller.pathResultChan <- *result
 		}
 	}
@@ -62,14 +65,16 @@ func (controller *SessionController) handlePathRequest(pathRequest domain.PathRe
 		controller.log.Debugln("Path request already exists")
 		controller.pathResultChan <- controller.openSessions[serializedPathRequest].GetPathResult()
 	} else {
-		pathResult := controller.manager.CalculateBestPath(pathRequest)
-		if pathResult == nil {
-			controller.log.Errorln("Failed to calculate path result")
+		pathResult, err := controller.manager.CalculateBestPath(pathRequest)
+		if err != nil {
+			controller.log.Errorln("Failed to calculate path result: ", err)
+			controller.pathResultChan <- pathResult
 			return
 		}
 		streamSession, err := domain.NewDefaultStreamSession(pathRequest, pathResult)
 		if err != nil {
 			controller.log.Errorln("Failed to create stream session: ", err)
+			controller.pathRequestChan <- pathResult
 			return
 		}
 		controller.openSessions[serializedPathRequest] = streamSession

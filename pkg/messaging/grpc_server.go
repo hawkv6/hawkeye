@@ -87,7 +87,7 @@ func (server *GrpcMessagingServer) GetIntentPathResponse(stream api.IntentContro
 			result, err := server.adapter.ConvertPathResult(pathResult)
 			if err != nil {
 				server.log.Errorln("Error converting PathResult: ", err)
-				return
+				ctx.Done()
 			}
 			if err := stream.Send(result); err != nil {
 				server.log.Errorln("Error sending message: ", err)

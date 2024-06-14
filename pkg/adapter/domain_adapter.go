@@ -242,6 +242,9 @@ func (adapter *DomainAdapter) convertIntentsToApi(intents []domain.Intent) []*ap
 }
 
 func (adapter *DomainAdapter) ConvertPathResult(pathResult domain.PathResult) (*api.PathResult, error) {
+	if pathResult == nil {
+		return nil, fmt.Errorf("PathResult could not be calculated due to error")
+	}
 	ipv6SidAddresses := pathResult.GetIpv6SidAddresses()
 	apiPathResult := &api.PathResult{
 		Ipv6SourceAddress:      pathResult.GetIpv6SourceAddress(),

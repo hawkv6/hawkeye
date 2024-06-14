@@ -11,12 +11,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type CalculationType string
+type CalculationMode int
 
 const (
-	CalculationTypeMin CalculationType = "min"
-	CalculationTypeMax CalculationType = "max"
-	CalculationTypeSum CalculationType = "sum"
+	CalculationModeUndefined CalculationMode = iota
+	CalculationModeSum
+	CalculationModeMin
+	CalculationModeMax
 )
 
 type ShortestPathCalculation struct {
@@ -24,21 +25,21 @@ type ShortestPathCalculation struct {
 	graph           graph.Graph
 	source          graph.Node
 	destination     graph.Node
-	weightType      helper.WeightKey
-	calculationType CalculationType
+	weightTypes     []helper.WeightKey
+	calculationType CalculationMode
 	weights         map[interface{}]float64
 	EdgeToPrevious  map[interface{}]graph.Edge
 	priorityQueue   PriorityQueue
 	visitedNodes    map[interface{}]bool
 }
 
-func NewShortestPathCalculation(network graph.Graph, source, destination graph.Node, weightType helper.WeightKey, calculationType CalculationType) *ShortestPathCalculation {
+func NewShortestPathCalculation(network graph.Graph, source, destination graph.Node, weightTypes []helper.WeightKey, calculationType CalculationMode) *ShortestPathCalculation {
 	return &ShortestPathCalculation{
 		log:             logging.DefaultLogger.WithField("subsystem", "calculation"),
 		graph:           network,
 		source:          source,
 		destination:     destination,
-		weightType:      weightType,
+		weightTypes:     weightTypes,
 		calculationType: calculationType,
 		weights:         make(map[interface{}]float64),
 		EdgeToPrevious:  make(map[interface{}]graph.Edge),
@@ -55,11 +56,11 @@ func (calculation *ShortestPathCalculation) Execute() (graph.Path, error) {
 func (calculation *ShortestPathCalculation) initializeDijkstra() {
 	var initialNodeCost float64
 	var sourceNodeCost float64
-	if calculation.calculationType == CalculationTypeMax {
+	if calculation.calculationType == CalculationModeMax {
 		initialNodeCost = 0
 		sourceNodeCost = math.Inf(1)
 		calculation.priorityQueue = *NewMaximumPriorityQueue()
-	} else if calculation.calculationType == CalculationTypeMin {
+	} else if calculation.calculationType == CalculationModeMin {
 		initialNodeCost = math.Inf(1)
 		sourceNodeCost = math.Inf(1)
 		calculation.priorityQueue = *NewMinimumPriorityQueue()
@@ -83,7 +84,7 @@ func (calculation *ShortestPathCalculation) updateMetricsAndPrevious(neighborId 
 }
 
 func (calculation *ShortestPathCalculation) calculateAlternativeDistance(currentId interface{}, weight float64) float64 {
-	if calculation.weightType == helper.PacketLossKey {
+	if calculation.weightTypes[0] == helper.PacketLossKey {
 		weightPercentage := weight / 100
 		return calculation.weights[currentId] + -math.Log(1-weightPercentage)
 	}
@@ -117,14 +118,27 @@ func (calculation *ShortestPathCalculation) handleDefaultCalculation(currentId i
 	}
 }
 
+func (calculation *ShortestPathCalculation) getWeight(edge graph.Edge) float64 {
+	weight := 0.0
+	if len(calculation.weightTypes) == 2 {
+		weight = edge.GetWeight(calculation.weightTypes[0])*float64(helper.TwoFactorWeights[0]) + edge.GetWeight(calculation.weightTypes[1])*float64(helper.TwoFactorWeights[1])
+
+	} else if len(calculation.weightTypes) == 3 {
+		weight = edge.GetWeight(calculation.weightTypes[0])*float64(helper.ThreeFactorWeights[0]) + edge.GetWeight(calculation.weightTypes[1])*float64(helper.ThreeFactorWeights[1]) + edge.GetWeight(calculation.weightTypes[2])*float64(helper.ThreeFactorWeights[2])
+	} else {
+		weight = edge.GetWeight(calculation.weightTypes[0])
+	}
+	return weight
+}
+
 func (calculation *ShortestPathCalculation) relaxEdge(currentId interface{}, edge graph.Edge) {
 	neighbor := edge.To()
-	weight := edge.GetWeight(calculation.weightType)
 	neighborId := neighbor.GetId()
+	weight := calculation.getWeight(edge)
 
-	if calculation.calculationType == CalculationTypeMax {
+	if calculation.calculationType == CalculationModeMax {
 		calculation.handleMaxCalculation(currentId, weight, neighborId, edge)
-	} else if calculation.calculationType == CalculationTypeMin {
+	} else if calculation.calculationType == CalculationModeMin {
 		calculation.handleMinCalculation(currentId, weight, neighborId, edge)
 	} else {
 		calculation.handleDefaultCalculation(currentId, weight, neighborId, edge)
@@ -147,30 +161,43 @@ func (calculation *ShortestPathCalculation) performDijkstra() {
 }
 
 func (calculation *ShortestPathCalculation) reconstructSumPath(current graph.Node, path []graph.Edge) (graph.Path, error) {
-	var totalCost float64
-	if calculation.weightType != helper.PacketLossKey {
-		totalCost = 0
-	} else {
-		totalCost = 1
+	costMap := make(map[helper.WeightKey]float64, len(path))
+
+	for _, weightType := range calculation.weightTypes {
+		if _, ok := costMap[weightType]; !ok {
+			costMap[weightType] = 0
+		}
 	}
+	costMap[helper.LatencyKey] = 0
+	costMap[helper.JitterKey] = 0
+	costMap[helper.PacketLossKey] = 1
+
+	totalCost := 0.0
 	for current.GetId() != calculation.source.GetId() {
 		edge := calculation.EdgeToPrevious[current.GetId()]
 		path = append([]graph.Edge{edge}, path...)
-		cost := edge.GetWeight(calculation.weightType)
-		if calculation.weightType != helper.PacketLossKey {
-			totalCost += cost
-		} else {
-			totalCost *= 1 - cost
+		costMap[helper.LatencyKey] += edge.GetWeight(helper.LatencyKey)
+		costMap[helper.JitterKey] += edge.GetWeight(helper.JitterKey)
+		costMap[helper.PacketLossKey] *= edge.GetWeight(helper.PacketLossKey)
+		if len(calculation.weightTypes) == 2 {
+			totalCost += edge.GetWeight(calculation.weightTypes[0])*float64(helper.TwoFactorWeights[0]) + edge.GetWeight(calculation.weightTypes[1])*float64(helper.TwoFactorWeights[1])
+		} else if len(calculation.weightTypes) == 3 {
+			totalCost += edge.GetWeight(calculation.weightTypes[0])*float64(helper.ThreeFactorWeights[0]) + edge.GetWeight(calculation.weightTypes[1])*float64(helper.ThreeFactorWeights[1]) + edge.GetWeight(calculation.weightTypes[2])*float64(helper.ThreeFactorWeights[2])
 		}
 		current = edge.From()
 	}
-	if calculation.weightType == helper.PacketLossKey {
-		totalCost = 1 - totalCost
+	if len(calculation.weightTypes) == 1 {
+		if calculation.weightTypes[0] == helper.PacketLossKey {
+			totalCost = 1 - costMap[helper.PacketLossKey]
+		} else {
+			totalCost = costMap[calculation.weightTypes[0]]
+		}
 	}
+
 	if len(path) == 0 {
 		return nil, fmt.Errorf("No path found from node %d to node %d", calculation.source.GetId(), calculation.destination.GetId())
 	}
-	return graph.NewShortestPathWithTotalCost(path, totalCost), nil
+	return graph.NewShortestPathWithTotalCost(path, totalCost, costMap[helper.LatencyKey], costMap[helper.JitterKey], costMap[helper.PacketLossKey]), nil
 }
 
 func (calculation *ShortestPathCalculation) reconstructMinPath(current graph.Node, path []graph.Edge) (graph.Path, error) {
@@ -188,13 +215,13 @@ func (calculation *ShortestPathCalculation) reconstructMinPath(current graph.Nod
 	if len(path) == 0 {
 		return nil, fmt.Errorf("No path found from node %d to node %d", calculation.source.GetId(), calculation.destination.GetId())
 	}
-	calculation.log.Debugf("Bottleneck found with %v bandwidth %g: ", minEdge, minEdgeBandwidth)
+	calculation.log.Debugf("First bottleneck edge: %v with bandwidth %g: ", minEdge, minEdgeBandwidth)
 	return graph.NewShortestPathWithBottleneck(path, minEdge, minEdgeBandwidth), nil
 }
 
 func (calculation ShortestPathCalculation) reconstructPath() (graph.Path, error) {
 	path := make([]graph.Edge, 0)
-	if calculation.calculationType == CalculationTypeSum {
+	if calculation.calculationType == CalculationModeSum {
 		return calculation.reconstructSumPath(calculation.destination, path)
 	}
 	return calculation.reconstructMinPath(calculation.destination, path)

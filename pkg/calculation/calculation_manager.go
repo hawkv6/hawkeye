@@ -30,10 +30,13 @@ func NewCalculationManager(cache cache.Cache, graph graph.Graph, helper helper.H
 	}
 }
 
-func (calcultor *CalculationManager) getNetworkAddress(ip string) net.IP {
+func (calcultor *CalculationManager) getNetworkAddress(ip string) (net.IP, error) {
 	ipv6Address := net.ParseIP(ip)
+	if ipv6Address == nil {
+		return nil, fmt.Errorf("IPv6 Network address could not be parsed, invalid IPv6 address: %s", ip)
+	}
 	mask := net.CIDRMask(64, 128)
-	return ipv6Address.Mask(mask)
+	return ipv6Address.Mask(mask), nil
 }
 
 func (manager *CalculationManager) getNodesFromPath(path graph.Path) []string {
@@ -48,7 +51,7 @@ func (manager *CalculationManager) getNodesFromPath(path graph.Path) []string {
 func (manager *CalculationManager) translatePathToSidList(path graph.Path) []string {
 	nodeList := manager.getNodesFromPath(path)
 	manager.log.Debugln("Node in Path: ", nodeList)
-	sidList := make([]string, 0)
+	var sidList []string
 	for _, node := range nodeList {
 		sid, ok := manager.cache.GetSidFromRouterId(node)
 		if !ok {
@@ -62,10 +65,13 @@ func (manager *CalculationManager) translatePathToSidList(path graph.Path) []str
 }
 
 func (manger *CalculationManager) getSourceNode(pathRequest domain.PathRequest) (graph.Node, error) {
-	sourceIpv6 := manger.getNetworkAddress(pathRequest.GetIpv6SourceAddress())
+	sourceIpv6, err := manger.getNetworkAddress(pathRequest.GetIpv6SourceAddress())
+	if err != nil {
+		return nil, err
+	}
 	sourceRouterId, ok := manger.cache.GetRouterIdFromNetworkAddress(sourceIpv6.String())
 	if !ok {
-		return nil, fmt.Errorf("Router ID not found for source IP: %s", sourceRouterId)
+		return nil, fmt.Errorf("Router ID not found for source IP: %s", sourceIpv6)
 	}
 	source, exist := manger.graph.GetNode(sourceRouterId)
 	if !exist {
@@ -75,10 +81,13 @@ func (manger *CalculationManager) getSourceNode(pathRequest domain.PathRequest) 
 }
 
 func (manager *CalculationManager) GetDestinationNode(pathRequest domain.PathRequest) (graph.Node, error) {
-	destinationIpv6 := manager.getNetworkAddress(pathRequest.GetIpv6DestinationAddress())
+	destinationIpv6, err := manager.getNetworkAddress(pathRequest.GetIpv6DestinationAddress())
+	if err != nil {
+		return nil, err
+	}
 	destinationRouterId, ok := manager.cache.GetRouterIdFromNetworkAddress(destinationIpv6.String())
 	if !ok {
-		return nil, fmt.Errorf("Router ID not found for destination IP: %s", destinationRouterId)
+		return nil, fmt.Errorf("Router ID not found for destination IP: %s", destinationIpv6)
 	}
 	destination, exist := manager.graph.GetNode(destinationRouterId)
 	if !exist {
@@ -87,64 +96,53 @@ func (manager *CalculationManager) GetDestinationNode(pathRequest domain.PathReq
 	return destination, nil
 }
 
-func (manager *CalculationManager) getWeightKeyAndCalcType(intentType domain.IntentType) (helper.WeightKey, CalculationType) {
+func (manager *CalculationManager) getWeightKeyAndCalcType(intentType domain.IntentType) (helper.WeightKey, CalculationMode) {
 	switch intentType {
 	case domain.IntentTypeHighBandwidth:
-		return helper.AvailableBandwidthKey, CalculationTypeMax
+		return helper.AvailableBandwidthKey, CalculationModeMax
 	case domain.IntentTypeLowBandwidth:
-		return helper.MaximumLinkBandwidth, CalculationTypeMin
+		return helper.MaximumLinkBandwidth, CalculationModeMin
 	case domain.IntentTypeLowLatency:
-		return helper.LatencyKey, CalculationTypeSum
+		return helper.LatencyKey, CalculationModeSum
 	case domain.IntentTypeLowPacketLoss:
-		return helper.PacketLossKey, CalculationTypeSum
+		return helper.PacketLossKey, CalculationModeSum
 	case domain.IntentTypeLowJitter:
-		return helper.JitterKey, CalculationTypeSum
+		return helper.JitterKey, CalculationModeSum
 	case domain.IntentLowUtilization:
-		return helper.UtilizedBandwidthKey, CalculationTypeSum
+		return helper.UtilizedBandwidthKey, CalculationModeSum
 	default:
-		return "", ""
+		return helper.UndefinedKey, CalculationModeUndefined
+	}
+}
+
+func (manager *CalculationManager) getNormalizedWeightKey(intentType domain.IntentType) helper.WeightKey {
+
+	switch intentType {
+	case domain.IntentTypeLowLatency:
+		return helper.NormalizedLatencyKey
+	case domain.IntentTypeLowJitter:
+		return helper.NormalizedJitterKey
+	case domain.IntentTypeLowPacketLoss:
+		return helper.NormalizedPacketLossKey
+	default:
+		return helper.UndefinedKey
 	}
 }
 
 func (manager *CalculationManager) createPathResult(path graph.Path, pathRequest domain.PathRequest) domain.PathResult {
-	sidList := manager.translatePathToSidList(path)
+	var sidList []string
+	if path == nil {
+		manager.log.Errorln("No path found, return destination IPv6 address as SID list")
+		sidList = []string{pathRequest.GetIpv6DestinationAddress()}
+	} else {
+		sidList = manager.translatePathToSidList(path)
+	}
 	pathResult, err := domain.NewDomainPathResult(pathRequest, path, sidList)
 	if err != nil {
 		manager.log.Errorln("Error creating path result: ", err)
 		return nil
 	}
 	return pathResult
-}
-
-func (manager *CalculationManager) findPathForSingleIntent(intent domain.Intent, pathRequest domain.PathRequest) domain.PathResult {
-	sourceNode, err := manager.getSourceNode(pathRequest)
-	if err != nil {
-		manager.log.Errorln("Error getting source node: ", err)
-		return nil
-	}
-	destinationNode, err := manager.GetDestinationNode(pathRequest)
-	if err != nil {
-		manager.log.Errorln("Error getting destination node: ", err)
-		return nil
-	}
-	weightKey, calcType := manager.getWeightKeyAndCalcType(intent.GetIntentType())
-	if weightKey == "" || calcType == "" {
-		return nil
-	}
-	calculation := NewShortestPathCalculation(manager.graph, sourceNode, destinationNode, weightKey, calcType)
-	path, err := calculation.Execute()
-	if err != nil {
-		manager.log.Errorln("Error getting shortest path: ", err)
-		return nil
-	}
-	if calcType == CalculationTypeSum {
-		manager.log.Debugf("Shortest Path found with cost %g: ", path.GetTotalCost())
-	} else {
-		manager.log.Debugf("Shortest Path found with bottleneck %g: ", path.GetBottleneckValue())
-		manager.log.Debugf("Bottleneck edge for this new path is: %v", path.GetBottleneckEdge())
-	}
-	return manager.createPathResult(path, pathRequest)
-
 }
 
 func (manager *CalculationManager) lockElements() {
@@ -159,21 +157,51 @@ func (manager *CalculationManager) unlockElements() {
 	manager.cache.Unlock()
 }
 
-func (manager *CalculationManager) CalculateBestPath(pathRequest domain.PathRequest) domain.PathResult {
+func (manager *CalculationManager) CalculateBestPath(pathRequest domain.PathRequest) (domain.PathResult, error) {
 	manager.lockElements()
 	defer manager.unlockElements()
 
+	sourceNode, err := manager.getSourceNode(pathRequest)
+	if err != nil {
+		return nil, err
+	}
+	destinationNode, err := manager.GetDestinationNode(pathRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	weightKeys := make([]helper.WeightKey, 0)
+	var calculationType CalculationMode
 	intents := pathRequest.GetIntents()
-	if len(intents) == 1 {
-		return manager.findPathForSingleIntent(intents[0], pathRequest)
+	if len(intents) == 0 {
+		return nil, fmt.Errorf("No intents found in path request")
+	} else if len(intents) == 1 {
+		weightKey, calcType := manager.getWeightKeyAndCalcType(intents[0].GetIntentType())
+		calculationType = calcType
+		weightKeys = append(weightKeys, weightKey)
 	} else {
-		// TODO: change logic if there are multiple intents
-		manager.log.Errorln("Handling of several intents not yet implemented")
-		for _, intent := range intents {
-			manager.log.Debugln("Received Intent: ", intent)
+		calculationType = CalculationModeSum
+		for _, intent := range pathRequest.GetIntents() {
+			weightKeys = append(weightKeys, manager.getNormalizedWeightKey(intent.GetIntentType()))
 		}
 	}
-	return nil
+	if calculationType == CalculationModeUndefined {
+		return nil, fmt.Errorf("Calculation mode not defined for intent type: %s", intents[0].GetIntentType())
+	}
+	calculation := NewShortestPathCalculation(manager.graph, sourceNode, destinationNode, weightKeys, calculationType)
+	path, err := calculation.Execute()
+	if err != nil {
+		return nil, err
+
+	} else {
+		if calculationType == CalculationModeSum {
+			manager.log.Debugf("Shortest Path found with total cost %g, delay: %gus, jitter %gus, packet loss %g%%: ", path.GetTotalCost(), path.GetTotalDelay(), path.GetTotalJitter(), path.GetTotalPacketLoss())
+		} else {
+			manager.log.Debugf("Shortest Path found with bottleneck %g: ", path.GetBottleneckValue())
+			manager.log.Debugf("Bottleneck edge for this new path is: %v", path.GetBottleneckEdge())
+		}
+	}
+	return manager.createPathResult(path, pathRequest), nil
 }
 
 func (manager *CalculationManager) calculateTotalCost(pathResult domain.PathResult, weightType helper.WeightKey) error {
@@ -221,14 +249,14 @@ func (manager *CalculationManager) calculateMinimumValue(pathResult domain.PathR
 	return nil
 }
 
-func (manager *CalculationManager) validateCurrentResult(currentpathResult domain.PathResult, weightKey helper.WeightKey, calcType CalculationType) error {
-	if calcType == CalculationTypeSum {
+func (manager *CalculationManager) validateCurrentResult(currentpathResult domain.PathResult, weightKey helper.WeightKey, calcType CalculationMode) error {
+	if calcType == CalculationModeSum {
 		return manager.calculateTotalCost(currentpathResult, weightKey)
 	}
 	return manager.calculateMinimumValue(currentpathResult, weightKey)
 }
 
-func (manager *CalculationManager) CalculatePathUpdate(streamSession domain.StreamSession) *domain.PathResult {
+func (manager *CalculationManager) CalculatePathUpdate(streamSession domain.StreamSession) (*domain.PathResult, error) {
 	manager.lockElements()
 	defer manager.unlockElements()
 
@@ -239,7 +267,11 @@ func (manager *CalculationManager) CalculatePathUpdate(streamSession domain.Stre
 	pathRequest := streamSession.GetPathRequest()
 	intents := pathRequest.GetIntents()
 	manager.log.Debugln("Recalculate path with new network state")
-	newPathResult := manager.findPathForSingleIntent(pathRequest.GetIntents()[0], pathRequest)
+
+	newPathResult, err := manager.CalculateBestPath(pathRequest)
+	if err != nil {
+		return nil, err
+	}
 
 	if !reflect.DeepEqual(newPathResult.GetIpv6SidAddresses(), currentAppliedSidList) {
 		manager.log.Debugln("Better Path found, check for applicability.")
@@ -248,17 +280,17 @@ func (manager *CalculationManager) CalculatePathUpdate(streamSession domain.Stre
 		if err := manager.validateCurrentResult(currentPathResult, weightKey, calcType); err != nil { // TODO adapt if there several intents
 			manager.log.Errorln("Current Path is not valid anymore, new path will be applied: ", err)
 			streamSession.SetPathResult(newPathResult)
-			return &newPathResult
+			return &newPathResult, nil
 		}
 
 		manager.log.Debugln("Current path is still valid, check if new path is better")
-		if calcType == CalculationTypeSum {
+		if calcType == CalculationModeSum {
 			newPathTotalCost := newPathResult.GetTotalCost()
 			currentPathTotalCost := currentPathResult.GetTotalCost()
 			if newPathTotalCost < currentPathTotalCost*(1-helper.FlappingThreshold) {
 				manager.log.Debugf("New path will be applied, cost of new path is by more than 10 percent smaller, current: %f to new: %f", currentPathTotalCost, newPathTotalCost)
 				streamSession.SetPathResult(newPathResult)
-				return &newPathResult
+				return &newPathResult, nil
 			} else {
 				manager.log.Debugf("No path changes, cost of new path is not smaller by more than 10 percent, current: %f to new: %f", currentPathTotalCost, newPathTotalCost)
 			}
@@ -272,7 +304,7 @@ func (manager *CalculationManager) CalculatePathUpdate(streamSession domain.Stre
 				manager.log.Debugf("Bottleneck in new path is %v with value %g: ", newPathMinimumEdge, newPathMinimumValue)
 				manager.log.Debugf("New Path will be applied, bottleneck of new path is by more than 10 percent smaller, current: %f to new: %f", currentPathMinimumValue, newPathMinimumValue)
 				streamSession.SetPathResult(newPathResult)
-				return &newPathResult
+				return &newPathResult, nil
 			} else {
 				manager.log.Debugf("No path changes, cost of new path is not smaller by more than 10 percent, current: %f to new: %f", currentPathMinimumValue, newPathMinimumValue)
 			}
@@ -281,9 +313,8 @@ func (manager *CalculationManager) CalculatePathUpdate(streamSession domain.Stre
 		manager.log.Debugln("SID List is equal - no change in path found")
 		weightKey, calcType := manager.getWeightKeyAndCalcType(intents[0].GetIntentType())
 		if err := manager.validateCurrentResult(currentPathResult, weightKey, calcType); err != nil { // TODO adapt if there several intents
-			manager.log.Errorln("Current Path is not valid anymore, new path will be applied: ", err)
-			return nil
+			return nil, fmt.Errorf("Current Path is not valid anymore, new path will be applied: %s", err)
 		}
 	}
-	return nil
+	return nil, fmt.Errorf("No path changes, cost of new path is not smaller by more than 10 percent")
 }

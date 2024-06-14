@@ -33,7 +33,7 @@ func almostEqual(a, b float64) bool {
 	return math.Abs(a-b) <= tolerance
 }
 
-func TestNetworkGraph_GetShortestPath(t *testing.T) {
+func TestNetworkGraph_GetShortestPathSingleIntent(t *testing.T) {
 	nodes := map[int]graph.Node{
 		1: graph.NewNetworkNode(1),
 		2: graph.NewNetworkNode(2),
@@ -58,17 +58,17 @@ func TestNetworkGraph_GetShortestPath(t *testing.T) {
 	//       [8]
 
 	edges := map[int]graph.Edge{
-		1:  graph.NewNetworkEdge(1, nodes[1], nodes[2], map[helper.WeightKey]float64{helper.DefaultKey: 1, helper.LatencyKey: 1000, helper.JitterKey: 10, helper.PacketLossKey: 0.01}),  // latency 1ms jitter 1us loss 1%
-		2:  graph.NewNetworkEdge(2, nodes[1], nodes[3], map[helper.WeightKey]float64{helper.DefaultKey: 2, helper.LatencyKey: 2000, helper.JitterKey: 20, helper.PacketLossKey: 0.02}),  // latency 2ms jitter 2us loss 2%
-		3:  graph.NewNetworkEdge(3, nodes[1], nodes[4], map[helper.WeightKey]float64{helper.DefaultKey: 1, helper.LatencyKey: 1000, helper.JitterKey: 10, helper.PacketLossKey: 0.01}),  // latency 1ms jitter 1us loss 1%
-		4:  graph.NewNetworkEdge(4, nodes[2], nodes[5], map[helper.WeightKey]float64{helper.DefaultKey: 1, helper.LatencyKey: 1000, helper.JitterKey: 10, helper.PacketLossKey: 0.01}),  // latency 1ms jitter 1us loss 1%
-		5:  graph.NewNetworkEdge(5, nodes[3], nodes[5], map[helper.WeightKey]float64{helper.DefaultKey: 3, helper.LatencyKey: 3000, helper.JitterKey: 30, helper.PacketLossKey: 0.03}),  // latency 3ms jitter 3us loss 3%
-		6:  graph.NewNetworkEdge(6, nodes[3], nodes[6], map[helper.WeightKey]float64{helper.DefaultKey: 4, helper.LatencyKey: 4000, helper.JitterKey: 40, helper.PacketLossKey: 0.04}),  // latency 4ms jitter 4us loss 4%
-		7:  graph.NewNetworkEdge(7, nodes[4], nodes[7], map[helper.WeightKey]float64{helper.DefaultKey: 1, helper.LatencyKey: 1000, helper.JitterKey: 10, helper.PacketLossKey: 0.01}),  // latency ms jitter 1us loss 1%
-		8:  graph.NewNetworkEdge(8, nodes[5], nodes[8], map[helper.WeightKey]float64{helper.DefaultKey: 6, helper.LatencyKey: 6000, helper.JitterKey: 60, helper.PacketLossKey: 0.06}),  // latency 6ms jitter 6us loss 6%
-		9:  graph.NewNetworkEdge(9, nodes[6], nodes[8], map[helper.WeightKey]float64{helper.DefaultKey: 1, helper.LatencyKey: 1000, helper.JitterKey: 10, helper.PacketLossKey: 0.01}),  // latency 1ms jitter 1us loss 1%
-		10: graph.NewNetworkEdge(10, nodes[7], nodes[6], map[helper.WeightKey]float64{helper.DefaultKey: 1, helper.LatencyKey: 1000, helper.JitterKey: 10, helper.PacketLossKey: 0.01}), // latency 1ms jitter 1us loss 1%
-		11: graph.NewNetworkEdge(11, nodes[7], nodes[8], map[helper.WeightKey]float64{helper.DefaultKey: 5, helper.LatencyKey: 5000, helper.JitterKey: 50, helper.PacketLossKey: 0.05}), // latency 5ms jitter 5us loss 5%
+		1:  graph.NewNetworkEdge(1, nodes[1], nodes[2], map[helper.WeightKey]float64{helper.LatencyKey: 1000, helper.JitterKey: 10, helper.PacketLossKey: 0.01}),  // latency 1ms jitter 1us loss 1%
+		2:  graph.NewNetworkEdge(2, nodes[1], nodes[3], map[helper.WeightKey]float64{helper.LatencyKey: 2000, helper.JitterKey: 20, helper.PacketLossKey: 0.02}),  // latency 2ms jitter 2us loss 2%
+		3:  graph.NewNetworkEdge(3, nodes[1], nodes[4], map[helper.WeightKey]float64{helper.LatencyKey: 1000, helper.JitterKey: 10, helper.PacketLossKey: 0.01}),  // latency 1ms jitter 1us loss 1%
+		4:  graph.NewNetworkEdge(4, nodes[2], nodes[5], map[helper.WeightKey]float64{helper.LatencyKey: 1000, helper.JitterKey: 10, helper.PacketLossKey: 0.01}),  // latency 1ms jitter 1us loss 1%
+		5:  graph.NewNetworkEdge(5, nodes[3], nodes[5], map[helper.WeightKey]float64{helper.LatencyKey: 3000, helper.JitterKey: 30, helper.PacketLossKey: 0.03}),  // latency 3ms jitter 3us loss 3%
+		6:  graph.NewNetworkEdge(6, nodes[3], nodes[6], map[helper.WeightKey]float64{helper.LatencyKey: 4000, helper.JitterKey: 40, helper.PacketLossKey: 0.04}),  // latency 4ms jitter 4us loss 4%
+		7:  graph.NewNetworkEdge(7, nodes[4], nodes[7], map[helper.WeightKey]float64{helper.LatencyKey: 1000, helper.JitterKey: 10, helper.PacketLossKey: 0.01}),  // latency ms jitter 1us loss 1%
+		8:  graph.NewNetworkEdge(8, nodes[5], nodes[8], map[helper.WeightKey]float64{helper.LatencyKey: 6000, helper.JitterKey: 60, helper.PacketLossKey: 0.06}),  // latency 6ms jitter 6us loss 6%
+		9:  graph.NewNetworkEdge(9, nodes[6], nodes[8], map[helper.WeightKey]float64{helper.LatencyKey: 1000, helper.JitterKey: 10, helper.PacketLossKey: 0.01}),  // latency 1ms jitter 1us loss 1%
+		10: graph.NewNetworkEdge(10, nodes[7], nodes[6], map[helper.WeightKey]float64{helper.LatencyKey: 1000, helper.JitterKey: 10, helper.PacketLossKey: 0.01}), // latency 1ms jitter 1us loss 1%
+		11: graph.NewNetworkEdge(11, nodes[7], nodes[8], map[helper.WeightKey]float64{helper.LatencyKey: 5000, helper.JitterKey: 50, helper.PacketLossKey: 0.05}), // latency 5ms jitter 5us loss 5%
 	}
 	type Result struct {
 		edgeNumbers []int
@@ -77,8 +77,8 @@ func TestNetworkGraph_GetShortestPath(t *testing.T) {
 	type args struct {
 		from            graph.Node
 		to              graph.Node
-		weightType      helper.WeightKey
-		calculationType CalculationType
+		weightTypes     []helper.WeightKey
+		calculationType CalculationMode
 	}
 	tests := []struct {
 		name    string
@@ -87,26 +87,12 @@ func TestNetworkGraph_GetShortestPath(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "Test correct shortest path with default metric",
-			args: args{
-				from:            nodes[1],
-				to:              nodes[8],
-				weightType:      helper.DefaultKey,
-				calculationType: CalculationTypeSum,
-			},
-			want: Result{
-				edgeNumbers: []int{3, 7, 10, 9},
-				totalCost:   4,
-			},
-			wantErr: false,
-		},
-		{
 			name: "Test correct shortest path with latency metric",
 			args: args{
 				from:            nodes[1],
 				to:              nodes[8],
-				weightType:      helper.LatencyKey,
-				calculationType: CalculationTypeSum,
+				weightTypes:     []helper.WeightKey{helper.LatencyKey},
+				calculationType: CalculationModeSum,
 			},
 			want: Result{
 				edgeNumbers: []int{3, 7, 10, 9},
@@ -119,8 +105,8 @@ func TestNetworkGraph_GetShortestPath(t *testing.T) {
 			args: args{
 				from:            nodes[1],
 				to:              nodes[8],
-				weightType:      helper.JitterKey,
-				calculationType: CalculationTypeSum,
+				weightTypes:     []helper.WeightKey{helper.JitterKey},
+				calculationType: CalculationModeSum,
 			},
 			want: Result{
 				edgeNumbers: []int{3, 7, 10, 9},
@@ -133,8 +119,8 @@ func TestNetworkGraph_GetShortestPath(t *testing.T) {
 			args: args{
 				from:            nodes[1],
 				to:              nodes[8],
-				weightType:      helper.PacketLossKey,
-				calculationType: CalculationTypeSum,
+				weightTypes:     []helper.WeightKey{helper.PacketLossKey},
+				calculationType: CalculationModeSum,
 			},
 			want: Result{
 				edgeNumbers: []int{3, 7, 10, 9},
@@ -149,10 +135,10 @@ func TestNetworkGraph_GetShortestPath(t *testing.T) {
 			if err != nil {
 				t.Errorf("Error setting up graph")
 			}
-			calculation := NewShortestPathCalculation(networkGraph, tt.args.from, tt.args.to, helper.WeightKey(tt.args.weightType), CalculationTypeSum)
+			calculation := NewShortestPathCalculation(networkGraph, tt.args.from, tt.args.to, tt.args.weightTypes, CalculationModeSum)
 			got, err := calculation.Execute()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Get shortest path with default metric %s, error = %v, wantErr %v", tt.args.weightType, err, tt.wantErr)
+				t.Errorf("Get shortest path with metric %s, error = %v, wantErr %v", tt.args.weightTypes, err, tt.wantErr)
 				return
 			}
 			shortestPath := make([]graph.Edge, len(tt.want.edgeNumbers))
@@ -204,11 +190,11 @@ func generatePlantUMLDiagram(nodes map[int]graph.Node, shortestPath []graph.Edge
 			from := edge.From().GetId()
 			to := edge.To().GetId()
 			if color == "" {
-				builder.WriteString(fmt.Sprintf("n%d -- n%d : \"%d <-> %d \\nDefault: %f\\nLatency: %fms\\nJitter: %fus\\nLoss: %f\"\n",
-					from, to, from, to, weights[helper.DefaultKey], weights[helper.LatencyKey], weights[helper.JitterKey], weights[helper.PacketLossKey]))
+				builder.WriteString(fmt.Sprintf("n%d -- n%d : \"%d -> %d \\nLatency: %fms\\nJitter: %fus\\nLoss: %f\"\n",
+					from, to, from, to, weights[helper.LatencyKey], weights[helper.JitterKey], weights[helper.PacketLossKey]))
 			} else {
-				builder.WriteString(fmt.Sprintf("n%d -- n%d %s : \"%d <-> %d \\nDefault: %f\\nLatency: %fms\\nJitter: %fus\\nLoss: %f\" SPF \n",
-					from, to, color, from, to, weights[helper.DefaultKey], weights[helper.LatencyKey], weights[helper.JitterKey], weights[helper.PacketLossKey]))
+				builder.WriteString(fmt.Sprintf("n%d -- n%d %s : \"%d -> %d \\nLatency: %fms\\nJitter: %fus\\nLoss: %f\" SPF \n",
+					from, to, color, from, to, weights[helper.LatencyKey], weights[helper.JitterKey], weights[helper.PacketLossKey]))
 			}
 		}
 	}

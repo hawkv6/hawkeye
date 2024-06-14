@@ -101,15 +101,15 @@ func (processor *NetworkProcessor) CreateGraphEdges(links []domain.Link) error {
 
 func (processor *NetworkProcessor) getCurrentLinkWeights(link domain.Link) map[helper.WeightKey]float64 {
 	return map[helper.WeightKey]float64{
-		helper.LatencyKey:            float64(link.GetUnidirLinkDelay()),
-		helper.JitterKey:             float64(link.GetUnidirDelayVariation()),
-		helper.MaximumLinkBandwidth:  float64(link.GetMaxLinkBWKbps()),
-		helper.AvailableBandwidthKey: float64(link.GetUnidirAvailableBandwidth()),
-		helper.UtilizedBandwidthKey:  float64(link.GetUnidirBandwidthUtilization()),
-		helper.PacketLossKey:         float64(link.GetUnidirPacketLoss()),
-		helper.NormalizedLatencyKey:  link.GetNormalizedUnidirLinkDelay(),
-		helper.NormalizedJitterKey:   link.GetNormalizedUnidirDelayVariation(),
-		helper.NormalizedLossKey:     link.GetNormalizedUnidirPacketLoss(),
+		helper.LatencyKey:              float64(link.GetUnidirLinkDelay()),
+		helper.JitterKey:               float64(link.GetUnidirDelayVariation()),
+		helper.MaximumLinkBandwidth:    float64(link.GetMaxLinkBWKbps()),
+		helper.AvailableBandwidthKey:   float64(link.GetUnidirAvailableBandwidth()),
+		helper.UtilizedBandwidthKey:    float64(link.GetUnidirBandwidthUtilization()),
+		helper.PacketLossKey:           float64(link.GetUnidirPacketLoss()),
+		helper.NormalizedLatencyKey:    link.GetNormalizedUnidirLinkDelay(),
+		helper.NormalizedJitterKey:     link.GetNormalizedUnidirDelayVariation(),
+		helper.NormalizedPacketLossKey: link.GetNormalizedUnidirPacketLoss(),
 	}
 }
 
@@ -179,7 +179,7 @@ func (processor *NetworkProcessor) addLinkToGraph(link domain.Link) error {
 
 func (processor *NetworkProcessor) setEdgeWeight(edge graph.Edge, key helper.WeightKey, value float64) error {
 
-	if value == 0 && key != helper.NormalizedLatencyKey && key != helper.NormalizedJitterKey && key != helper.NormalizedLossKey {
+	if value == 0 && key != helper.NormalizedLatencyKey && key != helper.NormalizedJitterKey && key != helper.NormalizedPacketLossKey {
 		return fmt.Errorf("Value is 0, not setting %s", key)
 	}
 	currentValue := edge.GetWeight(key)
