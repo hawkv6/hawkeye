@@ -1,10 +1,10 @@
 package graph
 
 type Node interface {
-	GetId() interface{}
-	GetEdges() map[interface{}]Edge
+	GetId() string
+	GetEdges() map[string]Edge
 	AddEdge(Edge)
-	DeleteEdge(interface{})
+	DeleteEdge(string)
 	GetName() string
 	SetName(string)
 }

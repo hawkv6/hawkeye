@@ -1,15 +1,15 @@
 package graph
 
 type NetworkNode struct {
-	id    interface{}
+	id    string
 	name  string
-	edges map[interface{}]Edge
+	edges map[string]Edge
 }
 
-func NewNetworkNode(id interface{}) *NetworkNode {
+func NewNetworkNode(id string) *NetworkNode {
 	return &NetworkNode{
 		id:    id,
-		edges: make(map[interface{}]Edge),
+		edges: make(map[string]Edge),
 	}
 }
 
@@ -21,11 +21,11 @@ func (node *NetworkNode) SetName(name string) {
 	node.name = name
 }
 
-func (node *NetworkNode) GetId() interface{} {
+func (node *NetworkNode) GetId() string {
 	return node.id
 }
 
-func (node *NetworkNode) GetEdges() map[interface{}]Edge {
+func (node *NetworkNode) GetEdges() map[string]Edge {
 	return node.edges
 }
 
@@ -33,6 +33,6 @@ func (node *NetworkNode) AddEdge(edge Edge) {
 	node.edges[edge.GetId()] = edge
 }
 
-func (node *NetworkNode) DeleteEdge(id interface{}) {
+func (node *NetworkNode) DeleteEdge(id string) {
 	delete(node.edges, id)
 }

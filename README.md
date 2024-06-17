@@ -21,7 +21,7 @@ The application can be configured via command-line flags or environment variable
 
 - `HAWKEYE_TWO_FACTOR_WEIGHTS`: This variable sets the weights when the request includes two factors. It should be a comma-separated string of float values. If not provided, the default value is `0.7,0.3`.
 
-- `HAWKEYE_THREE_FACTOR_WEIGHTS`: This variable sets the weights when the request includes three factors. It should be a comma-separated string of float values. If not provided, the default value is `0.5,0.3,0.2`.
+- `HAWKEYE_THREE_FACTOR_WEIGHTS`: This variable sets the weights when the request includes three factors. It should be a comma-separated string of float values. If not provided, the default value is `0.7,0.2,0.1`.
 
 
 You can set the environment variables in your shell before running the application, like this:
@@ -33,7 +33,7 @@ export HAWKEYE_JAGW_SUBSCRIPTION_PORT=9902
 export HAWKEYE_GRPC_PORT=10000
 export HAWKEYE_FLAPPING_THRESHOLD=0.1
 export HAWKEYE_TWO_FACTOR_WEIGHTS=0.7,0.3
-export HAWKEYE_THREE_FACTOR_WEIGHTS=0.5,0.3,0.2
+export HAWKEYE_THREE_FACTOR_WEIGHTS=0.7,0.2,0.1
 
 Or you can pass the command-line flags when running the application, like this:
 

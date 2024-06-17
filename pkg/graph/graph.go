@@ -6,13 +6,13 @@ type Graph interface {
 	Lock()
 	Unlock()
 	AddNode(node Node) (Node, error)
-	GetNode(id interface{}) (Node, bool)
-	GetNodes() map[interface{}]Node
+	GetNode(id string) (Node, bool)
+	GetNodes() map[string]Node
 	DeleteNode(node Node)
-	NodeExists(id interface{}) bool
+	NodeExists(id string) bool
 	AddEdge(edge Edge) error
-	GetEdge(id interface{}) (Edge, bool)
-	GetEdges() map[interface{}]Edge
-	EdgeExists(id interface{}) bool
+	GetEdge(id string) (Edge, bool)
+	GetEdges() map[string]Edge
+	EdgeExists(id string) bool
 	DeleteEdge(edge Edge)
 }

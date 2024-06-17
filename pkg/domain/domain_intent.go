@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"strconv"
+
 	"github.com/go-playground/validator"
 )
 
@@ -40,11 +42,11 @@ func (intent *DefaultIntent) convertValue(value Value) string {
 	valueType := value.GetValueType()
 	switch valueType {
 	case ValueTypeMinValue:
-		return valueType.String() + ":" + string(value.GetNumberValue())
+		return valueType.String() + ":" + strconv.Itoa(int(value.GetNumberValue()))
 	case ValueTypeMaxValue:
-		return valueType.String() + ":" + string(value.GetNumberValue())
+		return valueType.String() + ":" + strconv.Itoa(int(value.GetNumberValue()))
 	case ValueTypeFlexAlgoNr:
-		return valueType.String() + ":" + string(value.GetNumberValue())
+		return valueType.String() + ":" + strconv.Itoa((int(value.GetNumberValue())))
 	case ValueTypeSFC:
 		return valueType.String() + ":" + value.GetStringValue()
 	default:

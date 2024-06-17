@@ -3,7 +3,7 @@ package graph
 import "github.com/hawkv6/hawkeye/pkg/helper"
 
 type Edge interface {
-	GetId() interface{}
+	GetId() string
 	From() Node
 	To() Node
 	GetAllWeights() map[helper.WeightKey]float64

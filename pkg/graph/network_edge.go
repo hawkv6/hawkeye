@@ -5,13 +5,13 @@ import (
 )
 
 type NetworkEdge struct {
-	id      interface{}
+	id      string
 	from    Node
 	to      Node
 	weights map[helper.WeightKey]float64
 }
 
-func NewNetworkEdge(id interface{}, from Node, to Node, weights map[helper.WeightKey]float64) *NetworkEdge {
+func NewNetworkEdge(id string, from Node, to Node, weights map[helper.WeightKey]float64) *NetworkEdge {
 	return &NetworkEdge{
 		id:      id,
 		from:    from,
@@ -20,7 +20,7 @@ func NewNetworkEdge(id interface{}, from Node, to Node, weights map[helper.Weigh
 	}
 }
 
-func (edge *NetworkEdge) GetId() interface{} {
+func (edge *NetworkEdge) GetId() string {
 	return edge.id
 }
 

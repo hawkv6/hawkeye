@@ -52,8 +52,10 @@ func (controller *SessionController) recalculateSessions() {
 		if err != nil {
 			controller.log.Errorln("Failed to recalculate path update: ", err)
 			controller.pathResultChan <- nil
-		} else {
+		} else if result != nil {
 			controller.pathResultChan <- *result
+		} else {
+			controller.log.Debugln("No path update available")
 		}
 	}
 }

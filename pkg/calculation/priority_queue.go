@@ -7,12 +7,12 @@ import (
 // Modified from https://pkg.go.dev/container/heap#example-package-PriorityQueue
 
 type Item struct {
-	nodeId interface{}
+	nodeId string
 	cost   float64
 	index  int
 }
 
-func (item *Item) GetNodeId() interface{} {
+func (item *Item) GetNodeId() string {
 	return item.nodeId
 }
 
@@ -71,7 +71,7 @@ func (pq *PriorityQueue) Pop() any {
 }
 
 // update modifies the priority and value of an Item in the queue.
-func (pq *PriorityQueue) Update(item *Item, nodeId int, distance float64) {
+func (pq *PriorityQueue) Update(item *Item, nodeId string, distance float64) {
 	item.nodeId = nodeId
 	item.cost = distance
 	heap.Fix(pq, item.index)
@@ -90,7 +90,7 @@ func (pq *PriorityQueue) Contains(nodeId interface{}) bool {
 	return false
 }
 
-func (pq *PriorityQueue) GetIndex(nodeId interface{}) (int, bool) {
+func (pq *PriorityQueue) GetIndex(nodeId string) (int, bool) {
 	for i, item := range pq.items {
 		if item.nodeId == nodeId {
 			return i, true

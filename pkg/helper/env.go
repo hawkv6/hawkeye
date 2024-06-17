@@ -40,5 +40,5 @@ var ThreeFactorWeights = func() []float32 {
 		}
 		return weights
 	}
-	return []float32{0.5, 0.3, 0.2}
+	return []float32{0.7, 0.2, 0.1}
 }()
