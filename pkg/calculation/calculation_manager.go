@@ -215,7 +215,7 @@ func (manager *CalculationManager) CalculateBestPath(pathRequest domain.PathRequ
 
 	} else {
 		if calculationMode == CalculationModeSum {
-			manager.log.Debugf("Shortest Path found with total cost %g, delay: %gus, jitter %gus, packet loss %g: ", path.GetTotalCost(), path.GetTotalDelay(), path.GetTotalJitter(), path.GetTotalPacketLoss())
+			manager.log.Debugf("Shortest Path found with total cost %g, delay: %gus, jitter %gus, packet loss %f -> %f%%: ", path.GetTotalCost(), path.GetTotalDelay(), path.GetTotalJitter(), path.GetTotalPacketLoss(), path.GetTotalPacketLoss()*100)
 		} else {
 			manager.log.Debugf("Shortest Path found with bottleneck %g: ", path.GetBottleneckValue())
 			manager.log.Debugf("Bottleneck edge for this new path is: %v", path.GetBottleneckEdge())

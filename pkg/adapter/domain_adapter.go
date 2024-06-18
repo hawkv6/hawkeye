@@ -188,6 +188,7 @@ func (adapter *DomainAdapter) convertIntentsToDomain(apiIntents []*api.Intent) (
 func (adapter *DomainAdapter) ConvertPathRequest(pathRequest *api.PathRequest, stream api.IntentController_GetIntentPathServer, ctx context.Context) (domain.PathRequest, error) {
 	intents, err := adapter.convertIntentsToDomain(pathRequest.Intents)
 	if err != nil {
+		adapter.log.Errorln("Error converting intents: ", err)
 		return nil, err
 	}
 	return domain.NewDomainPathRequest(pathRequest.Ipv6SourceAddress, pathRequest.Ipv6DestinationAddress, intents, stream, ctx)

@@ -23,6 +23,8 @@ type GrpcMessagingServer struct {
 	grpcPort        uint16
 	pathRequestChan chan domain.PathRequest
 	pathResultChan  chan domain.PathResult
+	errorChan       chan error
+	internalChan    chan error
 }
 
 func NewGrpcMessagingServer(adapter adapter.Adapter, config config.Config, messagingChannels MessagingChannels) *GrpcMessagingServer {
@@ -32,6 +34,8 @@ func NewGrpcMessagingServer(adapter adapter.Adapter, config config.Config, messa
 		grpcPort:        config.GetGrpcPort(),
 		pathRequestChan: messagingChannels.GetPathRequestChan(),
 		pathResultChan:  messagingChannels.GetPathResponseChan(),
+		errorChan:       messagingChannels.GetErrorChan(),
+		internalChan:    make(chan error),
 	}
 }
 
@@ -51,32 +55,43 @@ func (server *GrpcMessagingServer) Start() error {
 	return nil
 }
 
-func (server *GrpcMessagingServer) GetIntentPath(stream api.IntentController_GetIntentPathServer) error {
-	ctx := stream.Context()
-	peerInfo, ok := peer.FromContext(ctx)
-	if ok {
-		server.log.Debugln("Received Stream from: ", peerInfo.Addr)
-	}
+func (server *GrpcMessagingServer) receiveStream(stream api.IntentController_GetIntentPathServer, peerInfo *peer.Peer, ctx context.Context) {
 	for {
 		apiRequest, err := stream.Recv()
 		if err != nil {
-			ctx.Done()
 			if err == io.EOF {
 				server.log.Debugf("Stream %s ended", peerInfo.Addr)
-				return nil
+				return
 			} else {
 				server.log.Errorln("Error receiving message: ", err)
-				return err
+				server.internalChan <- err
+				return
 			}
 		}
 		server.log.Debugln("Received request: ", apiRequest)
 
 		pathRequest, err := server.adapter.ConvertPathRequest(apiRequest, stream, ctx)
 		if err != nil {
-			return err
+			server.log.Errorln("Error converting PathRequest: ", err)
+			server.internalChan <- err
 		}
 		server.pathRequestChan <- pathRequest
 		go server.GetIntentPathResponse(stream, ctx)
+	}
+}
+
+func (server *GrpcMessagingServer) GetIntentPath(stream api.IntentController_GetIntentPathServer) error {
+	ctx := stream.Context()
+	peerInfo, ok := peer.FromContext(ctx)
+	if ok {
+		server.log.Debugln("Received Stream from: ", peerInfo.Addr)
+	}
+	go server.receiveStream(stream, peerInfo, ctx)
+	select {
+	case <-ctx.Done():
+		return nil
+	case err := <-server.internalChan:
+		return err
 	}
 }
 
@@ -87,12 +102,16 @@ func (server *GrpcMessagingServer) GetIntentPathResponse(stream api.IntentContro
 			result, err := server.adapter.ConvertPathResult(pathResult)
 			if err != nil {
 				server.log.Errorln("Error converting PathResult: ", err)
-				ctx.Done()
+				server.internalChan <- err
+				return
 			}
 			if err := stream.Send(result); err != nil {
 				server.log.Errorln("Error sending message: ", err)
+				server.internalChan <- err
 				return
 			}
+		case err := <-server.errorChan:
+			server.internalChan <- err
 		case <-ctx.Done():
 			return
 		}

@@ -16,6 +16,7 @@ type SessionController struct {
 	openSessions    map[string]domain.StreamSession
 	pathRequestChan chan domain.PathRequest
 	pathResultChan  chan domain.PathResult
+	errorChan       chan error
 	mu              sync.Mutex
 	updateChan      chan struct{}
 }
@@ -27,6 +28,7 @@ func NewSessionController(manager calculation.Manager, messagingChannels messagi
 		openSessions:    make(map[string]domain.StreamSession, 0),
 		pathRequestChan: messagingChannels.GetPathRequestChan(),
 		pathResultChan:  messagingChannels.GetPathResponseChan(),
+		errorChan:       messagingChannels.GetErrorChan(),
 		mu:              sync.Mutex{},
 		updateChan:      updateChan,
 	}
@@ -35,9 +37,9 @@ func NewSessionController(manager calculation.Manager, messagingChannels messagi
 func (controller *SessionController) watchForContextCancellation(pathRequest domain.PathRequest, serializedPathRequest string) {
 	<-pathRequest.GetContext().Done()
 	controller.mu.Lock()
+	defer controller.mu.Unlock()
 	controller.log.Debugf("Context of path request %s has been cancelled", pathRequest.Serialize())
 	delete(controller.openSessions, serializedPathRequest)
-	controller.mu.Unlock()
 }
 
 func (controller *SessionController) recalculateSessions() {
@@ -45,13 +47,15 @@ func (controller *SessionController) recalculateSessions() {
 		controller.log.Debugln("No open sessions to recalculate")
 		return
 	}
+	controller.mu.Lock()
+	defer controller.mu.Unlock()
 	controller.log.Debugln("Pending updates trigger recalculations of all open sessions")
 	for sessionKey, session := range controller.openSessions {
 		controller.log.Debugln("Recalculating for session: ", sessionKey)
 		result, err := controller.manager.CalculatePathUpdate(session)
 		if err != nil {
 			controller.log.Errorln("Failed to recalculate path update: ", err)
-			controller.pathResultChan <- nil
+			controller.errorChan <- err
 		} else if result != nil {
 			controller.pathResultChan <- *result
 		} else {
@@ -69,14 +73,14 @@ func (controller *SessionController) handlePathRequest(pathRequest domain.PathRe
 	} else {
 		pathResult, err := controller.manager.CalculateBestPath(pathRequest)
 		if err != nil {
-			controller.log.Errorln("Failed to calculate path result: ", err)
-			controller.pathResultChan <- pathResult
+			controller.log.Warnln("Failed to calculate path result: ", err)
+			controller.errorChan <- err
 			return
 		}
 		streamSession, err := domain.NewDefaultStreamSession(pathRequest, pathResult)
 		if err != nil {
-			controller.log.Errorln("Failed to create stream session: ", err)
-			controller.pathRequestChan <- pathResult
+			controller.log.Warnln("Failed to create stream session: ", err)
+			controller.errorChan <- err
 			return
 		}
 		controller.openSessions[serializedPathRequest] = streamSession

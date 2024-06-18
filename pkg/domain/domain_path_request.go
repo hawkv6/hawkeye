@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-playground/validator"
 	"github.com/hawkv6/hawkeye/pkg/api"
@@ -19,12 +20,27 @@ type PathRequest interface {
 type DomainPathRequest struct {
 	ipv6SourceAddress      string   `validate:"required,ipv6"`
 	ipv6DestinationAddress string   `validate:"required,ipv6"`
-	intents                []Intent `validate:"required,dive"`
+	intents                []Intent `validate:"required,dive,uniqueIntentTypes"`
 	stream                 api.IntentController_GetIntentPathServer
 	ctx                    context.Context
 }
 
+func validateIntents(intents []Intent) error {
+	intentTypes := make(map[IntentType]bool)
+	for _, intent := range intents {
+		if _, exists := intentTypes[intent.GetIntentType()]; exists {
+			return fmt.Errorf("Intent type %v appears more than once", intent.GetIntentType())
+		}
+		intentTypes[intent.GetIntentType()] = true
+	}
+	return nil
+}
+
 func NewDomainPathRequest(ipv6SourceAddress string, ipv6DestinationAddress string, intents []Intent, stream api.IntentController_GetIntentPathServer, ctx context.Context) (*DomainPathRequest, error) {
+	if err := validateIntents(intents); err != nil {
+		return nil, err
+	}
+
 	pathRequest := &DomainPathRequest{
 		ipv6SourceAddress:      ipv6SourceAddress,
 		ipv6DestinationAddress: ipv6DestinationAddress,
@@ -32,6 +48,7 @@ func NewDomainPathRequest(ipv6SourceAddress string, ipv6DestinationAddress strin
 		stream:                 stream,
 		ctx:                    ctx,
 	}
+
 	validator := validator.New()
 	err := validator.Struct(pathRequest)
 	if err != nil {

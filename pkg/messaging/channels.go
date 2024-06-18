@@ -7,4 +7,5 @@ import (
 type MessagingChannels interface {
 	GetPathRequestChan() chan domain.PathRequest
 	GetPathResponseChan() chan domain.PathResult
+	GetErrorChan() chan error
 }

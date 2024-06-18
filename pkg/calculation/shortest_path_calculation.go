@@ -102,8 +102,8 @@ func (calculation *ShortestPathCalculation) updateMetricsAndPrevious(neighborId 
 	packetLoss = 1 - ((1 - calculation.nodePacketLosses[edge.From().GetId()]) * (1 - packetLoss/100))
 
 	metrics := map[helper.WeightKey]float64{
-		helper.LatencyKey:              latency,
-		helper.JitterKey:               jitter,
+		helper.NormalizedLatencyKey:    latency,
+		helper.NormalizedJitterKey:     jitter,
 		helper.NormalizedPacketLossKey: packetLoss * 100,
 	}
 
