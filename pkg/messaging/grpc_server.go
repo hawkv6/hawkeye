@@ -74,6 +74,7 @@ func (server *GrpcMessagingServer) receiveStream(stream api.IntentController_Get
 		if err != nil {
 			server.log.Errorln("Error converting PathRequest: ", err)
 			server.internalChan <- err
+			return
 		}
 		server.pathRequestChan <- pathRequest
 		go server.GetIntentPathResponse(stream, ctx)

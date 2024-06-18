@@ -115,8 +115,7 @@ func (manager *CalculationManager) getWeightKeyAndCalcType(intentType domain.Int
 	}
 }
 
-func (manager *CalculationManager) getNormalizedWeightKey(intentType domain.IntentType) helper.WeightKey {
-
+func (manager *CalculationManager) getWeightKey(intentType domain.IntentType) helper.WeightKey {
 	switch intentType {
 	case domain.IntentTypeLowLatency:
 		return helper.NormalizedLatencyKey
@@ -124,6 +123,8 @@ func (manager *CalculationManager) getNormalizedWeightKey(intentType domain.Inte
 		return helper.NormalizedJitterKey
 	case domain.IntentTypeLowPacketLoss:
 		return helper.NormalizedPacketLossKey
+	case domain.IntentTypeHighBandwidth:
+		return helper.AvailableBandwidthKey
 	default:
 		return helper.UndefinedKey
 	}
@@ -165,7 +166,7 @@ func (manager *CalculationManager) getWeightKeysandCalculationType(intents []dom
 		calculationType := CalculationModeSum
 		weightKeys := make([]helper.WeightKey, 0)
 		for _, intent := range intents {
-			weightKeys = append(weightKeys, manager.getNormalizedWeightKey(intent.GetIntentType()))
+			weightKeys = append(weightKeys, manager.getWeightKey(intent.GetIntentType()))
 		}
 		return weightKeys, calculationType
 	}
@@ -176,12 +177,28 @@ func (manager *CalculationManager) getMaxValues(intents []domain.Intent, weightK
 	for index, intent := range intents {
 		values := intent.GetValues()
 		for _, value := range values {
-			if value.GetValueType() == domain.ValueTypeMaxValue {
-				maxValues[weightKeys[index]] = float64(value.GetNumberValue())
+			key := weightKeys[index]
+			if value.GetValueType() == domain.ValueTypeMaxValue &&
+				(key == helper.NormalizedLatencyKey || key == helper.NormalizedJitterKey || key == helper.NormalizedPacketLossKey) {
+				maxValues[key] = float64(value.GetNumberValue())
 			}
 		}
 	}
 	return maxValues
+}
+
+func (manager *CalculationManager) GetMinValues(intents []domain.Intent, weightKeys []helper.WeightKey) map[helper.WeightKey]float64 {
+	minValues := make(map[helper.WeightKey]float64)
+	for index, intent := range intents {
+		values := intent.GetValues()
+		for _, value := range values {
+			key := weightKeys[index]
+			if value.GetValueType() == domain.ValueTypeMinValue && key == helper.AvailableBandwidthKey {
+				minValues[key] = float64(value.GetNumberValue())
+			}
+		}
+	}
+	return minValues
 }
 
 func (manager *CalculationManager) CalculateBestPath(pathRequest domain.PathRequest) (domain.PathResult, error) {
@@ -208,7 +225,9 @@ func (manager *CalculationManager) CalculateBestPath(pathRequest domain.PathRequ
 	maxConstraints := manager.getMaxValues(intents, weightKeys)
 	manager.log.Debugf("Max constraints for intents: %v", maxConstraints)
 
-	calculation := NewShortestPathCalculation(manager.graph, sourceNode, destinationNode, weightKeys, calculationMode, maxConstraints)
+	minConstraints := manager.GetMinValues(intents, weightKeys)
+
+	calculation := NewShortestPathCalculation(manager.graph, sourceNode, destinationNode, weightKeys, calculationMode, maxConstraints, minConstraints)
 	path, err := calculation.Execute()
 	if err != nil {
 		return nil, err

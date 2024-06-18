@@ -25,13 +25,33 @@ type DomainPathRequest struct {
 	ctx                    context.Context
 }
 
+func validateValues(intentType IntentType, values []Value) error {
+	for _, value := range values {
+		switch value.GetValueType() {
+		case ValueTypeMaxValue:
+			if intentType != IntentTypeLowLatency && intentType != IntentTypeLowJitter && intentType != IntentTypeLowPacketLoss {
+				return fmt.Errorf("Max value is only allowed for Low Latency, Jitter, or Packet Loss intents")
+			}
+		case ValueTypeMinValue:
+			if intentType != IntentTypeHighBandwidth {
+				return fmt.Errorf("Min value is only allowed for High Bandwidth intents")
+			}
+		}
+	}
+	return nil
+}
+
 func validateIntents(intents []Intent) error {
 	intentTypes := make(map[IntentType]bool)
 	for _, intent := range intents {
-		if _, exists := intentTypes[intent.GetIntentType()]; exists {
-			return fmt.Errorf("Intent type %v appears more than once", intent.GetIntentType())
+		intentType := intent.GetIntentType()
+		if _, exists := intentTypes[intentType]; exists {
+			return fmt.Errorf("Intent type %v appears more than once", intentType)
 		}
-		intentTypes[intent.GetIntentType()] = true
+		if err := validateValues(intentType, intent.GetValues()); err != nil {
+			return err
+		}
+		intentTypes[intentType] = true
 	}
 	return nil
 }

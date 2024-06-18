@@ -124,7 +124,8 @@ func TestNetworkGraph_GetShortestPathSingleIntent(t *testing.T) {
 			},
 			want: Result{
 				edgeNumbers: []int{3, 7, 10, 9},
-				totalCost:   1 - ((1 - 1/100.0) * (1 - 1/100.0) * (1 - 1/100.0) * (1 - 1/100.0)), // ~0.04%, packet loss of edge 3 * edge 7 * edge 10 * edge 9 -> 1% on each link gives in the end 0.04% loss
+				// totalCost:   1 - ((1 - 1/100.0) * (1 - 1/100.0) * (1 - 1/100.0) * (1 - 1/100.0)), // ~0.04%, packet loss of edge 3 * edge 7 * edge 10 * edge 9 -> 1% on each link gives in the end 0.04% loss
+				totalCost: 4 * -math.Log(1-1/100.0), // we're using the formula -ln(1-p) to calculate the total loss
 			},
 			wantErr: false,
 		},
@@ -135,7 +136,7 @@ func TestNetworkGraph_GetShortestPathSingleIntent(t *testing.T) {
 			if err != nil {
 				t.Errorf("Error setting up graph")
 			}
-			calculation := NewShortestPathCalculation(networkGraph, tt.args.from, tt.args.to, tt.args.weightTypes, CalculationModeSum, make(map[helper.WeightKey]float64))
+			calculation := NewShortestPathCalculation(networkGraph, tt.args.from, tt.args.to, tt.args.weightTypes, CalculationModeSum, make(map[helper.WeightKey]float64), make(map[helper.WeightKey]float64))
 			got, err := calculation.Execute()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Get shortest path with metric %s, error = %v, wantErr %v", tt.args.weightTypes, err, tt.wantErr)
