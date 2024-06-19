@@ -266,8 +266,8 @@ func (calculation *ShortestPathCalculation) getPath(current graph.Node) ([]graph
 	return path, bottleneckEdge, nil
 }
 
-func (calculation *ShortestPathCalculation) reconstructSumPath(current graph.Node) (graph.Path, error) {
-	path, bottleneckEdge, err := calculation.getPath(current)
+func (calculation ShortestPathCalculation) reconstructPath() (graph.Path, error) {
+	path, bottleneckEdge, err := calculation.getPath(calculation.destination)
 	if err != nil {
 		return nil, err
 	}
@@ -275,27 +275,9 @@ func (calculation *ShortestPathCalculation) reconstructSumPath(current graph.Nod
 	latency := calculation.nodeLatencies[calculation.destination.GetId()]
 	jitter := calculation.nodeJitters[calculation.destination.GetId()]
 	packetLoss := calculation.nodePacketLosses[calculation.destination.GetId()]
-	if totalCost == math.Inf(1) {
-		return nil, fmt.Errorf("No path found from node %s to node %s", calculation.source.GetId(), calculation.destination.GetId())
-	}
 	bottleneckBandwidth := calculation.nodeBottleneckBandwidths[calculation.destination.GetId()]
-	calculation.log.Debugf("Available bandwidth %g, bottleneck edge %v", bottleneckBandwidth, bottleneckEdge)
-	return graph.NewShortestPathWithTotalCost(path, totalCost, latency, jitter, packetLoss), nil
-}
-
-func (calculation *ShortestPathCalculation) reconstructMinPath(current graph.Node) (graph.Path, error) {
-	bottleneckBandwidth := calculation.nodeBottleneckBandwidths[calculation.destination.GetId()]
-	path, bottleneckEdge, err := calculation.getPath(current)
-	if err != nil {
-		return nil, err
-	}
-	calculation.log.Debugf("Available bandwidth %g, bottleneck edge %v", bottleneckBandwidth, bottleneckEdge)
-	return graph.NewShortestPathWithBottleneck(path, bottleneckEdge, bottleneckBandwidth), nil
-}
-
-func (calculation ShortestPathCalculation) reconstructPath() (graph.Path, error) {
-	if calculation.calculationType == CalculationModeSum {
-		return calculation.reconstructSumPath(calculation.destination)
-	}
-	return calculation.reconstructMinPath(calculation.destination)
+	calculation.log.Debugln("Calculation finished - shortest path found")
+	calculation.log.Debugf("Total cost %g, total latency %gus, total jitter %gus, total packet loss %f -> %f%%", totalCost, latency, jitter, packetLoss, packetLoss*100)
+	calculation.log.Debugf("Available bandwidth %g, bottleneck edge %s", bottleneckBandwidth, bottleneckEdge.GetId())
+	return graph.NewShortestPathCalculation(path, totalCost, latency, jitter, packetLoss, bottleneckBandwidth, bottleneckEdge), nil
 }

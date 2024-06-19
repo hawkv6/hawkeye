@@ -223,22 +223,11 @@ func (manager *CalculationManager) CalculateBestPath(pathRequest domain.PathRequ
 	}
 
 	maxConstraints := manager.getMaxValues(intents, weightKeys)
-	manager.log.Debugf("Max constraints for intents: %v", maxConstraints)
-
 	minConstraints := manager.GetMinValues(intents, weightKeys)
-
 	calculation := NewShortestPathCalculation(manager.graph, sourceNode, destinationNode, weightKeys, calculationMode, maxConstraints, minConstraints)
 	path, err := calculation.Execute()
 	if err != nil {
 		return nil, err
-
-	} else {
-		if calculationMode == CalculationModeSum {
-			manager.log.Debugf("Shortest Path found with total cost %g, delay: %gus, jitter %gus, packet loss %f -> %f%%: ", path.GetTotalCost(), path.GetTotalDelay(), path.GetTotalJitter(), path.GetTotalPacketLoss(), path.GetTotalPacketLoss()*100)
-		} else {
-			manager.log.Debugf("Shortest Path found with bottleneck %g: ", path.GetBottleneckValue())
-			manager.log.Debugf("Bottleneck edge for this new path is: %v", path.GetBottleneckEdge())
-		}
 	}
 	return manager.createPathResult(path, pathRequest), nil
 }

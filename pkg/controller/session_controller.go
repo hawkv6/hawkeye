@@ -68,7 +68,7 @@ func (controller *SessionController) handlePathRequest(pathRequest domain.PathRe
 	serializedPathRequest := pathRequest.Serialize()
 	controller.log.Debugln("Received path request: ", serializedPathRequest)
 	if _, ok := controller.openSessions[serializedPathRequest]; ok {
-		controller.log.Debugln("Path request already exists")
+		controller.log.Debugln("Path request already exists - returning existing path result")
 		controller.pathResultChan <- controller.openSessions[serializedPathRequest].GetPathResult()
 	} else {
 		pathResult, err := controller.manager.CalculateBestPath(pathRequest)

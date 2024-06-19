@@ -16,22 +16,16 @@ type ShortestPath struct {
 	bottleneckValue float64
 }
 
-func NewShortestPathWithTotalCost(edges []Edge, cost float64, delay, jitter, packetLoss float64) *ShortestPath {
+func NewShortestPathCalculation(edges []Edge, totalCost, delay, jitter, packetLoss, bottleNeckValue float64, bottleneckEdge Edge) *ShortestPath {
 	return &ShortestPath{
 		log:             logging.DefaultLogger.WithField("subsystem", Subsystem),
 		edges:           edges,
-		totalCost:       cost,
+		totalCost:       totalCost,
 		totalDelay:      delay,
 		totalJitter:     jitter,
 		totalPacketLoss: packetLoss,
-	}
-}
-func NewShortestPathWithBottleneck(edges []Edge, bottleneckEdge Edge, bottleneckValue float64) *ShortestPath {
-	return &ShortestPath{
-		log:             logging.DefaultLogger.WithField("subsystem", Subsystem),
-		edges:           edges,
 		bottleneckEdge:  bottleneckEdge,
-		bottleneckValue: bottleneckValue,
+		bottleneckValue: bottleNeckValue,
 	}
 }
 

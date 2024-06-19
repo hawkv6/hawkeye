@@ -55,29 +55,34 @@ func (server *GrpcMessagingServer) Start() error {
 	return nil
 }
 
-func (server *GrpcMessagingServer) receiveStream(stream api.IntentController_GetIntentPathServer, peerInfo *peer.Peer, ctx context.Context) {
+func (server *GrpcMessagingServer) handleIncomingPathRequests(stream api.IntentController_GetIntentPathServer, peerInfo *peer.Peer, ctx context.Context) {
 	for {
-		apiRequest, err := stream.Recv()
-		if err != nil {
-			if err == io.EOF {
-				server.log.Debugf("Stream %s ended", peerInfo.Addr)
-				return
-			} else {
-				server.log.Errorln("Error receiving message: ", err)
+		select {
+		case <-ctx.Done():
+			server.log.Debugln("Context cancelled, stopping receiving the stream")
+			return
+		default:
+			apiRequest, err := stream.Recv()
+			if err != nil {
+				if err == io.EOF {
+					server.log.Debugf("Stream %s ended", peerInfo.Addr)
+					return
+				} else {
+					server.log.Errorln("Error receiving message: ", err)
+					server.internalChan <- err
+					return
+				}
+			}
+			server.log.Debugln("Received request: ", apiRequest)
+			pathRequest, err := server.adapter.ConvertPathRequest(apiRequest, stream, ctx)
+			if err != nil {
+				server.log.Errorln("Error converting PathRequest: ", err)
 				server.internalChan <- err
 				return
 			}
+			server.pathRequestChan <- pathRequest
+			go server.handleIntentPathResponse(stream, ctx)
 		}
-		server.log.Debugln("Received request: ", apiRequest)
-
-		pathRequest, err := server.adapter.ConvertPathRequest(apiRequest, stream, ctx)
-		if err != nil {
-			server.log.Errorln("Error converting PathRequest: ", err)
-			server.internalChan <- err
-			return
-		}
-		server.pathRequestChan <- pathRequest
-		go server.GetIntentPathResponse(stream, ctx)
 	}
 }
 
@@ -87,7 +92,7 @@ func (server *GrpcMessagingServer) GetIntentPath(stream api.IntentController_Get
 	if ok {
 		server.log.Debugln("Received Stream from: ", peerInfo.Addr)
 	}
-	go server.receiveStream(stream, peerInfo, ctx)
+	go server.handleIncomingPathRequests(stream, peerInfo, ctx)
 	select {
 	case <-ctx.Done():
 		return nil
@@ -96,7 +101,7 @@ func (server *GrpcMessagingServer) GetIntentPath(stream api.IntentController_Get
 	}
 }
 
-func (server *GrpcMessagingServer) GetIntentPathResponse(stream api.IntentController_GetIntentPathServer, ctx context.Context) {
+func (server *GrpcMessagingServer) handleIntentPathResponse(stream api.IntentController_GetIntentPathServer, ctx context.Context) {
 	for {
 		select {
 		case pathResult := <-server.pathResultChan:
@@ -114,6 +119,7 @@ func (server *GrpcMessagingServer) GetIntentPathResponse(stream api.IntentContro
 		case err := <-server.errorChan:
 			server.internalChan <- err
 		case <-ctx.Done():
+			server.log.Debugln("Context cancelled, stopping GetIntentPathResponse")
 			return
 		}
 	}
