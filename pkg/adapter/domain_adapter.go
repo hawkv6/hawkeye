@@ -43,7 +43,7 @@ func (adapter *DomainAdapter) ConvertNodeEvent(lsNodeEvent *jagw.LsNodeEvent) (d
 }
 
 func (adapter *DomainAdapter) ConvertLink(lsLink *jagw.LsLink) (domain.Link, error) {
-	return domain.NewDomainLink(lsLink.Key, lsLink.IgpRouterId, lsLink.RemoteIgpRouterId, lsLink.UnidirLinkDelay, lsLink.UnidirDelayVariation, lsLink.MaxLinkBwKbps, lsLink.UnidirAvailableBw, lsLink.UnidirBwUtilization, lsLink.UnidirPacketLoss, lsLink.NormalizedUnidirLinkDelay, lsLink.NormalizedUnidirDelayVariation, lsLink.NormalizedUnidirPacketLoss)
+	return domain.NewDomainLink(lsLink.Key, lsLink.IgpRouterId, lsLink.RemoteIgpRouterId, lsLink.UnidirLinkDelay, lsLink.UnidirDelayVariation, lsLink.MaxLinkBwKbps, lsLink.UnidirAvailableBw, lsLink.UnidirBwUtilization, lsLink.UnidirPacketLossPercentage, lsLink.NormalizedUnidirLinkDelay, lsLink.NormalizedUnidirDelayVariation, lsLink.NormalizedUnidirPacketLoss)
 }
 
 func (adapter *DomainAdapter) ConvertLinkEvent(lsLinkEvent *jagw.LsLinkEvent) (domain.NetworkEvent, error) {

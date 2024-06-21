@@ -14,7 +14,7 @@ const (
 	PropertyUnidirDelayVariation           = "UnidirDelayVariation"
 	PropertyMaxLinkBwKbps                  = "MaxLinkBwKbps"
 	PropertyUnidirAvailableBw              = "UnidirAvailableBw"
-	PropertyUnidirPacketLoss               = "UnidirPacketLoss"
+	PropertyUnidirPacketLoss               = "UnidirPacketLossPercentage"
 	PropertyUnidirBwUtilization            = "UnidirBwUtilization"
 	PropertyNormalizedUnidirLinkDelay      = "NormalizedUnidirLinkDelay"
 	PropertyNormalizedUnidirDelayVariation = "NormalizedUnidirDelayVariation"
