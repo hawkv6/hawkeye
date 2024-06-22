@@ -9,28 +9,26 @@ import (
 )
 
 type InMemoryCache struct {
-	log             *logrus.Entry
-	prefixMap       map[string]domain.Prefix
-	prefixRouterMap map[string]string
-	sidStore        map[string]domain.Sid
-	routerSidMap    map[string]string
-	nodeMap         map[string]domain.Node
-	igpRouterIdMap  map[string]string
-	linkMap         map[string]domain.Link
-	mu              sync.Mutex
+	log                         *logrus.Entry
+	prefixStore                 map[string]domain.Prefix
+	prefixToRouterIdMap         map[string]string
+	sidStore                    map[string]domain.Sid
+	igpRouterIdToSrAlgoToSidMap map[string]map[uint32]string
+	nodeStore                   map[string]domain.Node
+	igpRouterIdToRouterKeyMap   map[string]string
+	mu                          sync.Mutex
 }
 
 func NewInMemoryCache() *InMemoryCache {
 	return &InMemoryCache{
-		log:             logging.DefaultLogger.WithField("subsystem", "cache"),
-		prefixMap:       make(map[string]domain.Prefix),
-		prefixRouterMap: make(map[string]string),
-		sidStore:        make(map[string]domain.Sid),
-		routerSidMap:    make(map[string]string),
-		nodeMap:         make(map[string]domain.Node),
-		igpRouterIdMap:  make(map[string]string),
-		linkMap:         make(map[string]domain.Link),
-		mu:              sync.Mutex{},
+		log:                         logging.DefaultLogger.WithField("subsystem", "cache"),
+		prefixStore:                 make(map[string]domain.Prefix),
+		prefixToRouterIdMap:         make(map[string]string),
+		sidStore:                    make(map[string]domain.Sid),
+		igpRouterIdToSrAlgoToSidMap: make(map[string]map[uint32]string),
+		nodeStore:                   make(map[string]domain.Node),
+		igpRouterIdToRouterKeyMap:   make(map[string]string),
+		mu:                          sync.Mutex{},
 	}
 }
 
@@ -43,68 +41,73 @@ func (cache *InMemoryCache) Unlock() {
 }
 
 func (cache *InMemoryCache) StoreClientNetwork(prefix domain.Prefix) {
-	cache.prefixMap[prefix.GetKey()] = prefix
+	cache.prefixStore[prefix.GetKey()] = prefix
 	networkAddress := prefix.GetPrefix()
-	cache.prefixRouterMap[networkAddress] = prefix.GetIgpRouterId()
+	cache.prefixToRouterIdMap[networkAddress] = prefix.GetIgpRouterId()
 }
 
 func (cache *InMemoryCache) RemoveClientNetwork(prefix domain.Prefix) {
 	networkAddress := prefix.GetPrefix()
-	delete(cache.prefixMap, prefix.GetKey())
-	delete(cache.prefixRouterMap, networkAddress)
+	delete(cache.prefixStore, prefix.GetKey())
+	delete(cache.prefixToRouterIdMap, networkAddress)
 }
 
-func (cache *InMemoryCache) GetClientNetworkByKey(key string) (domain.Prefix, bool) {
-	prefix, ok := cache.prefixMap[key]
-	return prefix, ok
+func (cache *InMemoryCache) GetClientNetworkByKey(key string) domain.Prefix {
+	return cache.prefixStore[key]
 }
 
 func (cache *InMemoryCache) StoreSid(sid domain.Sid) {
 	cache.sidStore[sid.GetKey()] = sid
-	cache.routerSidMap[sid.GetIgpRouterId()] = sid.GetKey()
+	igpRouterId := sid.GetIgpRouterId()
+	if _, ok := cache.igpRouterIdToSrAlgoToSidMap[sid.GetIgpRouterId()]; !ok {
+		cache.igpRouterIdToSrAlgoToSidMap[igpRouterId] = make(map[uint32]string)
+	}
+	cache.igpRouterIdToSrAlgoToSidMap[igpRouterId][sid.GetAlgorithm()] = sid.GetKey()
 }
 
 func (cache *InMemoryCache) RemoveSid(sid domain.Sid) {
 	delete(cache.sidStore, sid.GetKey())
-	delete(cache.routerSidMap, sid.GetIgpRouterId())
+	delete(cache.igpRouterIdToSrAlgoToSidMap, sid.GetIgpRouterId())
 }
 
-func (cache *InMemoryCache) GetSidByKey(key string) (domain.Sid, bool) {
-	sid, ok := cache.sidStore[key]
-	return sid, ok
+func (cache *InMemoryCache) GetSidByKey(key string) domain.Sid {
+	return cache.sidStore[key]
 }
 
-func (cache *InMemoryCache) GetRouterIdFromNetworkAddress(networkAddress string) (string, bool) {
-	routerId, ok := cache.prefixRouterMap[networkAddress]
-	return routerId, ok
+func (cache *InMemoryCache) GetRouterIdFromNetworkAddress(networkAddress string) string {
+	return cache.prefixToRouterIdMap[networkAddress]
 }
 
-func (cache *InMemoryCache) GetSidFromRouterId(routerId string) (string, bool) {
-	sidKey, ok := cache.routerSidMap[routerId]
-	if !ok {
-		return "", ok
+func (cache *InMemoryCache) GetSrAlgorithmSid(igpRouterId string, srAlgorithm uint32) string {
+	if _, ok := cache.igpRouterIdToSrAlgoToSidMap[igpRouterId]; !ok {
+		return ""
+	}
+	if sidKey, ok := cache.igpRouterIdToSrAlgoToSidMap[igpRouterId][srAlgorithm]; !ok {
+		return ""
 	} else {
-		sid, ok := cache.sidStore[sidKey]
-		return sid.GetSid(), ok
+		return cache.sidStore[sidKey].GetSid()
 	}
 }
 
 func (cache *InMemoryCache) StoreNode(node domain.Node) {
-	cache.nodeMap[node.GetKey()] = node
-	cache.igpRouterIdMap[node.GetIgpRouterId()] = node.GetKey()
+	cache.nodeStore[node.GetKey()] = node
+	cache.igpRouterIdToRouterKeyMap[node.GetIgpRouterId()] = node.GetKey()
 }
 
-func (cache *InMemoryCache) GetNodeByKey(key string) (domain.Node, bool) {
-	node, ok := cache.nodeMap[key]
-	return node, ok
+func (cache *InMemoryCache) RemoveNode(node domain.Node) {
+	delete(cache.nodeStore, node.GetKey())
+	delete(cache.igpRouterIdToRouterKeyMap, node.GetIgpRouterId())
 }
 
-func (cache *InMemoryCache) GetNodeByIgpRouterId(igpRouterId string) (domain.Node, bool) {
-	key, ok := cache.igpRouterIdMap[igpRouterId]
+func (cache *InMemoryCache) GetNodeByKey(key string) domain.Node {
+	return cache.nodeStore[key]
+}
+
+func (cache *InMemoryCache) GetNodeByIgpRouterId(igpRouterId string) domain.Node {
+	key, ok := cache.igpRouterIdToRouterKeyMap[igpRouterId]
 	if !ok {
-		return nil, ok
+		return nil
 	} else {
-		node, ok := cache.nodeMap[key]
-		return node, ok
+		return cache.nodeStore[key]
 	}
 }

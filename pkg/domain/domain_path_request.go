@@ -25,7 +25,7 @@ type DomainPathRequest struct {
 	ctx                    context.Context
 }
 
-func validateValues(intentType IntentType, values []Value) error {
+func validateMinMaxValues(intentType IntentType, values []Value) error {
 	for _, value := range values {
 		switch value.GetValueType() {
 		case ValueTypeMaxValue:
@@ -41,14 +41,42 @@ func validateValues(intentType IntentType, values []Value) error {
 	return nil
 }
 
+func validateDoubleAppearanceIntentType(intentTypes map[IntentType]bool, intentType IntentType) error {
+	if _, exists := intentTypes[intentType]; exists {
+		return fmt.Errorf("Intent type %v appears more than once", intentType)
+	}
+	return nil
+}
+
+func validateFlexAlgoIntentType(intent Intent, intentType IntentType) error {
+	if intentType == IntentTypeFlexAlgo {
+		values := intent.GetValues()
+		if len(values) == 0 || len(values) > 1 {
+			return fmt.Errorf("Flex Algo intent should have exact one VALUE_TYPE_FLEX_ALGO_NR")
+		}
+		valueType := values[0].GetValueType()
+		if valueType != ValueTypeFlexAlgoNr {
+			return fmt.Errorf("Flex Algo value number should be of type VALUE_TYPE_FLEX_ALGO_NR ")
+		}
+		value := values[0].GetNumberValue()
+		if value < 128 || value > 255 {
+			return fmt.Errorf("Flex Algo value number should be a positive number between 128 and 255")
+		}
+	}
+	return nil
+}
+
 func validateIntents(intents []Intent) error {
 	intentTypes := make(map[IntentType]bool)
 	for _, intent := range intents {
 		intentType := intent.GetIntentType()
-		if _, exists := intentTypes[intentType]; exists {
-			return fmt.Errorf("Intent type %v appears more than once", intentType)
+		if err := validateDoubleAppearanceIntentType(intentTypes, intentType); err != nil {
+			return err
 		}
-		if err := validateValues(intentType, intent.GetValues()); err != nil {
+		if err := validateFlexAlgoIntentType(intent, intentType); err != nil {
+			return err
+		}
+		if err := validateMinMaxValues(intentType, intent.GetValues()); err != nil {
 			return err
 		}
 		intentTypes[intentType] = true

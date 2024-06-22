@@ -8,6 +8,7 @@ import (
 const (
 	PropertyKey                            = "Key"
 	PropertyIgpRouterId                    = "IgpRouterId"
+	PropertyIgpMetric                      = "IgpMetric"
 	PropertyName                           = "Name"
 	PropertyRemoteIgpRouterId              = "RemoteIgpRouterId"
 	PropertyUnidirLinkDelay                = "UnidirLinkDelay"
@@ -22,12 +23,16 @@ const (
 	PropertyPrefix                         = "Prefix"
 	PropertyPrefixLen                      = "PrefixLen"
 	PropertySrv6Sid                        = "Srv6Sid"
+	PropertySrAlgorithm                    = "SrAlgorithm"
+	PropertySrv6Locator                    = "Srv6Locator"
+	PropertySrv6EndpointBehavior           = "Srv6EndpointBehavior"
 )
 
 type WeightKey string
 
 const (
 	UndefinedKey            WeightKey = ""
+	IgpMetricKey            WeightKey = PropertyIgpMetric
 	LatencyKey              WeightKey = PropertyUnidirLinkDelay
 	JitterKey               WeightKey = PropertyUnidirDelayVariation
 	MaximumLinkBandwidth    WeightKey = PropertyMaxLinkBwKbps
@@ -52,10 +57,10 @@ type DefaultHelper struct {
 func NewDefaultHelper() *DefaultHelper {
 	return &DefaultHelper{
 		log:                  logging.DefaultLogger.WithField("subsystem", subsystem),
-		lsNodeProperties:     []string{PropertyKey, PropertyIgpRouterId, PropertyName},
-		lsLinkProperties:     []string{PropertyKey, PropertyIgpRouterId, PropertyRemoteIgpRouterId, PropertyUnidirLinkDelay, PropertyUnidirDelayVariation, PropertyMaxLinkBwKbps, PropertyUnidirAvailableBw, PropertyUnidirPacketLoss, PropertyUnidirBwUtilization, PropertyNormalizedUnidirLinkDelay, PropertyNormalizedUnidirDelayVariation, PropertyNormalizedUnidirPacketLoss},
-		lsPrefixProperties:   []string{PropertyKey, PropertyIgpRouterId, PropertyPrefix, PropertyPrefixLen},
-		lsSrv6SidsProperties: []string{PropertyKey, PropertyIgpRouterId, PropertySrv6Sid},
+		lsNodeProperties:     []string{PropertyKey, PropertyIgpRouterId, PropertyName, PropertySrAlgorithm},
+		lsLinkProperties:     []string{PropertyKey, PropertyIgpRouterId, PropertyRemoteIgpRouterId, PropertyIgpMetric, PropertyUnidirLinkDelay, PropertyUnidirDelayVariation, PropertyMaxLinkBwKbps, PropertyUnidirAvailableBw, PropertyUnidirPacketLoss, PropertyUnidirBwUtilization, PropertyNormalizedUnidirLinkDelay, PropertyNormalizedUnidirDelayVariation, PropertyNormalizedUnidirPacketLoss},
+		lsPrefixProperties:   []string{PropertyKey, PropertyIgpRouterId, PropertyPrefix, PropertyPrefixLen, PropertySrv6Locator},
+		lsSrv6SidsProperties: []string{PropertyKey, PropertyIgpRouterId, PropertySrv6Sid, PropertySrv6EndpointBehavior},
 	}
 }
 

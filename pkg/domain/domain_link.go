@@ -8,6 +8,7 @@ type Link interface {
 	GetKey() string
 	GetIgpRouterId() string
 	GetRemoteIgpRouterId() string
+	GetIgpMetric() uint32
 	GetUnidirLinkDelay() uint32
 	GetUnidirDelayVariation() uint32
 	GetMaxLinkBWKbps() uint64
@@ -26,6 +27,7 @@ type LinkInput struct {
 	Key                            *string  `validate:"required"`
 	IgpRouterId                    *string  `validate:"required"`
 	RemoteIgpRouterId              *string  `validate:"required"`
+	IgpMetric                      *uint32  `validate:"required"`
 	UnidirLinkDelay                *uint32  `validate:"required"`
 	UnidirDelayVariation           *uint32  `validate:"required"`
 	MaxLinkBWKbps                  *uint64  `validate:"required,min=1"`
@@ -41,6 +43,7 @@ type DomainLink struct {
 	key                            string
 	igpRouterId                    string
 	remoteIgpRouterId              string
+	igpMetric                      uint32
 	unidirLinkDelay                uint32
 	unidirDelayVariation           uint32
 	maxLinkBWKbps                  uint64
@@ -52,11 +55,12 @@ type DomainLink struct {
 	normalizedUnidirPacketLoss     float64
 }
 
-func NewDomainLink(key, igpRouterId, remoteIgpRouterId *string, unidirLinkDelay, unidirDelayVariation *uint32, maxLinkBWKbps *uint64, unidirAvailableBandwidth, unidirBandwidthUtilization *uint32, unidirPacketLoss, normalizedUnidirLinkDelay, normalizedUnidirDelayVariation, normalizedUnidirPacketLoss *float64) (*DomainLink, error) {
+func NewDomainLink(key, igpRouterId, remoteIgpRouterId *string, igpMetric, unidirLinkDelay, unidirDelayVariation *uint32, maxLinkBWKbps *uint64, unidirAvailableBandwidth, unidirBandwidthUtilization *uint32, unidirPacketLoss, normalizedUnidirLinkDelay, normalizedUnidirDelayVariation, normalizedUnidirPacketLoss *float64) (*DomainLink, error) {
 	input := &LinkInput{
 		Key:                            key,
 		IgpRouterId:                    igpRouterId,
 		RemoteIgpRouterId:              remoteIgpRouterId,
+		IgpMetric:                      igpMetric,
 		UnidirLinkDelay:                unidirLinkDelay,
 		UnidirDelayVariation:           unidirDelayVariation,
 		MaxLinkBWKbps:                  maxLinkBWKbps,
@@ -76,6 +80,7 @@ func NewDomainLink(key, igpRouterId, remoteIgpRouterId *string, unidirLinkDelay,
 	defaultLink := &DomainLink{
 		key:                            *key,
 		igpRouterId:                    *igpRouterId,
+		igpMetric:                      *igpMetric,
 		remoteIgpRouterId:              *remoteIgpRouterId,
 		unidirLinkDelay:                *unidirLinkDelay,
 		unidirDelayVariation:           *unidirDelayVariation,
@@ -101,6 +106,10 @@ func (link *DomainLink) GetIgpRouterId() string {
 
 func (link *DomainLink) GetRemoteIgpRouterId() string {
 	return link.remoteIgpRouterId
+}
+
+func (link *DomainLink) GetIgpMetric() uint32 {
+	return link.igpMetric
 }
 
 func (link *DomainLink) GetUnidirLinkDelay() uint32 {

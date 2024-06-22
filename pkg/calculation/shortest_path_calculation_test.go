@@ -15,9 +15,7 @@ import (
 func setupGraph(nodes map[int]graph.Node, edges map[int]graph.Edge) (*graph.NetworkGraph, error) {
 	graph := graph.NewNetworkGraph(helper.NewDefaultHelper())
 	for _, node := range nodes {
-		if _, err := graph.AddNode(node); err != nil {
-			return nil, err
-		}
+		graph.AddNode(node)
 	}
 	for _, edge := range edges {
 		if err := graph.AddEdge(edge); err != nil {
@@ -34,15 +32,16 @@ func almostEqual(a, b float64) bool {
 }
 
 func TestNetworkGraph_GetShortestPathSingleIntent(t *testing.T) {
+	srAlgorithm := []uint32{0}
 	nodes := map[int]graph.Node{
-		1: graph.NewNetworkNode("1"),
-		2: graph.NewNetworkNode("2"),
-		3: graph.NewNetworkNode("3"),
-		4: graph.NewNetworkNode("4"),
-		5: graph.NewNetworkNode("5"),
-		6: graph.NewNetworkNode("6"),
-		7: graph.NewNetworkNode("7"),
-		8: graph.NewNetworkNode("8"),
+		1: graph.NewNetworkNode("1", "1", srAlgorithm),
+		2: graph.NewNetworkNode("2", "2", srAlgorithm),
+		3: graph.NewNetworkNode("3", "3", srAlgorithm),
+		4: graph.NewNetworkNode("4", "4", srAlgorithm),
+		5: graph.NewNetworkNode("5", "5", srAlgorithm),
+		6: graph.NewNetworkNode("6", "6", srAlgorithm),
+		7: graph.NewNetworkNode("7", "7", srAlgorithm),
+		8: graph.NewNetworkNode("8", "8", srAlgorithm),
 	}
 	// 	     [1]
 	//      / | \

@@ -1,16 +1,23 @@
 package domain
 
-import "github.com/go-playground/validator"
+import (
+	"fmt"
+
+	"github.com/go-playground/validator"
+)
 
 type NumberValue struct {
 	BaseValue   `validate:"required"`
 	numberValue int32 `validate:"required,min=0"`
 }
 
-func NewNumberValue(valueType ValueType, numberValue int32) (*NumberValue, error) {
+func NewNumberValue(valueType ValueType, numberValue *int32) (*NumberValue, error) {
+	if numberValue == nil {
+		return nil, fmt.Errorf("Number value was not provided")
+	}
 	value := &NumberValue{
 		BaseValue:   *NewBaseValue(valueType),
-		numberValue: numberValue,
+		numberValue: *numberValue,
 	}
 	validate := validator.New()
 	if err := validate.Struct(value); err != nil {

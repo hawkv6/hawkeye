@@ -7,4 +7,6 @@ type Node interface {
 	DeleteEdge(string)
 	GetName() string
 	SetName(string)
+	GetFlexibleAlgorithms() map[uint32]struct{}
+	SetFlexibleAlgorithms([]uint32)
 }

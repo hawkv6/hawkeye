@@ -22,7 +22,7 @@ func NewDomainAdapter() *DomainAdapter {
 }
 
 func (adapter *DomainAdapter) ConvertNode(lsNode *jagw.LsNode) (domain.Node, error) {
-	return domain.NewDomainNode(lsNode.Key, lsNode.IgpRouterId, lsNode.Name)
+	return domain.NewDomainNode(lsNode.Key, lsNode.IgpRouterId, lsNode.Name, lsNode.SrAlgorithm)
 }
 
 func (adapter *DomainAdapter) ConvertNodeEvent(lsNodeEvent *jagw.LsNodeEvent) (domain.NetworkEvent, error) {
@@ -37,13 +37,21 @@ func (adapter *DomainAdapter) ConvertNodeEvent(lsNodeEvent *jagw.LsNodeEvent) (d
 			return nil, fmt.Errorf("Error converting LsNode to Node: %s", err)
 		}
 		return domain.NewAddNodeEvent(node), nil
+	}
+	if *lsNodeEvent.Action == "update" {
+		node, err := adapter.ConvertNode(lsNodeEvent.LsNode)
+		if err != nil {
+			return nil, fmt.Errorf("Error converting LsNode to Node: %s", err)
+		}
+		return domain.NewUpdateNodeEvent(node), nil
 	} else {
+
 		return nil, fmt.Errorf("Unknown action: %s", *lsNodeEvent.Action)
 	}
 }
 
 func (adapter *DomainAdapter) ConvertLink(lsLink *jagw.LsLink) (domain.Link, error) {
-	return domain.NewDomainLink(lsLink.Key, lsLink.IgpRouterId, lsLink.RemoteIgpRouterId, lsLink.UnidirLinkDelay, lsLink.UnidirDelayVariation, lsLink.MaxLinkBwKbps, lsLink.UnidirAvailableBw, lsLink.UnidirBwUtilization, lsLink.UnidirPacketLossPercentage, lsLink.NormalizedUnidirLinkDelay, lsLink.NormalizedUnidirDelayVariation, lsLink.NormalizedUnidirPacketLoss)
+	return domain.NewDomainLink(lsLink.Key, lsLink.IgpRouterId, lsLink.RemoteIgpRouterId, lsLink.IgpMetric, lsLink.UnidirLinkDelay, lsLink.UnidirDelayVariation, lsLink.MaxLinkBwKbps, lsLink.UnidirAvailableBw, lsLink.UnidirBwUtilization, lsLink.UnidirPacketLossPercentage, lsLink.NormalizedUnidirLinkDelay, lsLink.NormalizedUnidirDelayVariation, lsLink.NormalizedUnidirPacketLoss)
 }
 
 func (adapter *DomainAdapter) ConvertLinkEvent(lsLinkEvent *jagw.LsLinkEvent) (domain.NetworkEvent, error) {
@@ -71,6 +79,7 @@ func (adapter *DomainAdapter) ConvertLinkEvent(lsLinkEvent *jagw.LsLinkEvent) (d
 
 func (adapter *DomainAdapter) ConvertPrefix(lsPrefix *jagw.LsPrefix) (domain.Prefix, error) {
 	return domain.NewDomainPrefix(lsPrefix.Key, lsPrefix.IgpRouterId, lsPrefix.Prefix, lsPrefix.PrefixLen)
+
 }
 
 func (adapter *DomainAdapter) ConvertPrefixEvent(lsPrefixEvent *jagw.LsPrefixEvent) (domain.NetworkEvent, error) {
@@ -91,7 +100,7 @@ func (adapter *DomainAdapter) ConvertPrefixEvent(lsPrefixEvent *jagw.LsPrefixEve
 }
 
 func (adapter *DomainAdapter) ConvertSid(lsSrv6Sid *jagw.LsSrv6Sid) (domain.Sid, error) {
-	return domain.NewDomainSid(lsSrv6Sid.Key, lsSrv6Sid.IgpRouterId, lsSrv6Sid.Srv6Sid)
+	return domain.NewDomainSid(lsSrv6Sid.Key, lsSrv6Sid.IgpRouterId, lsSrv6Sid.Srv6Sid, lsSrv6Sid.Srv6EndpointBehavior.Algorithm)
 }
 
 func (adapter *DomainAdapter) ConvertSidEvent(lsSrv6SidEvent *jagw.LsSrv6SidEvent) (domain.NetworkEvent, error) {
@@ -119,13 +128,13 @@ func (adapter *DomainAdapter) convertValuesToDomain(apiValues []*api.Value) ([]d
 
 		switch apiValue.Type {
 		case api.ValueType_VALUE_TYPE_MIN_VALUE:
-			value, err = domain.NewNumberValue(domain.ValueTypeMinValue, *apiValue.NumberValue)
+			value, err = domain.NewNumberValue(domain.ValueTypeMinValue, apiValue.NumberValue)
 		case api.ValueType_VALUE_TYPE_MAX_VALUE:
-			value, err = domain.NewNumberValue(domain.ValueTypeMaxValue, *apiValue.NumberValue)
+			value, err = domain.NewNumberValue(domain.ValueTypeMaxValue, apiValue.NumberValue)
 		case api.ValueType_VALUE_TYPE_FLEX_ALGO_NR:
-			value, err = domain.NewNumberValue(domain.ValueTypeFlexAlgoNr, *apiValue.NumberValue)
+			value, err = domain.NewNumberValue(domain.ValueTypeFlexAlgoNr, apiValue.NumberValue)
 		case api.ValueType_VALUE_TYPE_SFC:
-			value, err = domain.NewStringValue(domain.ValueTypeSFC, *apiValue.StringValue)
+			value, err = domain.NewStringValue(domain.ValueTypeSFC, apiValue.StringValue)
 		default:
 			return nil, fmt.Errorf("Value type unspecified")
 		}

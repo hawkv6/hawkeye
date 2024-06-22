@@ -5,10 +5,10 @@ import "github.com/hawkv6/hawkeye/pkg/domain"
 const Subsystem = "processor"
 
 type Processor interface {
-	CreateGraphNodes([]domain.Node) error
-	CreateGraphEdges([]domain.Link) error
-	CreateClientNetworks([]domain.Prefix)
-	CreateSids([]domain.Sid)
+	ProcessNodes([]domain.Node)
+	ProcessLinks([]domain.Link) error
+	ProcessPrefixes([]domain.Prefix)
+	ProcessSids([]domain.Sid)
 	Start()
 	Stop()
 }

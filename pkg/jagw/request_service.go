@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/hawkv6/hawkeye/pkg/adapter"
 	"github.com/hawkv6/hawkeye/pkg/config"
@@ -68,13 +67,13 @@ func (requestService *JagwRequestService) Start() error {
 
 func (requestService *JagwRequestService) convertLsNodes(lsNodes []*jagw.LsNode) ([]domain.Node, error) {
 	requestService.log.Debugln("Converting LsNodes to internal structure")
-	var nodes []domain.Node
-	for _, lsNode := range lsNodes {
+	nodes := make([]domain.Node, len(lsNodes))
+	for i, lsNode := range lsNodes {
 		node, err := requestService.adapter.ConvertNode(lsNode)
 		if err != nil {
 			return nil, fmt.Errorf("Error converting LsNode: %s", err.Error())
 		}
-		nodes = append(nodes, node)
+		nodes[i] = node
 	}
 	return nodes, nil
 }
@@ -95,21 +94,19 @@ func (requestService *JagwRequestService) getLsNodes() error {
 	if err != nil {
 		return err
 	}
-	if err := requestService.processor.CreateGraphNodes(nodes); err != nil {
-		return err
-	}
+	requestService.processor.ProcessNodes(nodes)
 	return nil
 }
 
 func (requestService *JagwRequestService) convertLsLinks(lsLinks []*jagw.LsLink) ([]domain.Link, error) {
 	requestService.log.Debugln("Converting LsLinks to internal structure")
-	var links []domain.Link
-	for _, lsLink := range lsLinks {
-		defaultLink, err := requestService.adapter.ConvertLink(lsLink)
+	links := make([]domain.Link, len(lsLinks))
+	for i, lsLink := range lsLinks {
+		link, err := requestService.adapter.ConvertLink(lsLink)
 		if err != nil {
 			return nil, fmt.Errorf("Error converting LsLink: %s", err.Error())
 		}
-		links = append(links, defaultLink)
+		links[i] = link
 	}
 	return links, nil
 }
@@ -131,16 +128,31 @@ func (requestService *JagwRequestService) getLsLinks() error {
 		return err
 	}
 
-	if err := requestService.processor.CreateGraphEdges(links); err != nil {
+	if err := requestService.processor.ProcessLinks(links); err != nil {
 		return err
 	}
 	return nil
+}
+
+func (requestService *JagwRequestService) shouldSkipPrefix(lsPrefix *jagw.LsPrefix) bool {
+	if lsPrefix.Srv6Locator != nil {
+		requestService.log.Debugf("Skip prefix %s because it has a SRv6 locator TLV", lsPrefix.GetKey())
+		return true
+	}
+	if lsPrefix.PrefixLen != nil && *lsPrefix.PrefixLen == 128 {
+		requestService.log.Debugf("Skip prefix %s because it has a prefix length of 128 (belongs to Loopback0)", lsPrefix.GetKey())
+		return true
+	}
+	return false
 }
 
 func (requestService *JagwRequestService) convertLsPrefix(lsPrefixes []*jagw.LsPrefix) ([]domain.Prefix, error) {
 	requestService.log.Debugf("Converting LsPrefixes to internal structure")
 	var prefixes []domain.Prefix
 	for _, lsPrefix := range lsPrefixes {
+		if requestService.shouldSkipPrefix(lsPrefix) {
+			continue
+		}
 		prefix, err := requestService.adapter.ConvertPrefix(lsPrefix)
 		if err != nil {
 			return nil, fmt.Errorf("Error converting LsPrefix: %s", err.Error())
@@ -167,33 +179,21 @@ func (requestService *JagwRequestService) getLsPrefixes() error {
 		return err
 	}
 
-	requestService.processor.CreateClientNetworks(prefixes)
+	requestService.processor.ProcessPrefixes(prefixes)
 	return nil
 }
 
 func (requestService *JagwRequestService) convertLsSrv6Sids(lsSrv6Sids []*jagw.LsSrv6Sid) ([]domain.Sid, error) {
 	requestService.log.Debugln("Converting LsSrv6Sids to internal structure")
-	var sidList []domain.Sid
-	for _, lsSrv6Sid := range lsSrv6Sids {
+	sidList := make([]domain.Sid, len(lsSrv6Sids))
+	for i, lsSrv6Sid := range lsSrv6Sids {
 		srv6Sid, err := requestService.adapter.ConvertSid(lsSrv6Sid)
 		if err != nil {
 			return nil, fmt.Errorf("Error converting LsSrv6Sid: %s", err.Error())
 		}
-		sidList = append(sidList, srv6Sid)
+		sidList[i] = srv6Sid
 	}
 	return sidList, nil
-}
-
-func (requestService *JagwRequestService) filterOutFlexAlgoSids(sidList []domain.Sid) []domain.Sid {
-	// TODO implement all fields for SID and check for algo != 0
-	var filteredSidList []domain.Sid
-	for _, sid := range sidList {
-		if strings.Contains(sid.GetSid(), ":fa:") {
-			continue
-		}
-		filteredSidList = append(filteredSidList, sid)
-	}
-	return filteredSidList
 }
 
 func (requestService *JagwRequestService) getSrv6Sids() error {
@@ -211,8 +211,7 @@ func (requestService *JagwRequestService) getSrv6Sids() error {
 	if err != nil {
 		return err
 	}
-	nodeSids := requestService.filterOutFlexAlgoSids(sidList)
-	requestService.processor.CreateSids(nodeSids)
+	requestService.processor.ProcessSids(sidList)
 	return nil
 }
 

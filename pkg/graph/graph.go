@@ -5,14 +5,16 @@ const Subsystem = "graph"
 type Graph interface {
 	Lock()
 	Unlock()
-	AddNode(node Node) (Node, error)
-	GetNode(id string) (Node, bool)
+	AddNode(Node) Node
+	GetNode(string) Node
 	GetNodes() map[string]Node
-	DeleteNode(node Node)
-	NodeExists(id string) bool
-	AddEdge(edge Edge) error
-	GetEdge(id string) (Edge, bool)
+	DeleteNode(Node)
+	NodeExists(string) bool
+	AddEdge(Edge) error
+	GetEdge(string) Edge
 	GetEdges() map[string]Edge
-	EdgeExists(id string) bool
-	DeleteEdge(edge Edge)
+	EdgeExists(string) bool
+	DeleteEdge(Edge)
+	UpdateSubGraphs()
+	GetSubGraph(uint32) *NetworkGraph
 }

@@ -1,6 +1,8 @@
 package domain
 
-import "github.com/go-playground/validator"
+import (
+	"github.com/go-playground/validator"
+)
 
 type Prefix interface {
 	GetKey() string

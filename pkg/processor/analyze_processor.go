@@ -19,16 +19,16 @@ func NewAnalyzeProcessor(normalizer normalizer.Normalizer) *AnalyzeProcessor {
 	}
 }
 
-func (processor *AnalyzeProcessor) CreateGraphNodes(nodes []domain.Node) error { return nil }
+func (processor *AnalyzeProcessor) ProcessNodes(nodes []domain.Node) {}
 
-func (processor *AnalyzeProcessor) CreateGraphEdges(links []domain.Link) error {
+func (processor *AnalyzeProcessor) ProcessLinks(links []domain.Link) error {
 	processor.normalizer.Normalize(links)
 	return nil
 }
 
-func (processor *AnalyzeProcessor) CreateClientNetworks(prefixes []domain.Prefix) {}
+func (processor *AnalyzeProcessor) ProcessPrefixes(prefixes []domain.Prefix) {}
 
-func (processor *AnalyzeProcessor) CreateSids(sids []domain.Sid) {}
+func (processor *AnalyzeProcessor) ProcessSids(sids []domain.Sid) {}
 
 func (processor *AnalyzeProcessor) Start() {
 	processor.log.Infoln("Starting analyze processor")

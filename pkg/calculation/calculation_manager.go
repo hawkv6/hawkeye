@@ -48,13 +48,13 @@ func (manager *CalculationManager) getNodesFromPath(path graph.Path) []string {
 	return nodeList
 }
 
-func (manager *CalculationManager) translatePathToSidList(path graph.Path) []string {
+func (manager *CalculationManager) translatePathToSidList(path graph.Path, algorithm uint32) []string {
 	nodeList := manager.getNodesFromPath(path)
 	manager.log.Debugln("Node in Path: ", nodeList)
 	var sidList []string
 	for _, node := range nodeList {
-		sid, ok := manager.cache.GetSidFromRouterId(node)
-		if !ok {
+		sid := manager.cache.GetSrAlgorithmSid(node, algorithm)
+		if sid == "" {
 			manager.log.Errorln("SID not found for router: ", node)
 			continue
 		}
@@ -69,12 +69,12 @@ func (manger *CalculationManager) getSourceNode(pathRequest domain.PathRequest) 
 	if err != nil {
 		return nil, err
 	}
-	sourceRouterId, ok := manger.cache.GetRouterIdFromNetworkAddress(sourceIpv6.String())
-	if !ok {
+	sourceRouterId := manger.cache.GetRouterIdFromNetworkAddress(sourceIpv6.String())
+	if sourceRouterId == "" {
 		return nil, fmt.Errorf("Router ID not found for source IP: %s", sourceIpv6)
 	}
-	source, exist := manger.graph.GetNode(sourceRouterId)
-	if !exist {
+	source := manger.graph.GetNode(sourceRouterId)
+	if source == nil {
 		return nil, fmt.Errorf("Source router not found")
 	}
 	return source, nil
@@ -85,12 +85,12 @@ func (manager *CalculationManager) GetDestinationNode(pathRequest domain.PathReq
 	if err != nil {
 		return nil, err
 	}
-	destinationRouterId, ok := manager.cache.GetRouterIdFromNetworkAddress(destinationIpv6.String())
-	if !ok {
+	destinationRouterId := manager.cache.GetRouterIdFromNetworkAddress(destinationIpv6.String())
+	if destinationRouterId == "" {
 		return nil, fmt.Errorf("Router ID not found for destination IP: %s", destinationIpv6)
 	}
-	destination, exist := manager.graph.GetNode(destinationRouterId)
-	if !exist {
+	destination := manager.graph.GetNode(destinationRouterId)
+	if destination == nil {
 		return nil, fmt.Errorf("Destination router not found")
 	}
 	return destination, nil
@@ -98,6 +98,8 @@ func (manager *CalculationManager) GetDestinationNode(pathRequest domain.PathReq
 
 func (manager *CalculationManager) getWeightKeyAndCalcType(intentType domain.IntentType) (helper.WeightKey, CalculationMode) {
 	switch intentType {
+	case domain.IntentTypeFlexAlgo:
+		return helper.IgpMetricKey, CalculationModeSum
 	case domain.IntentTypeHighBandwidth:
 		return helper.AvailableBandwidthKey, CalculationModeMax
 	case domain.IntentTypeLowBandwidth:
@@ -130,13 +132,13 @@ func (manager *CalculationManager) getWeightKey(intentType domain.IntentType) he
 	}
 }
 
-func (manager *CalculationManager) createPathResult(path graph.Path, pathRequest domain.PathRequest) domain.PathResult {
+func (manager *CalculationManager) createPathResult(path graph.Path, pathRequest domain.PathRequest, algorithm uint32) domain.PathResult {
 	var sidList []string
 	if path == nil {
 		manager.log.Errorln("No path found, return destination IPv6 address as SID list")
 		sidList = []string{pathRequest.GetIpv6DestinationAddress()}
 	} else {
-		sidList = manager.translatePathToSidList(path)
+		sidList = manager.translatePathToSidList(path, algorithm)
 	}
 	pathResult, err := domain.NewDomainPathResult(pathRequest, path, sidList)
 	if err != nil {
@@ -201,6 +203,15 @@ func (manager *CalculationManager) GetMinValues(intents []domain.Intent, weightK
 	return minValues
 }
 
+func (manager *CalculationManager) getGraphAndAlgorithm(graph graph.Graph, firstIntent domain.Intent) (graph.Graph, uint32) {
+	if firstIntent.GetIntentType() != domain.IntentTypeFlexAlgo {
+		return graph, 0
+	} else {
+		algorithm := uint32(firstIntent.GetValues()[0].GetNumberValue())
+		return graph.GetSubGraph(algorithm), algorithm
+	}
+}
+
 func (manager *CalculationManager) CalculateBestPath(pathRequest domain.PathRequest) (domain.PathResult, error) {
 	manager.lockElements()
 	defer manager.unlockElements()
@@ -217,6 +228,7 @@ func (manager *CalculationManager) CalculateBestPath(pathRequest domain.PathRequ
 	if len(intents) == 0 {
 		return nil, fmt.Errorf("No intents defined in path request")
 	}
+	graph, algorithm := manager.getGraphAndAlgorithm(manager.graph, intents[0])
 	weightKeys, calculationMode := manager.getWeightKeysandCalculationType(intents)
 	if calculationMode == CalculationModeUndefined {
 		return nil, fmt.Errorf("Calculation mode not defined for intents")
@@ -224,12 +236,12 @@ func (manager *CalculationManager) CalculateBestPath(pathRequest domain.PathRequ
 
 	maxConstraints := manager.getMaxValues(intents, weightKeys)
 	minConstraints := manager.GetMinValues(intents, weightKeys)
-	calculation := NewShortestPathCalculation(manager.graph, sourceNode, destinationNode, weightKeys, calculationMode, maxConstraints, minConstraints)
+	calculation := NewShortestPathCalculation(graph, sourceNode, destinationNode, weightKeys, calculationMode, maxConstraints, minConstraints)
 	path, err := calculation.Execute()
 	if err != nil {
 		return nil, err
 	}
-	return manager.createPathResult(path, pathRequest), nil
+	return manager.createPathResult(path, pathRequest, algorithm), nil
 }
 
 func (manager *CalculationManager) calculateTotalCost(pathResult domain.PathResult, weightTypes []helper.WeightKey) error {
@@ -240,8 +252,8 @@ func (manager *CalculationManager) calculateTotalCost(pathResult domain.PathResu
 		newTotalCost = 0.0
 	}
 	for _, edge := range pathResult.GetEdges() {
-		graphEdge, exist := manager.graph.GetEdge(edge.GetId())
-		if !exist {
+		graphEdge := manager.graph.GetEdge(edge.GetId())
+		if graphEdge == nil {
 			return fmt.Errorf("Path not valid, edge not found in graph: %s", edge.GetId())
 		}
 		if len(weightTypes) == 1 {
@@ -272,8 +284,8 @@ func (manager *CalculationManager) calculateMinimumValue(pathResult domain.PathR
 	var bottleneckEdge graph.Edge
 	edges := pathResult.GetEdges()
 	for _, edge := range edges {
-		graphEdge, exist := manager.graph.GetEdge(edge.GetId())
-		if !exist {
+		graphEdge := manager.graph.GetEdge(edge.GetId())
+		if graphEdge == nil {
 			return fmt.Errorf("Path not valid, edge not found in graph: %s", edge.GetId())
 		}
 		cost := graphEdge.GetWeight(weightType)

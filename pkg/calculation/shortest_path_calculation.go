@@ -238,7 +238,7 @@ func (calculation *ShortestPathCalculation) performDijkstra() {
 		if currentNodeId == calculation.destination.GetId() {
 			break
 		}
-		currentNode, _ := calculation.graph.GetNode(currentNodeId)
+		currentNode := calculation.graph.GetNode(currentNodeId)
 		for _, edge := range currentNode.GetEdges() {
 			calculation.relaxEdge(currentNodeId, edge)
 		}
