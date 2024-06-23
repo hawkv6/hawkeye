@@ -166,10 +166,23 @@ func (manager *CalculationManager) getWeightKeysandCalculationType(intents []dom
 		return []helper.WeightKey{weightKey}, calcType
 	} else {
 		calculationType := CalculationModeSum
-		weightKeys := make([]helper.WeightKey, 0)
-		for _, intent := range intents {
-			weightKeys = append(weightKeys, manager.getWeightKey(intent.GetIntentType()))
+		start := 0
+		if intents[0].GetIntentType() == domain.IntentTypeFlexAlgo {
+			start = 1
 		}
+		weightKeys := make([]helper.WeightKey, len(intents)-start)
+		weightKeysIndex := 0
+
+		for i := start; i < len(intents); i++ {
+			weightKey := manager.getWeightKey(intents[i].GetIntentType())
+			if len(weightKeys) > weightKeysIndex {
+				weightKeys[weightKeysIndex] = weightKey
+			} else {
+				weightKeys = append(weightKeys, weightKey)
+			}
+			weightKeysIndex++
+		}
+
 		return weightKeys, calculationType
 	}
 }
