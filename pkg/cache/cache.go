@@ -19,4 +19,7 @@ type Cache interface {
 	RemoveNode(node domain.Node)
 	GetNodeByKey(string) domain.Node
 	GetNodeByIgpRouterId(string) domain.Node
+	StoreServiceSid(string, string)
+	RemoveServiceSid(string, string)
+	GetServiceSids(string) []string
 }

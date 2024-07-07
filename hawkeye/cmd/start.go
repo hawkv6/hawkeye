@@ -14,8 +14,8 @@ import (
 	"github.com/hawkv6/hawkeye/pkg/helper"
 	"github.com/hawkv6/hawkeye/pkg/jagw"
 	"github.com/hawkv6/hawkeye/pkg/messaging"
-	"github.com/hawkv6/hawkeye/pkg/normalizer"
 	"github.com/hawkv6/hawkeye/pkg/processor"
+	"github.com/hawkv6/hawkeye/pkg/service"
 	"github.com/spf13/cobra"
 )
 
@@ -23,6 +23,7 @@ var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Starts the Hawkeye controller",
 	Run: func(cmd *cobra.Command, args []string) {
+		// TODO: check move other elements to config -> e.g. consul address
 		config, err := config.NewFullConfig(jagwServiceAddress, jagwRequestPort, jagwSubscriptionPort, grpcPort)
 		if err != nil {
 			log.Fatalf("Error creating config: %v", err)
@@ -35,11 +36,7 @@ var startCmd = &cobra.Command{
 		graph := graph.NewNetworkGraph(defaultHelper)
 		cache := cache.NewInMemoryCache()
 		updateChan := make(chan struct{})
-		latencyQueue := normalizer.NewNormalizationQueue(helper.RollingWindowSize)
-		jitterQueue := normalizer.NewNormalizationQueue(helper.RollingWindowSize)
-		packetLossQueue := normalizer.NewNormalizationQueue(helper.RollingWindowSize)
-		iqrMinMaxNormalizer := normalizer.NewIQRMinMaxNormalizer(latencyQueue, jitterQueue, packetLossQueue)
-		processor := processor.NewNetworkProcessor(graph, cache, iqrMinMaxNormalizer, eventChan, defaultHelper, updateChan)
+		processor := processor.NewNetworkProcessor(graph, cache, eventChan, defaultHelper, updateChan)
 
 		requestService := jagw.NewJagwRequestService(config, adapter, processor, defaultHelper)
 		if err := requestService.Init(); err != nil {
@@ -49,11 +46,16 @@ var startCmd = &cobra.Command{
 			log.Fatalf("Error starting JAGW Request Service: %v", err)
 		}
 
+		serviceMonitor, err := service.NewConsulServiceMonitor(cache, updateChan)
+		if err != nil {
+			log.Fatalf("Error creating Consult service monitor: %v", err)
+		}
+		go serviceMonitor.StartMonitoring()
+
 		messagingChannels := messaging.NewPathMessagingChannels()
 		manager := calculation.NewCalculationManager(cache, graph, defaultHelper)
 		controller := controller.NewSessionController(manager, messagingChannels, updateChan)
 		go controller.Start()
-
 		go processor.Start()
 
 		subscriptionService := jagw.NewJagwSubscriptionService(config, adapter, defaultHelper, eventChan)
@@ -78,12 +80,11 @@ var startCmd = &cobra.Command{
 		requestService.Stop()
 		subscriptionService.Stop()
 		processor.Stop()
+		serviceMonitor.StopMonitoring()
 		// TODO Stop the controller
 		// controller.Close()
 		// TODO stop the gRPC server
 		// server.Stop()
-
-		// TODO recaluclate based on events: https://github.com/hawkv6/hawkeye/issues/5
 	},
 }
 

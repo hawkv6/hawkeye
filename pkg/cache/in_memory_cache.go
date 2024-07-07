@@ -16,6 +16,7 @@ type InMemoryCache struct {
 	igpRouterIdToSrAlgoToSidMap map[string]map[uint32]string
 	nodeStore                   map[string]domain.Node
 	igpRouterIdToRouterKeyMap   map[string]string
+	serviceSidStore             map[string]map[string]bool
 	mu                          sync.Mutex
 }
 
@@ -28,6 +29,7 @@ func NewInMemoryCache() *InMemoryCache {
 		igpRouterIdToSrAlgoToSidMap: make(map[string]map[uint32]string),
 		nodeStore:                   make(map[string]domain.Node),
 		igpRouterIdToRouterKeyMap:   make(map[string]string),
+		serviceSidStore:             make(map[string]map[string]bool),
 		mu:                          sync.Mutex{},
 	}
 }
@@ -110,4 +112,26 @@ func (cache *InMemoryCache) GetNodeByIgpRouterId(igpRouterId string) domain.Node
 	} else {
 		return cache.nodeStore[key]
 	}
+}
+
+func (cache *InMemoryCache) StoreServiceSid(serviceType, servicePrefixSid string) {
+	if _, ok := cache.serviceSidStore[serviceType]; !ok {
+		cache.serviceSidStore[serviceType] = make(map[string]bool)
+	}
+	cache.serviceSidStore[serviceType][servicePrefixSid] = true
+}
+
+func (cache *InMemoryCache) RemoveServiceSid(serviceType, servicePrefixSid string) {
+	delete(cache.serviceSidStore[serviceType], servicePrefixSid)
+	if len(cache.serviceSidStore[serviceType]) == 0 {
+		delete(cache.serviceSidStore, serviceType)
+	}
+}
+
+func (cache *InMemoryCache) GetServiceSids(serviceType string) []string {
+	sids := make([]string, 0, len(cache.serviceSidStore[serviceType]))
+	for sid := range cache.serviceSidStore[serviceType] {
+		sids = append(sids, sid)
+	}
+	return sids
 }

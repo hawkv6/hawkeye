@@ -4,6 +4,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var FlappingThreshold float64 = func() float64 {
@@ -41,4 +42,20 @@ var ThreeFactorWeights = func() []float32 {
 		return weights
 	}
 	return []float32{0.7, 0.2, 0.1}
+}()
+
+var ConsulServerAddress string = func() string {
+	if value, exists := os.LookupEnv("HAWKEYE_CONSUL_SERVER_ADDRESS"); exists {
+		return value
+	}
+	return "consul-hawkv6.stud.network.garden"
+}()
+
+var ConsulQueryWaitTime time.Duration = func() time.Duration {
+	if value, exists := os.LookupEnv("HAWKEYE_CONSUL_QUERY_Wait_TIME"); exists {
+		if temp, err := strconv.ParseInt(value, 10, 64); err == nil {
+			return time.Duration(temp) * time.Second
+		}
+	}
+	return 10 * time.Second // TODO change
 }()

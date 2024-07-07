@@ -9,7 +9,6 @@ import (
 	"github.com/hawkv6/hawkeye/pkg/graph"
 	"github.com/hawkv6/hawkeye/pkg/helper"
 	"github.com/hawkv6/hawkeye/pkg/logging"
-	"github.com/hawkv6/hawkeye/pkg/normalizer"
 	"github.com/sirupsen/logrus"
 )
 
@@ -17,7 +16,6 @@ type NetworkProcessor struct {
 	log                 *logrus.Entry
 	graph               graph.Graph
 	cache               cache.Cache
-	normalizer          normalizer.Normalizer
 	eventChan           chan domain.NetworkEvent
 	quitChan            chan struct{}
 	prefixCounts        map[string]int
@@ -25,12 +23,11 @@ type NetworkProcessor struct {
 	needsSubgraphUpdate bool
 }
 
-func NewNetworkProcessor(graph graph.Graph, cache cache.Cache, normalizer normalizer.Normalizer, eventChan chan domain.NetworkEvent, helper helper.Helper, updateChan chan struct{}) *NetworkProcessor {
+func NewNetworkProcessor(graph graph.Graph, cache cache.Cache, eventChan chan domain.NetworkEvent, helper helper.Helper, updateChan chan struct{}) *NetworkProcessor {
 	return &NetworkProcessor{
 		log:                 logging.DefaultLogger.WithField("subsystem", Subsystem),
 		graph:               graph,
 		cache:               cache,
-		normalizer:          normalizer,
 		eventChan:           eventChan,
 		quitChan:            make(chan struct{}),
 		prefixCounts:        make(map[string]int),
