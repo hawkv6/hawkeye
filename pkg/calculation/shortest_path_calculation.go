@@ -7,55 +7,32 @@ import (
 
 	"github.com/hawkv6/hawkeye/pkg/graph"
 	"github.com/hawkv6/hawkeye/pkg/helper"
-	"github.com/hawkv6/hawkeye/pkg/logging"
-	"github.com/sirupsen/logrus"
-)
-
-type CalculationMode int
-
-const (
-	CalculationModeUndefined CalculationMode = iota
-	CalculationModeSum
-	CalculationModeMin
-	CalculationModeMax
 )
 
 type ShortestPathCalculation struct {
-	log                      *logrus.Entry
-	graph                    graph.Graph
-	source                   graph.Node
-	destination              graph.Node
-	weightTypes              []helper.WeightKey
-	calculationType          CalculationMode
+	BaseCalculation
 	nodeWeights              map[string]float64
 	EdgeToPrevious           map[string]graph.Edge
 	priorityQueue            PriorityQueue
 	visitedNodes             map[string]bool
-	maxConstraints           map[helper.WeightKey]float64
-	minConstraints           map[helper.WeightKey]float64
 	nodeLatencies            map[string]float64
 	nodeJitters              map[string]float64
 	nodePacketLosses         map[string]float64
 	nodeBottleneckBandwidths map[string]float64
+	sourceNodeCost           float64
 }
 
 func NewShortestPathCalculation(network graph.Graph, source, destination graph.Node, weightTypes []helper.WeightKey, calculationType CalculationMode, maxConstraints, minConstraints map[helper.WeightKey]float64) *ShortestPathCalculation {
 	return &ShortestPathCalculation{
-		log:                      logging.DefaultLogger.WithField("subsystem", "calculation"),
-		graph:                    network,
-		source:                   source,
-		destination:              destination,
-		weightTypes:              weightTypes,
-		calculationType:          calculationType,
+		BaseCalculation:          *NewBaseCalculation(network, source, destination, weightTypes, calculationType, maxConstraints, minConstraints),
 		nodeWeights:              make(map[string]float64),
 		EdgeToPrevious:           make(map[string]graph.Edge),
 		visitedNodes:             make(map[string]bool),
-		maxConstraints:           maxConstraints,
-		minConstraints:           minConstraints,
 		nodeLatencies:            make(map[string]float64),
 		nodeJitters:              make(map[string]float64),
 		nodePacketLosses:         make(map[string]float64),
 		nodeBottleneckBandwidths: make(map[string]float64),
+		sourceNodeCost:           0,
 	}
 }
 
@@ -65,19 +42,28 @@ func (calculation *ShortestPathCalculation) Execute() (graph.Path, error) {
 	return calculation.reconstructPath()
 }
 
-func (calculation *ShortestPathCalculation) initializeNodeMetrics(initialNodeCost float64) {
+func (calculation *ShortestPathCalculation) SetInitialSourceNodeMetrics(cost float64, latency, jitter, packetLoss float64) {
+	source := calculation.source.GetId()
+	calculation.sourceNodeCost = cost
+	calculation.nodeLatencies[source] = latency
+	calculation.nodeJitters[source] = jitter
+	calculation.nodePacketLosses[source] = packetLoss
+}
+
+func (calculation *ShortestPathCalculation) initializeNodeMetrics(initialNodeCost float64, sourceNodeId string) {
 	for id := range calculation.graph.GetNodes() {
-		calculation.nodeWeights[id] = initialNodeCost
-		calculation.nodeLatencies[id] = 0
-		calculation.nodeJitters[id] = 0
-		calculation.nodePacketLosses[id] = 0
-		calculation.nodeBottleneckBandwidths[id] = 0
+		if id != sourceNodeId {
+			calculation.nodeWeights[id] = initialNodeCost
+			calculation.nodeLatencies[id] = 0
+			calculation.nodeJitters[id] = 0
+			calculation.nodePacketLosses[id] = 0
+			calculation.nodeBottleneckBandwidths[id] = 0
+		}
 	}
 }
 
-func (calculation *ShortestPathCalculation) initializeHeap(sourceNodeCost float64) {
+func (calculation *ShortestPathCalculation) initializeHeap(sourceNodeCost float64, sourceNodeId string) {
 	heap.Init(&calculation.priorityQueue)
-	sourceNodeId := calculation.source.GetId()
 	calculation.nodeWeights[sourceNodeId] = sourceNodeCost
 	calculation.nodeBottleneckBandwidths[sourceNodeId] = math.Inf(1)
 	newItem := &Item{
@@ -90,8 +76,8 @@ func (calculation *ShortestPathCalculation) initializeHeap(sourceNodeCost float6
 
 func (calculation *ShortestPathCalculation) initializeDijkstra() {
 	var initialNodeCost, sourceNodeCost float64
-	calculation.priorityQueue = *NewMinimumPriorityQueue() // Default value
-	switch calculation.calculationType {
+	calculation.priorityQueue = *NewMinimumPriorityQueue()
+	switch calculation.calculationMode {
 	case CalculationModeMax:
 		initialNodeCost = 0
 		sourceNodeCost = math.Inf(1)
@@ -101,10 +87,11 @@ func (calculation *ShortestPathCalculation) initializeDijkstra() {
 		sourceNodeCost = math.Inf(1)
 	default:
 		initialNodeCost = math.Inf(1)
-		sourceNodeCost = 0
+		sourceNodeCost = calculation.sourceNodeCost
 	}
-	calculation.initializeNodeMetrics(initialNodeCost)
-	calculation.initializeHeap(sourceNodeCost)
+	sourceNodeId := calculation.source.GetId()
+	calculation.initializeNodeMetrics(initialNodeCost, sourceNodeId)
+	calculation.initializeHeap(sourceNodeCost, sourceNodeId)
 }
 
 func (calculation *ShortestPathCalculation) getMetrics(edge graph.Edge, currentNodeId string) (float64, float64, float64) {
@@ -198,9 +185,9 @@ func (calculation *ShortestPathCalculation) handleMinCalculation(currentNodeId, 
 }
 
 func (calculation *ShortestPathCalculation) handleCalculation(currentNodeId, neighborNodeId string, weight float64, edge graph.Edge) {
-	if calculation.calculationType == CalculationModeSum {
+	if calculation.calculationMode == CalculationModeSum {
 		calculation.handleDefaultCalculation(currentNodeId, neighborNodeId, weight, edge)
-	} else if calculation.calculationType == CalculationModeMax {
+	} else if calculation.calculationMode == CalculationModeMax {
 		calculation.handleMaxCalculation(currentNodeId, neighborNodeId, weight, edge)
 	} else {
 		calculation.handleMinCalculation(currentNodeId, neighborNodeId, weight, edge)
@@ -257,6 +244,11 @@ func (calculation *ShortestPathCalculation) getPath(current graph.Node) ([]graph
 		if edge.GetWeight(helper.AvailableBandwidthKey) == bottleneckBandwidth {
 			bottleneckEdge = edge
 		}
+		if edge.GetWeight(helper.AvailableBandwidthKey) < bottleneckBandwidth {
+			calculation.log.Debugln("Bottleneck edge changed") // TODO fix bottleneck edge
+			bottleneckBandwidth = edge.GetWeight(helper.AvailableBandwidthKey)
+			bottleneckEdge = edge
+		}
 		path = append([]graph.Edge{edge}, path...)
 		current = edge.From()
 	}
@@ -279,5 +271,5 @@ func (calculation ShortestPathCalculation) reconstructPath() (graph.Path, error)
 	calculation.log.Debugln("Calculation finished - shortest path found")
 	calculation.log.Debugf("Total cost %g, total latency %gus, total jitter %gus, total packet loss %f -> %f%%", totalCost, latency, jitter, packetLoss, packetLoss*100)
 	calculation.log.Debugf("Available bandwidth %g, bottleneck edge %s", bottleneckBandwidth, bottleneckEdge.GetId())
-	return graph.NewShortestPathCalculation(path, totalCost, latency, jitter, packetLoss, bottleneckBandwidth, bottleneckEdge), nil
+	return graph.NewShortestPath(path, totalCost, latency, jitter, packetLoss, bottleneckBandwidth, bottleneckEdge), nil
 }

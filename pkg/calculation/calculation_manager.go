@@ -48,8 +48,10 @@ func (manager *CalculationManager) getNodesFromPath(path graph.Path) []string {
 	return nodeList
 }
 
-func (manager *CalculationManager) translatePathToSidList(path graph.Path, algorithm uint32) []string {
+func (manager *CalculationManager) translatePathToSidList(path graph.Path, algorithm uint32) ([]string, []string) {
 	nodeList := manager.getNodesFromPath(path)
+	serviceSidList := make([]string, 0)
+	routerServiceMap := path.GetRouterServiceMap()
 	manager.log.Debugln("Node in Path: ", nodeList)
 	var sidList []string
 	for _, node := range nodeList {
@@ -59,9 +61,13 @@ func (manager *CalculationManager) translatePathToSidList(path graph.Path, algor
 			continue
 		}
 		sidList = append(sidList, sid)
+		if serviceSid, ok := routerServiceMap[node]; ok {
+			sidList = append(sidList, serviceSid)
+			serviceSidList = append(serviceSidList, serviceSid)
+		}
 	}
 	manager.log.Debugln("Translated SID List: ", sidList)
-	return sidList
+	return sidList, serviceSidList
 }
 
 func (manger *CalculationManager) getSourceNode(pathRequest domain.PathRequest) (graph.Node, error) {
@@ -98,6 +104,8 @@ func (manager *CalculationManager) GetDestinationNode(pathRequest domain.PathReq
 
 func (manager *CalculationManager) getWeightKeyAndCalcType(intentType domain.IntentType) (helper.WeightKey, CalculationMode) {
 	switch intentType {
+	case domain.IntentTypeSFC:
+		return helper.IgpMetricKey, CalculationModeSum
 	case domain.IntentTypeFlexAlgo:
 		return helper.IgpMetricKey, CalculationModeSum
 	case domain.IntentTypeHighBandwidth:
@@ -134,13 +142,17 @@ func (manager *CalculationManager) getWeightKey(intentType domain.IntentType) he
 
 func (manager *CalculationManager) createPathResult(path graph.Path, pathRequest domain.PathRequest, algorithm uint32) domain.PathResult {
 	var sidList []string
+	var serviceSidList []string
 	if path == nil {
 		manager.log.Errorln("No path found, return destination IPv6 address as SID list")
 		sidList = []string{pathRequest.GetIpv6DestinationAddress()}
 	} else {
-		sidList = manager.translatePathToSidList(path, algorithm)
+		sidList, serviceSidList = manager.translatePathToSidList(path, algorithm)
 	}
 	pathResult, err := domain.NewDomainPathResult(pathRequest, path, sidList)
+	if serviceSidList != nil {
+		pathResult.SetServiceSidList(serviceSidList)
+	}
 	if err != nil {
 		manager.log.Errorln("Error creating path result: ", err)
 		return nil
@@ -196,6 +208,9 @@ func (manager *CalculationManager) getMaxValues(intents []domain.Intent, weightK
 			if value.GetValueType() == domain.ValueTypeMaxValue &&
 				(key == helper.NormalizedLatencyKey || key == helper.NormalizedJitterKey || key == helper.NormalizedPacketLossKey) {
 				maxValues[key] = float64(value.GetNumberValue())
+				if key == helper.NormalizedPacketLossKey {
+					maxValues[key] = maxValues[key] / 100
+				}
 			}
 		}
 	}
@@ -225,6 +240,70 @@ func (manager *CalculationManager) getGraphAndAlgorithm(graph graph.Graph, first
 	}
 }
 
+func (manager *CalculationManager) getServiceSids(serviceFunctionChainIntent domain.Intent) ([][]string, error) {
+	serviceSids := make([][]string, 0)
+	for index, value := range serviceFunctionChainIntent.GetValues() {
+		value := value.GetStringValue()
+		serviceSids = append(serviceSids, make([]string, 0))
+		serviceSids[index] = manager.cache.GetServiceSids(value)
+		if len(serviceSids[index]) == 0 {
+			return nil, fmt.Errorf("No SIDs found for service: %s", value)
+		}
+	}
+	manager.log.Debugln("Service SIDs: ", serviceSids)
+	return serviceSids, nil
+}
+
+func (manager *CalculationManager) getServiceRouter(serviceSids [][]string) ([][]string, map[string]string, error) {
+	serviceRouters := make([][]string, len(serviceSids))
+	routerServiceMap := make(map[string]string)
+	for index, sids := range serviceSids {
+		for _, sid := range sids {
+			routerId := manager.cache.GetRouterIdFromNetworkAddress(sid)
+			if routerId == "" {
+				return nil, nil, fmt.Errorf("Router ID not found for SID: %s", sid)
+			}
+			routerServiceMap[routerId] = sid
+			serviceRouters[index] = append(serviceRouters[index], routerId)
+		}
+	}
+	manager.log.Debugln("Service Routers: ", serviceRouters)
+	return serviceRouters, routerServiceMap, nil
+}
+
+func (manager *CalculationManager) getServiceChainCombinations(serviceRouter [][]string) [][]string {
+	serviceChainCombination := [][]string{{}}
+
+	for _, routerIds := range serviceRouter {
+		newQueue := [][]string{}
+		for _, combination := range serviceChainCombination {
+			for _, routerId := range routerIds {
+				newCombination := append([]string{}, combination...)
+				newCombination = append(newCombination, routerId)
+				newQueue = append(newQueue, newCombination)
+			}
+		}
+		serviceChainCombination = newQueue
+	}
+	manager.log.Debugln("Service Chain Combinations: ", serviceChainCombination)
+	return serviceChainCombination
+}
+
+func (manager *CalculationManager) getServiceFunctionChainElements(serviceFunctionChainIntent domain.Intent) ([][]string, map[string]string, error) {
+	serviceSids, err := manager.getServiceSids(serviceFunctionChainIntent)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Error getting service SIDs: %s", err)
+	}
+
+	serviceRouter, routerServiceMap, err := manager.getServiceRouter(serviceSids)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Error getting service routers: %s", err)
+	}
+
+	serviceChainCombinations := manager.getServiceChainCombinations(serviceRouter)
+	return serviceChainCombinations, routerServiceMap, nil
+}
+
 func (manager *CalculationManager) CalculateBestPath(pathRequest domain.PathRequest) (domain.PathResult, error) {
 	manager.lockElements()
 	defer manager.unlockElements()
@@ -241,7 +320,7 @@ func (manager *CalculationManager) CalculateBestPath(pathRequest domain.PathRequ
 	if len(intents) == 0 {
 		return nil, fmt.Errorf("No intents defined in path request")
 	}
-	graph, algorithm := manager.getGraphAndAlgorithm(manager.graph, intents[0])
+
 	weightKeys, calculationMode := manager.getWeightKeysandCalculationType(intents)
 	if calculationMode == CalculationModeUndefined {
 		return nil, fmt.Errorf("Calculation mode not defined for intents")
@@ -249,7 +328,30 @@ func (manager *CalculationManager) CalculateBestPath(pathRequest domain.PathRequ
 
 	maxConstraints := manager.getMaxValues(intents, weightKeys)
 	minConstraints := manager.GetMinValues(intents, weightKeys)
-	calculation := NewShortestPathCalculation(graph, sourceNode, destinationNode, weightKeys, calculationMode, maxConstraints, minConstraints)
+
+	var graph graph.Graph
+	var algorithm uint32
+	var calculation Calculation
+	var serviceFunctionChain [][]string
+	var routerServiceMap map[string]string
+	if intents[0].GetIntentType() == domain.IntentTypeSFC {
+		serviceFunctionChain, routerServiceMap, err = manager.getServiceFunctionChainElements(intents[0])
+		manager.log.Debugln("Service Function Chain: ", serviceFunctionChain)
+		manager.log.Debugln("Router Service Map: ", routerServiceMap)
+		if err != nil {
+			return nil, err
+		}
+		if len(intents) == 1 {
+			graph, algorithm = manager.getGraphAndAlgorithm(manager.graph, intents[0])
+		} else {
+			graph, algorithm = manager.getGraphAndAlgorithm(manager.graph, intents[1])
+		}
+		calculation = NewServiceFunctionChainCalculation(graph, sourceNode, destinationNode, weightKeys, calculationMode, maxConstraints, minConstraints, serviceFunctionChain, routerServiceMap)
+	} else {
+		graph, algorithm = manager.getGraphAndAlgorithm(manager.graph, intents[0])
+		calculation = NewShortestPathCalculation(graph, sourceNode, destinationNode, weightKeys, calculationMode, maxConstraints, minConstraints)
+	}
+
 	path, err := calculation.Execute()
 	if err != nil {
 		return nil, err
@@ -320,7 +422,6 @@ func (manager *CalculationManager) calculateMinimumValue(pathResult domain.PathR
 }
 
 func (manager *CalculationManager) updateCurrentResult(weightKeys []helper.WeightKey, calculationMode CalculationMode, currentPathResult domain.PathResult) error {
-	manager.log.Debugln("SID List is equal - no change in path found")
 	var err error
 	if calculationMode == CalculationModeSum {
 		err = manager.calculateTotalCost(currentPathResult, weightKeys)
@@ -363,9 +464,28 @@ func (manager *CalculationManager) handleNonSumCalculationMode(currentPathResult
 	return nil, nil
 }
 
+func (manager *CalculationManager) AreServicesStillValid(serviceSidList []string) bool {
+	manager.log.Debugln("Check if current services are still valid")
+	for _, sid := range serviceSidList {
+		if !manager.cache.DoesServiceSidExist(sid) {
+			manager.log.Debugf("Service SID %s not found in cache, new path will be applied", sid)
+			return false
+		}
+	}
+	return true
+}
+
 func (manager *CalculationManager) handlePathChange(weightKeys []helper.WeightKey, calculationMode CalculationMode, currentPathResult, newPathResult domain.PathResult, streamSession domain.StreamSession) (*domain.PathResult, error) {
 	manager.log.Debugln("Better Path found, check for applicability")
 	manager.log.Debugln("Validate current path and its cost")
+
+	firstIntent := streamSession.GetPathRequest().GetIntents()[0]
+	if firstIntent.GetIntentType() == domain.IntentTypeSFC {
+		if !manager.AreServicesStillValid(currentPathResult.GetServiceSidList()) {
+			streamSession.SetPathResult(newPathResult)
+			return &newPathResult, nil
+		}
+	}
 
 	if err := manager.updateCurrentResult(weightKeys, calculationMode, currentPathResult); err != nil {
 		manager.log.Errorln("Current Path is not valid anymore, new path will be applied: ", err)

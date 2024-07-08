@@ -42,25 +42,41 @@ func (controller *SessionController) watchForContextCancellation(pathRequest dom
 	delete(controller.openSessions, serializedPathRequest)
 }
 
+func (controller *SessionController) recalculatePathUpdate(session domain.StreamSession) {
+	result, err := controller.manager.CalculatePathUpdate(session)
+	if err != nil {
+		controller.log.Errorln("Failed to recalculate path update: ", err)
+		controller.errorChan <- err
+	} else if result != nil {
+		controller.pathResultChan <- *result
+	} else {
+		controller.log.Debugln("No path update available")
+	}
+}
+
 func (controller *SessionController) recalculateSessions() {
 	if len(controller.openSessions) == 0 {
 		controller.log.Debugln("No open sessions to recalculate")
 		return
 	}
+
 	controller.mu.Lock()
-	defer controller.mu.Unlock()
+	sessionsSnapshot := make(map[string]domain.StreamSession, len(controller.openSessions))
+	for key, session := range controller.openSessions {
+		sessionsSnapshot[key] = session
+	}
+	controller.mu.Unlock()
+
 	controller.log.Debugln("Pending updates trigger recalculations of all open sessions")
-	for sessionKey, session := range controller.openSessions {
+	wg := sync.WaitGroup{}
+	for sessionKey, session := range sessionsSnapshot {
 		controller.log.Debugln("Recalculating for session: ", sessionKey)
-		result, err := controller.manager.CalculatePathUpdate(session)
-		if err != nil {
-			controller.log.Errorln("Failed to recalculate path update: ", err)
-			controller.errorChan <- err
-		} else if result != nil {
-			controller.pathResultChan <- *result
-		} else {
-			controller.log.Debugln("No path update available")
-		}
+		wg.Add(1)
+		go func(sessionKey string, session domain.StreamSession) {
+			defer wg.Done()
+			controller.log.Debugln("Recalculating path update for session: ", sessionKey)
+			controller.recalculatePathUpdate(session)
+		}(sessionKey, session)
 	}
 }
 

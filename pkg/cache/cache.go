@@ -22,4 +22,5 @@ type Cache interface {
 	StoreServiceSid(string, string)
 	RemoveServiceSid(string, string)
 	GetServiceSids(string) []string
+	DoesServiceSidExist(string) bool
 }

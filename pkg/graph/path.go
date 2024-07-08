@@ -14,4 +14,6 @@ type Path interface {
 	GetBottleneckValue() float64
 	SetBottleneckEdge(Edge)
 	SetBottleneckValue(float64)
+	SetRouterServiceMap(map[string]string)
+	GetRouterServiceMap() map[string]string
 }

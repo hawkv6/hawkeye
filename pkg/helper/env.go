@@ -57,5 +57,5 @@ var ConsulQueryWaitTime time.Duration = func() time.Duration {
 			return time.Duration(temp) * time.Second
 		}
 	}
-	return 10 * time.Second // TODO change
+	return 5 * time.Minute
 }()

@@ -12,13 +12,13 @@ type Intent interface {
 	Serialize() string
 }
 
-type DefaultIntent struct {
+type DomainIntent struct {
 	intentType IntentType `validate:"required, min=0"`
 	values     []Value
 }
 
-func NewDefaultIntent(intentType IntentType, values []Value) (*DefaultIntent, error) {
-	intent := &DefaultIntent{
+func NewDomainIntent(intentType IntentType, values []Value) (*DomainIntent, error) {
+	intent := &DomainIntent{
 		intentType: intentType,
 		values:     values,
 	}
@@ -30,15 +30,15 @@ func NewDefaultIntent(intentType IntentType, values []Value) (*DefaultIntent, er
 	return intent, nil
 }
 
-func (intent *DefaultIntent) GetIntentType() IntentType {
+func (intent *DomainIntent) GetIntentType() IntentType {
 	return intent.intentType
 }
 
-func (intent *DefaultIntent) GetValues() []Value {
+func (intent *DomainIntent) GetValues() []Value {
 	return intent.values
 }
 
-func (intent *DefaultIntent) convertValue(value Value) string {
+func (intent *DomainIntent) convertValue(value Value) string {
 	valueType := value.GetValueType()
 	switch valueType {
 	case ValueTypeMinValue:
@@ -54,7 +54,7 @@ func (intent *DefaultIntent) convertValue(value Value) string {
 	}
 }
 
-func (intent *DefaultIntent) Serialize() string {
+func (intent *DomainIntent) Serialize() string {
 	if len(intent.values) == 0 {
 		return intent.intentType.String()
 	}

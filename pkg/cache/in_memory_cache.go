@@ -135,3 +135,12 @@ func (cache *InMemoryCache) GetServiceSids(serviceType string) []string {
 	}
 	return sids
 }
+
+func (cache *InMemoryCache) DoesServiceSidExist(servicePrefixSid string) bool {
+	for _, sids := range cache.serviceSidStore {
+		if sids[servicePrefixSid] {
+			return true
+		}
+	}
+	return false
+}

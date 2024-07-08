@@ -66,6 +66,21 @@ func validateFlexAlgoIntentType(intent Intent, intentType IntentType) error {
 	return nil
 }
 
+func validateServiceFunctionChainIntentType(intent Intent, intentType IntentType) error {
+	if intentType == IntentTypeSFC {
+		values := intent.GetValues()
+		if len(values) == 0 {
+			return fmt.Errorf("Service Function Chain intent should have at least one VALUE_TYPE_SERVICE_FUNCTION_CHAIN")
+		}
+		for _, value := range values {
+			if value.GetValueType() != ValueTypeSFC {
+				return fmt.Errorf("Service Function Chain value should be of type VALUE_TYPE_SERVICE_FUNCTION_CHAIN")
+			}
+		}
+	}
+	return nil
+}
+
 func validateIntents(intents []Intent) error {
 	intentTypes := make(map[IntentType]bool)
 	for _, intent := range intents {
@@ -77,6 +92,9 @@ func validateIntents(intents []Intent) error {
 			return err
 		}
 		if err := validateMinMaxValues(intentType, intent.GetValues()); err != nil {
+			return err
+		}
+		if err := validateServiceFunctionChainIntentType(intent, intentType); err != nil {
 			return err
 		}
 		intentTypes[intentType] = true

@@ -6,17 +6,18 @@ import (
 )
 
 type ShortestPath struct {
-	log             *logrus.Entry
-	edges           []Edge
-	totalCost       float64
-	totalDelay      float64
-	totalJitter     float64
-	totalPacketLoss float64
-	bottleneckEdge  Edge
-	bottleneckValue float64
+	log              *logrus.Entry
+	edges            []Edge
+	totalCost        float64
+	totalDelay       float64
+	totalJitter      float64
+	totalPacketLoss  float64
+	bottleneckEdge   Edge
+	bottleneckValue  float64
+	routerServiceMap map[string]string
 }
 
-func NewShortestPathCalculation(edges []Edge, totalCost, delay, jitter, packetLoss, bottleNeckValue float64, bottleneckEdge Edge) *ShortestPath {
+func NewShortestPath(edges []Edge, totalCost, delay, jitter, packetLoss, bottleNeckValue float64, bottleneckEdge Edge) *ShortestPath {
 	return &ShortestPath{
 		log:             logging.DefaultLogger.WithField("subsystem", Subsystem),
 		edges:           edges,
@@ -79,4 +80,12 @@ func (path *ShortestPath) SetBottleneckEdge(edge Edge) {
 
 func (path *ShortestPath) SetBottleneckValue(value float64) {
 	path.bottleneckValue = value
+}
+
+func (path *ShortestPath) SetRouterServiceMap(routerServiceMap map[string]string) {
+	path.routerServiceMap = routerServiceMap
+}
+
+func (path *ShortestPath) GetRouterServiceMap() map[string]string {
+	return path.routerServiceMap
 }

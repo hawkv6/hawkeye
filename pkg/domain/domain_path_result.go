@@ -9,12 +9,15 @@ type PathResult interface {
 	PathRequest
 	graph.Path
 	GetIpv6SidAddresses() []string
+	GetServiceSidList() []string
+	SetServiceSidList([]string)
 }
 
 type DomainPathResult struct {
 	PathRequest
 	graph.Path
-	ipv6SidAddresses []string `validate:"required,dive,ipv6"`
+	ipv6SidAddresses    []string `validate:"required,dive,ipv6"`
+	serviceSidAddresses []string
 }
 
 func NewDomainPathResult(pathRequest PathRequest, shortestPath graph.Path, ipv6SidAddresses []string) (*DomainPathResult, error) {
@@ -33,4 +36,12 @@ func NewDomainPathResult(pathRequest PathRequest, shortestPath graph.Path, ipv6S
 
 func (pathResponse *DomainPathResult) GetIpv6SidAddresses() []string {
 	return pathResponse.ipv6SidAddresses
+}
+
+func (pathResponse *DomainPathResult) GetServiceSidList() []string {
+	return pathResponse.serviceSidAddresses
+}
+
+func (pathResponse *DomainPathResult) SetServiceSidList(serviceSidAddresses []string) {
+	pathResponse.serviceSidAddresses = serviceSidAddresses
 }
