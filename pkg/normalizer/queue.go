@@ -16,7 +16,7 @@ type Queue interface {
 }
 
 type NormalizationQueue struct {
-	rollingWindowSize int
+	rollingWindowSize uint8
 	q1Elements        []float64
 	q1Sum             float64
 	q3Elements        []float64
@@ -27,7 +27,7 @@ type NormalizationQueue struct {
 	maxSum            float64
 }
 
-func NewNormalizationQueue(rollingWindowSize int) *NormalizationQueue {
+func NewNormalizationQueue(rollingWindowSize uint8) *NormalizationQueue {
 	return &NormalizationQueue{
 		rollingWindowSize: rollingWindowSize,
 		q1Elements:        make([]float64, 0, rollingWindowSize),
@@ -42,7 +42,7 @@ func NewNormalizationQueue(rollingWindowSize int) *NormalizationQueue {
 }
 
 func (queue *NormalizationQueue) enqueue(elements *[]float64, sum *float64, value float64) {
-	if len(*elements) == queue.rollingWindowSize {
+	if len(*elements) == int(queue.rollingWindowSize) {
 		*sum -= (*elements)[0]
 		*elements = (*elements)[1:]
 	}

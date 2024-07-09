@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/hawkv6/hawkeye/pkg/helper"
 	"github.com/hawkv6/hawkeye/pkg/logging"
 	"github.com/sirupsen/logrus"
 )
@@ -14,18 +13,16 @@ type NetworkGraph struct {
 	nodes     map[string]Node
 	edges     map[string]Edge
 	mu        *sync.Mutex
-	helper    helper.Helper
 	isLocked  bool
 	subGraphs map[uint32]*NetworkGraph
 }
 
-func NewNetworkGraph(helper helper.Helper) *NetworkGraph {
+func NewNetworkGraph() *NetworkGraph {
 	return &NetworkGraph{
 		log:      logging.DefaultLogger.WithField("subsystem", Subsystem),
 		nodes:    make(map[string]Node),
 		edges:    make(map[string]Edge),
 		mu:       &sync.Mutex{},
-		helper:   helper,
 		isLocked: false,
 	}
 }
@@ -107,7 +104,7 @@ func (graph *NetworkGraph) addNodesToSubgraph(newSubGraphs map[uint32]*NetworkGr
 	for _, node := range graph.nodes {
 		for flexAlgo := range node.GetFlexibleAlgorithms() {
 			if _, exists := newSubGraphs[flexAlgo]; !exists {
-				newSubGraphs[flexAlgo] = NewNetworkGraph(graph.helper)
+				newSubGraphs[flexAlgo] = NewNetworkGraph()
 			}
 			newSubGraphs[flexAlgo].AddNode(node)
 		}

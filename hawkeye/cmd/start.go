@@ -11,7 +11,6 @@ import (
 	"github.com/hawkv6/hawkeye/pkg/controller"
 	"github.com/hawkv6/hawkeye/pkg/domain"
 	"github.com/hawkv6/hawkeye/pkg/graph"
-	"github.com/hawkv6/hawkeye/pkg/helper"
 	"github.com/hawkv6/hawkeye/pkg/jagw"
 	"github.com/hawkv6/hawkeye/pkg/messaging"
 	"github.com/hawkv6/hawkeye/pkg/processor"
@@ -30,15 +29,27 @@ var startCmd = &cobra.Command{
 		}
 		log.Infoln("Config created successfully")
 
-		eventChan := make(chan domain.NetworkEvent)
-		adapter := adapter.NewDomainAdapter()
-		defaultHelper := helper.NewDefaultHelper()
-		graph := graph.NewNetworkGraph(defaultHelper)
+		graph := graph.NewNetworkGraph()
 		cache := cache.NewInMemoryCache()
-		updateChan := make(chan struct{})
-		processor := processor.NewNetworkProcessor(graph, cache, eventChan, defaultHelper, updateChan)
 
-		requestService := jagw.NewJagwRequestService(config, adapter, processor, defaultHelper)
+		eventChan := make(chan domain.NetworkEvent)
+		updateChan := make(chan struct{})
+
+		nodeEventProcessor := processor.NewNodeEventProcessor(graph, cache)
+		linkEventProcessor := processor.NewLinkEventProcessor(graph, cache)
+		prefixEventProcessor := processor.NewPrefixEventProcessor(graph, cache)
+		sidEventProcessor := processor.NewSidEventProcessor(graph, cache)
+		eventOptions := processor.EventOptions{
+			NodeEventProcessor:   nodeEventProcessor,
+			LinkEventProcessor:   linkEventProcessor,
+			PrefixEventProcessor: prefixEventProcessor,
+			SidEventProcessor:    sidEventProcessor,
+			EventDispatcher:      processor.NewEventDispatcher(nodeEventProcessor, linkEventProcessor, prefixEventProcessor, sidEventProcessor),
+		}
+		processor := processor.NewNetworkProcessor(graph, cache, eventChan, updateChan, eventOptions)
+
+		adapter := adapter.NewDomainAdapter()
+		requestService := jagw.NewJagwRequestService(config, adapter, processor)
 		if err := requestService.Init(); err != nil {
 			log.Fatalf("Error initializing JAGW Request Service: %v", err)
 		}
@@ -53,12 +64,12 @@ var startCmd = &cobra.Command{
 		go serviceMonitor.StartMonitoring()
 
 		messagingChannels := messaging.NewPathMessagingChannels()
-		manager := calculation.NewCalculationManager(cache, graph, defaultHelper)
+		manager := calculation.NewCalculationManager(cache, graph)
 		controller := controller.NewSessionController(manager, messagingChannels, updateChan)
 		go controller.Start()
 		go processor.Start()
 
-		subscriptionService := jagw.NewJagwSubscriptionService(config, adapter, defaultHelper, eventChan)
+		subscriptionService := jagw.NewJagwSubscriptionService(config, adapter, eventChan)
 		if err := subscriptionService.Init(); err != nil {
 			log.Fatalf("Error initializing JAGW Subscription Service: %v", err)
 		}

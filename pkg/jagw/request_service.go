@@ -24,16 +24,14 @@ type JagwRequestService struct {
 	requestClient        jagw.RequestServiceClient
 	adapter              adapter.Adapter
 	processor            processor.Processor
-	helper               helper.Helper
 }
 
-func NewJagwRequestService(config config.Config, adapter adapter.Adapter, processor processor.Processor, helper helper.Helper) *JagwRequestService {
+func NewJagwRequestService(config config.Config, adapter adapter.Adapter, processor processor.Processor) *JagwRequestService {
 	return &JagwRequestService{
 		log:               logging.DefaultLogger.WithField("subsystem", Subsystem),
 		jagwRequestSocket: config.GetJagwServiceAddress() + ":" + strconv.FormatUint(uint64(config.GetJagwRequestPort()), 10),
 		adapter:           adapter,
 		processor:         processor,
-		helper:            helper,
 	}
 }
 
@@ -80,7 +78,7 @@ func (requestService *JagwRequestService) convertLsNodes(lsNodes []*jagw.LsNode)
 
 func (requestService *JagwRequestService) getLsNodes() error {
 	request := &jagw.TopologyRequest{
-		Properties: requestService.helper.GetLsNodeProperties(),
+		Properties: helper.GetLsNodeProperties(),
 	}
 
 	requestService.log.Debugln("Getting LsNodes from JAGW")
@@ -113,7 +111,7 @@ func (requestService *JagwRequestService) convertLsLinks(lsLinks []*jagw.LsLink)
 
 func (requestService *JagwRequestService) getLsLinks() error {
 	request := &jagw.TopologyRequest{
-		Properties: requestService.helper.GetLsLinkProperties(),
+		Properties: helper.GetLsLinkProperties(),
 	}
 
 	requestService.log.Debugln("Getting LsLinks from JAGW")
@@ -164,7 +162,7 @@ func (requestService *JagwRequestService) convertLsPrefix(lsPrefixes []*jagw.LsP
 
 func (requestService *JagwRequestService) getLsPrefixes() error {
 	request := &jagw.TopologyRequest{
-		Properties: requestService.helper.GetLsPrefixProperties(),
+		Properties: helper.GetLsPrefixProperties(),
 	}
 
 	requestService.log.Debugln("Getting LsPrefixes from JAGW")
@@ -198,7 +196,7 @@ func (requestService *JagwRequestService) convertLsSrv6Sids(lsSrv6Sids []*jagw.L
 
 func (requestService *JagwRequestService) getSrv6Sids() error {
 	request := &jagw.TopologyRequest{
-		Properties: requestService.helper.GetLsSrv6SidsProperties(),
+		Properties: helper.GetLsSrv6SidsProperties(),
 	}
 
 	requestService.log.Debugln("Getting SRv6 SIDs from JAGW")

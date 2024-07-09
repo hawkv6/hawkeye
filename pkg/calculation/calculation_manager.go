@@ -15,18 +15,16 @@ import (
 )
 
 type CalculationManager struct {
-	log    *logrus.Entry
-	cache  cache.Cache
-	graph  graph.Graph
-	helper helper.Helper
+	log   *logrus.Entry
+	cache cache.Cache
+	graph graph.Graph
 }
 
-func NewCalculationManager(cache cache.Cache, graph graph.Graph, helper helper.Helper) *CalculationManager {
+func NewCalculationManager(cache cache.Cache, graph graph.Graph) *CalculationManager {
 	return &CalculationManager{
-		log:    logging.DefaultLogger.WithField("subsystem", subsystem),
-		cache:  cache,
-		graph:  graph,
-		helper: helper,
+		log:   logging.DefaultLogger.WithField("subsystem", subsystem),
+		cache: cache,
+		graph: graph,
 	}
 }
 

@@ -23,7 +23,6 @@ type JagwSubscriptionService struct {
 	subscriptionClient     jagw.SubscriptionServiceClient
 	adapter                adapter.Adapter
 	quitChan               chan struct{}
-	helper                 helper.Helper
 	eventChan              chan domain.NetworkEvent
 	lsNodesSubscription    jagw.SubscriptionService_SubscribeToLsNodesClient
 	lsLinksSubscription    jagw.SubscriptionService_SubscribeToLsLinksClient
@@ -31,13 +30,12 @@ type JagwSubscriptionService struct {
 	lsSrv6SidsSubscription jagw.SubscriptionService_SubscribeToLsSrv6SidsClient
 }
 
-func NewJagwSubscriptionService(config config.Config, adapter adapter.Adapter, helper helper.Helper, eventChan chan domain.NetworkEvent) *JagwSubscriptionService {
+func NewJagwSubscriptionService(config config.Config, adapter adapter.Adapter, eventChan chan domain.NetworkEvent) *JagwSubscriptionService {
 	return &JagwSubscriptionService{
 		log:                    logging.DefaultLogger.WithField("subsystem", Subsystem),
 		jagwSubscriptionSocket: config.GetJagwServiceAddress() + ":" + strconv.FormatUint(uint64(config.GetJagwSubscriptionPort()), 10),
 		adapter:                adapter,
 		quitChan:               make(chan struct{}),
-		helper:                 helper,
 		eventChan:              eventChan,
 	}
 }
@@ -93,7 +91,7 @@ func (subscriptionService *JagwSubscriptionService) createSubscriptions() error 
 func (subscriptionService *JagwSubscriptionService) createLsNodesSubscription() error {
 	ctx := context.Background()
 	subscription := &jagw.TopologySubscription{
-		Properties: subscriptionService.helper.GetLsNodeProperties(),
+		Properties: helper.GetLsNodeProperties(),
 	}
 	stream, err := subscriptionService.subscriptionClient.SubscribeToLsNodes(ctx, subscription)
 	if err != nil {
@@ -132,7 +130,7 @@ func (subscriptionService *JagwSubscriptionService) createLsLinksSubscription() 
 	subscriptionService.log.Debugln("Subscribing to LsLinks")
 	ctx := context.Background()
 	subscription := &jagw.TopologySubscription{
-		Properties: subscriptionService.helper.GetLsLinkProperties(),
+		Properties: helper.GetLsLinkProperties(),
 	}
 	stream, err := subscriptionService.subscriptionClient.SubscribeToLsLinks(ctx, subscription)
 	if err != nil {
@@ -171,7 +169,7 @@ func (subscriptionService *JagwSubscriptionService) createLsPrefixesSubscription
 	subscriptionService.log.Debugln("Subscribing to LsPrefix")
 	ctx := context.Background()
 	subscription := &jagw.TopologySubscription{
-		Properties: subscriptionService.helper.GetLsPrefixProperties(),
+		Properties: helper.GetLsPrefixProperties(),
 	}
 	stream, err := subscriptionService.subscriptionClient.SubscribeToLsPrefixes(ctx, subscription)
 	if err != nil {
@@ -210,7 +208,7 @@ func (subscriptionService *JagwSubscriptionService) createLsSrv6SidsSubscription
 	subscriptionService.log.Debugln("Subscribing to LsSrv6Sids")
 	ctx := context.Background()
 	subscription := &jagw.TopologySubscription{
-		Properties: subscriptionService.helper.GetLsSrv6SidsProperties(),
+		Properties: helper.GetLsSrv6SidsProperties(),
 	}
 	stream, err := subscriptionService.subscriptionClient.SubscribeToLsSrv6Sids(ctx, subscription)
 	if err != nil {

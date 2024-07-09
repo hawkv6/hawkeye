@@ -13,7 +13,7 @@ import (
 )
 
 func setupGraph(nodes map[int]graph.Node, edges map[int]graph.Edge) (*graph.NetworkGraph, error) {
-	graph := graph.NewNetworkGraph(helper.NewDefaultHelper())
+	graph := graph.NewNetworkGraph()
 	for _, node := range nodes {
 		graph.AddNode(node)
 	}

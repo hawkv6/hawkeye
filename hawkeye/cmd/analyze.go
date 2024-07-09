@@ -30,7 +30,6 @@ var analyzeCmd = &cobra.Command{
 		log.Infoln("Config created successfully")
 
 		adapter := adapter.NewDomainAdapter()
-		defaultHelper := helper.NewDefaultHelper()
 
 		latencyQueue := normalizer.NewNormalizationQueue(helper.RollingWindowSize)
 		jitterQueue := normalizer.NewNormalizationQueue(helper.RollingWindowSize)
@@ -62,7 +61,7 @@ var analyzeCmd = &cobra.Command{
 		for _, normalizer := range normalizers {
 			processor := processor.NewAnalyzeProcessor(normalizer.Normalizer)
 
-			requestService := jagw.NewJagwRequestService(config, adapter, processor, defaultHelper)
+			requestService := jagw.NewJagwRequestService(config, adapter, processor)
 			if err := requestService.Init(); err != nil {
 				log.Fatalf("Error initializing JAGW Request Service: %v", err)
 			}
