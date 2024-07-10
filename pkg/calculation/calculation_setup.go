@@ -24,4 +24,5 @@ type SfcCalculationOptions struct {
 type CalculationSetup interface {
 	PerformSetup(pathRequest domain.PathRequest) (*CalculationOptions, error)
 	PerformServiceFunctionChainSetup(intent domain.Intent) (*SfcCalculationOptions, error)
+	GetWeightKeysandCalculationMode(intents []domain.Intent) ([]helper.WeightKey, CalculationMode)
 }

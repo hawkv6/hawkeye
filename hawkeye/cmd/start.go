@@ -60,7 +60,9 @@ func startServiceMonitoring(cache cache.Cache, updateChan chan struct{}, wg *syn
 func startController(cache cache.Cache, graph graph.Graph, updateChan chan struct{}, wg *sync.WaitGroup) (*messaging.PathMessagingChannels, *controller.SessionController) {
 	messagingChannels := messaging.NewPathMessagingChannels()
 	calculationSetupProvider := calculation.NewCalculationSetupProvider(cache, graph)
-	manager := calculation.NewCalculationManager(cache, graph, calculationSetupProvider)
+	calculationUpdaterService := calculation.NewCalculationUpdaterService(cache, graph)
+	calculationTransformerService := calculation.NewCalculationTransformerService(cache)
+	manager := calculation.NewCalculationManager(cache, graph, calculationSetupProvider, calculationTransformerService, calculationUpdaterService)
 	controller := controller.NewSessionController(manager, messagingChannels, updateChan)
 	wg.Add(1)
 	go func() {

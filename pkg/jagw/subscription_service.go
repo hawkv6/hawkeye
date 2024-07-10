@@ -280,5 +280,6 @@ func (subscriptionService *JagwSubscriptionService) Stop() {
 	for _, cancel := range subscriptionService.cancelFunctions {
 		cancel()
 	}
+	subscriptionService.grpcClientConnection.Close()
 	subscriptionService.wg.Wait()
 }

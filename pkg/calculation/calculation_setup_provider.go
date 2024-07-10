@@ -51,7 +51,7 @@ func (provider *CalculationSetupProvider) getSourceNode(pathRequest domain.PathR
 	return source, nil
 }
 
-func (provider *CalculationSetupProvider) GetDestinationNode(pathRequest domain.PathRequest) (graph.Node, error) {
+func (provider *CalculationSetupProvider) getDestinationNode(pathRequest domain.PathRequest) (graph.Node, error) {
 	destinationIpv6, err := provider.getNetworkAddress(pathRequest.GetIpv6DestinationAddress())
 	if err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func (provider *CalculationSetupProvider) getWeightKey(intentType domain.IntentT
 	}
 }
 
-func (provider *CalculationSetupProvider) getWeightKeysandCalculationMode(intents []domain.Intent) ([]helper.WeightKey, CalculationMode) {
+func (provider *CalculationSetupProvider) GetWeightKeysandCalculationMode(intents []domain.Intent) ([]helper.WeightKey, CalculationMode) {
 	if len(intents) == 1 {
 		weightKey, calcType := provider.getWeightKeyAndCalcMode(intents[0].GetIntentType())
 		return []helper.WeightKey{weightKey}, calcType
@@ -239,7 +239,7 @@ func (provider *CalculationSetupProvider) PerformSetup(pathRequest domain.PathRe
 		return nil, err
 	}
 
-	calculationSetupOption.destinationNode, err = provider.GetDestinationNode(pathRequest)
+	calculationSetupOption.destinationNode, err = provider.getDestinationNode(pathRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +249,7 @@ func (provider *CalculationSetupProvider) PerformSetup(pathRequest domain.PathRe
 		return nil, fmt.Errorf("No intents defined in path request")
 	}
 
-	calculationSetupOption.weightKeys, calculationSetupOption.calculationMode = provider.getWeightKeysandCalculationMode(intents)
+	calculationSetupOption.weightKeys, calculationSetupOption.calculationMode = provider.GetWeightKeysandCalculationMode(intents)
 	if calculationSetupOption.calculationMode == CalculationModeUndefined {
 		return nil, fmt.Errorf("Calculation mode not defined for intents")
 	}
