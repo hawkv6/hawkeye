@@ -11,6 +11,7 @@ var (
 	jagwRequestPort      string
 	jagwSubscriptionPort string
 	grpcPort             string
+	consulServerAddress  string
 )
 
 func markRequiredFlags(cmd *cobra.Command, flags []string) {

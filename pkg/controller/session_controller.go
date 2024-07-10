@@ -19,6 +19,7 @@ type SessionController struct {
 	errorChan       chan error
 	mu              sync.Mutex
 	updateChan      chan struct{}
+	quitChan        chan struct{}
 }
 
 func NewSessionController(manager calculation.Manager, messagingChannels messaging.MessagingChannels, updateChan chan struct{}) *SessionController {
@@ -31,6 +32,7 @@ func NewSessionController(manager calculation.Manager, messagingChannels messagi
 		errorChan:       messagingChannels.GetErrorChan(),
 		mu:              sync.Mutex{},
 		updateChan:      updateChan,
+		quitChan:        make(chan struct{}),
 	}
 }
 
@@ -109,10 +111,17 @@ func (controller *SessionController) Start() {
 	controller.log.Infoln("Starting controller")
 	for {
 		select {
+		case <-controller.quitChan:
+			return
 		case <-controller.updateChan:
 			controller.recalculateSessions()
 		case pathRequest := <-controller.pathRequestChan:
 			controller.handlePathRequest(pathRequest)
 		}
 	}
+}
+
+func (controller *SessionController) Stop() {
+	controller.log.Infoln("Stopping session controller")
+	close(controller.quitChan)
 }

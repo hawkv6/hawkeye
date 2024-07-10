@@ -112,6 +112,6 @@ func (processor *NetworkProcessor) Start() {
 }
 
 func (processor *NetworkProcessor) Stop() {
-	processor.log.Infoln("Stopping processor")
+	processor.log.Infoln("Stopping network processor")
 	close(processor.quitChan)
 }

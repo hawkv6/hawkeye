@@ -4,7 +4,6 @@ import (
 	"math"
 
 	"github.com/hawkv6/hawkeye/pkg/graph"
-	"github.com/hawkv6/hawkeye/pkg/helper"
 )
 
 type ServiceFunctionChainCalculation struct {
@@ -13,18 +12,19 @@ type ServiceFunctionChainCalculation struct {
 	routerServiceMap     map[string]string
 }
 
-func NewServiceFunctionChainCalculation(network graph.Graph, source graph.Node, destination graph.Node, weightTypes []helper.WeightKey, calculationMode CalculationMode, maxConstraints, minConstraints map[helper.WeightKey]float64, serviceFunctionChain [][]string, routerServiceMap map[string]string) *ServiceFunctionChainCalculation {
+func NewServiceFunctionChainCalculation(options *CalculationOptions, sfcCalculationOptions *SfcCalculationOptions) *ServiceFunctionChainCalculation {
 	return &ServiceFunctionChainCalculation{
-		BaseCalculation:      *NewBaseCalculation(network, source, destination, weightTypes, calculationMode, maxConstraints, minConstraints),
-		serviceFunctionChain: serviceFunctionChain,
-		routerServiceMap:     routerServiceMap,
+		BaseCalculation:      *NewBaseCalculation(options),
+		serviceFunctionChain: sfcCalculationOptions.serviceFunctionChain,
+		routerServiceMap:     sfcCalculationOptions.routerServiceMap,
 	}
 }
 
 func (calculation *ServiceFunctionChainCalculation) calculatePathSourceToFirstService(firstServiceRouterId string) (graph.Path, error) {
 	firstServiceNode := calculation.graph.GetNode(firstServiceRouterId)
 	calculation.log.Debugf("Calculating path from source node %s to first service router %s", calculation.source.GetName(), firstServiceNode.GetName())
-	firstCalculation := NewShortestPathCalculation(calculation.graph, calculation.source, firstServiceNode, calculation.weightTypes, calculation.calculationMode, calculation.maxConstraints, calculation.minConstraints)
+	calculationOptions := &CalculationOptions{calculation.graph, calculation.source, firstServiceNode, calculation.weightKeys, calculation.calculationMode, calculation.maxConstraints, calculation.minConstraints}
+	firstCalculation := NewShortestPathCalculation(calculationOptions)
 	path, err := firstCalculation.Execute()
 	return path, err
 }
@@ -37,7 +37,8 @@ func (calculation *ServiceFunctionChainCalculation) calculatePathsBetweenService
 		sourceNode := calculation.graph.GetNode(serviceFunctionChain[i])
 		destinationNode := calculation.graph.GetNode(serviceFunctionChain[i+1])
 		calculation.log.Debugf("Calculating path from service router %s to service router %s", sourceNode.GetName(), destinationNode.GetName())
-		serviceCalculation := NewShortestPathCalculation(calculation.graph, sourceNode, destinationNode, calculation.weightTypes, calculation.calculationMode, calculation.maxConstraints, calculation.minConstraints)
+		calculationOptions := &CalculationOptions{calculation.graph, sourceNode, destinationNode, calculation.weightKeys, calculation.calculationMode, calculation.maxConstraints, calculation.minConstraints}
+		serviceCalculation := NewShortestPathCalculation(calculationOptions)
 		serviceCalculation.SetInitialSourceNodeMetrics(previousPath.GetTotalCost(), previousPath.GetTotalDelay(), previousPath.GetTotalJitter(), previousPath.GetTotalPacketLoss())
 		path, err := serviceCalculation.Execute()
 		cost += path.GetTotalCost()
@@ -53,7 +54,8 @@ func (calculation *ServiceFunctionChainCalculation) calculatePathsBetweenService
 func (calculation *ServiceFunctionChainCalculation) calculatePathLastServiceToDestination(previousPath graph.Path, lastServiceRouterId string) (graph.Path, error) {
 	lastServiceNode := calculation.graph.GetNode(lastServiceRouterId)
 	calculation.log.Debugf("Calculating path from last service router %s to destination node %s", lastServiceNode.GetName(), calculation.destination.GetName())
-	lastCalculation := NewShortestPathCalculation(calculation.graph, lastServiceNode, calculation.destination, calculation.weightTypes, calculation.calculationMode, calculation.maxConstraints, calculation.minConstraints)
+	calculationOptions := &CalculationOptions{calculation.graph, lastServiceNode, calculation.destination, calculation.weightKeys, calculation.calculationMode, calculation.maxConstraints, calculation.minConstraints}
+	lastCalculation := NewShortestPathCalculation(calculationOptions)
 	lastCalculation.SetInitialSourceNodeMetrics(previousPath.GetTotalCost(), previousPath.GetTotalDelay(), previousPath.GetTotalJitter(), previousPath.GetTotalPacketLoss())
 	path, err := lastCalculation.Execute()
 	return path, err

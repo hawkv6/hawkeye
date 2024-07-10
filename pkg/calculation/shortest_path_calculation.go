@@ -21,9 +21,9 @@ type ShortestPathCalculation struct {
 	sourceNodeCost   float64
 }
 
-func NewShortestPathCalculation(network graph.Graph, source, destination graph.Node, weightTypes []helper.WeightKey, calculationType CalculationMode, maxConstraints, minConstraints map[helper.WeightKey]float64) *ShortestPathCalculation {
+func NewShortestPathCalculation(options *CalculationOptions) *ShortestPathCalculation {
 	return &ShortestPathCalculation{
-		BaseCalculation:  *NewBaseCalculation(network, source, destination, weightTypes, calculationType, maxConstraints, minConstraints),
+		BaseCalculation:  *NewBaseCalculation(options),
 		nodeWeights:      make(map[string]float64),
 		EdgeToPrevious:   make(map[string]graph.Edge),
 		visitedNodes:     make(map[string]bool),
@@ -139,7 +139,7 @@ func (calculation *ShortestPathCalculation) updateMetricsAndPrevious(currentNode
 }
 
 func (calculation *ShortestPathCalculation) calculateAlternativeDistance(currentNodeId string, edgeWeight float64) float64 {
-	if calculation.weightTypes[0] == helper.PacketLossKey {
+	if calculation.weightKeys[0] == helper.PacketLossKey {
 		packetLossPercentage := edgeWeight / 100
 		return calculation.nodeWeights[currentNodeId] + -math.Log(1-packetLossPercentage)
 	}
@@ -179,13 +179,13 @@ func (calculation *ShortestPathCalculation) handleCalculation(currentNodeId, nei
 
 func (calculation *ShortestPathCalculation) getEdgeWeight(edge graph.Edge) float64 {
 	weight := 0.0
-	if len(calculation.weightTypes) == 2 {
-		weight = edge.GetWeight(calculation.weightTypes[0])*float64(helper.TwoFactorWeights[0]) + edge.GetWeight(calculation.weightTypes[1])*float64(helper.TwoFactorWeights[1])
+	if len(calculation.weightKeys) == 2 {
+		weight = edge.GetWeight(calculation.weightKeys[0])*float64(helper.TwoFactorWeights[0]) + edge.GetWeight(calculation.weightKeys[1])*float64(helper.TwoFactorWeights[1])
 
-	} else if len(calculation.weightTypes) == 3 {
-		weight = edge.GetWeight(calculation.weightTypes[0])*float64(helper.ThreeFactorWeights[0]) + edge.GetWeight(calculation.weightTypes[1])*float64(helper.ThreeFactorWeights[1]) + edge.GetWeight(calculation.weightTypes[2])*float64(helper.ThreeFactorWeights[2])
+	} else if len(calculation.weightKeys) == 3 {
+		weight = edge.GetWeight(calculation.weightKeys[0])*float64(helper.ThreeFactorWeights[0]) + edge.GetWeight(calculation.weightKeys[1])*float64(helper.ThreeFactorWeights[1]) + edge.GetWeight(calculation.weightKeys[2])*float64(helper.ThreeFactorWeights[2])
 	} else {
-		weight = edge.GetWeight(calculation.weightTypes[0])
+		weight = edge.GetWeight(calculation.weightKeys[0])
 	}
 	return weight
 }

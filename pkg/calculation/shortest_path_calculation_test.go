@@ -135,7 +135,8 @@ func TestNetworkGraph_GetShortestPathSingleIntent(t *testing.T) {
 			if err != nil {
 				t.Errorf("Error setting up graph")
 			}
-			calculation := NewShortestPathCalculation(networkGraph, tt.args.from, tt.args.to, tt.args.weightTypes, CalculationModeSum, make(map[helper.WeightKey]float64), make(map[helper.WeightKey]float64))
+			calculationOptions := &CalculationOptions{networkGraph, tt.args.from, tt.args.to, tt.args.weightTypes, tt.args.calculationType, make(map[helper.WeightKey]float64), make(map[helper.WeightKey]float64)}
+			calculation := NewShortestPathCalculation(calculationOptions)
 			got, err := calculation.Execute()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Get shortest path with metric %s, error = %v, wantErr %v", tt.args.weightTypes, err, tt.wantErr)

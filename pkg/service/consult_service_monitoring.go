@@ -22,11 +22,15 @@ type ConsulServiceMonitor struct {
 	updapteChan       chan struct{}
 	needsUpdate       bool
 	mu                sync.RWMutex
+	wg                sync.WaitGroup
 }
 
-func NewConsulServiceMonitor(cache cache.Cache, updateChan chan struct{}) (*ConsulServiceMonitor, error) {
+func NewConsulServiceMonitor(cache cache.Cache, updateChan chan struct{}, address string) (*ConsulServiceMonitor, error) {
 	config := api.DefaultConfig()
-	config.Address = helper.ConsulServerAddress
+	if address == "" {
+		return nil, fmt.Errorf("Consul address not set")
+	}
+	config.Address = address
 	config.Scheme = "https"
 	client, err := api.NewClient(config)
 	if err != nil {
@@ -42,6 +46,7 @@ func NewConsulServiceMonitor(cache cache.Cache, updateChan chan struct{}) (*Cons
 		updapteChan:       updateChan,
 		needsUpdate:       false,
 		mu:                sync.RWMutex{},
+		wg:                sync.WaitGroup{},
 	}
 	return consultServiceMonitor, nil
 }
@@ -222,7 +227,11 @@ func (monitor *ConsulServiceMonitor) startServiceHealthMonitoring(services map[s
 		if _, exists := monitor.monitoredServices[service]; !exists && service != "consul" {
 			ctx, cancel := context.WithCancel(context.Background())
 			monitor.monitoredServices[service] = cancel
-			go monitor.monitorServiceHealth(ctx, service)
+			monitor.wg.Add(1)
+			go func(service string) {
+				monitor.monitorServiceHealth(ctx, service)
+				monitor.wg.Done()
+			}(service)
 		}
 	}
 }
@@ -235,15 +244,20 @@ func (monitor *ConsulServiceMonitor) updateMonitoredServices(services map[string
 	monitor.stopMonitoringRemovedServices(services)
 }
 
-func (monitor *ConsulServiceMonitor) StartMonitoring() {
+func (monitor *ConsulServiceMonitor) Start() {
 	monitor.log.Infoln("Starting monitoring services")
 	lastIndex := uint64(0)
+	monitor.wg.Add(1)
 	for {
 		select {
 		case <-monitor.stopChan:
+			monitor.log.Infof("Stopping monitoring services, can take up to %v", 2*helper.ConsulQueryWaitTime)
+			monitor.mu.RLock()
+			defer monitor.mu.RUnlock()
 			for _, cancel := range monitor.monitoredServices {
 				cancel()
 			}
+			monitor.wg.Done()
 			return
 		default:
 			options := &api.QueryOptions{
@@ -261,7 +275,8 @@ func (monitor *ConsulServiceMonitor) StartMonitoring() {
 	}
 }
 
-func (monitor *ConsulServiceMonitor) StopMonitoring() {
-	monitor.log.Infoln("Stopping monitoring services")
+func (monitor *ConsulServiceMonitor) Stop() {
 	close(monitor.stopChan)
+	monitor.wg.Wait()
+	monitor.log.Infoln("Stopped monitoring services")
 }

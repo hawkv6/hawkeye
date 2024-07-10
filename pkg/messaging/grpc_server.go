@@ -25,6 +25,7 @@ type GrpcMessagingServer struct {
 	pathResultChan  chan domain.PathResult
 	errorChan       chan error
 	internalChan    chan error
+	stopChan        chan struct{}
 }
 
 func NewGrpcMessagingServer(adapter adapter.Adapter, config config.Config, messagingChannels MessagingChannels) *GrpcMessagingServer {
@@ -36,6 +37,7 @@ func NewGrpcMessagingServer(adapter adapter.Adapter, config config.Config, messa
 		pathResultChan:  messagingChannels.GetPathResponseChan(),
 		errorChan:       messagingChannels.GetErrorChan(),
 		internalChan:    make(chan error),
+		stopChan:        make(chan struct{}),
 	}
 }
 
@@ -49,9 +51,15 @@ func (server *GrpcMessagingServer) Start() error {
 
 	grpcServer := grpc.NewServer()
 	api.RegisterIntentControllerServer(grpcServer, server)
-	if err := grpcServer.Serve(list); err != nil {
-		return fmt.Errorf("Failed to serve: %v", err)
-	}
+
+	go func() {
+		if err := grpcServer.Serve(list); err != nil {
+			server.log.Fatalf("Error starting gRPC server %v", err)
+		}
+	}()
+
+	<-server.stopChan
+	grpcServer.GracefulStop()
 	return nil
 }
 
@@ -123,4 +131,9 @@ func (server *GrpcMessagingServer) handleIntentPathResponse(stream api.IntentCon
 			return
 		}
 	}
+}
+
+func (server *GrpcMessagingServer) Stop() {
+	server.log.Infoln("Stopping the gRPC server")
+	close(server.stopChan)
 }

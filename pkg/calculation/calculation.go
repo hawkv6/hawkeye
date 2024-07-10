@@ -25,21 +25,21 @@ type BaseCalculation struct {
 	graph           graph.Graph
 	source          graph.Node
 	destination     graph.Node
-	weightTypes     []helper.WeightKey
+	weightKeys      []helper.WeightKey
 	calculationMode CalculationMode
 	maxConstraints  map[helper.WeightKey]float64
 	minConstraints  map[helper.WeightKey]float64
 }
 
-func NewBaseCalculation(graph graph.Graph, source graph.Node, destination graph.Node, weightTypes []helper.WeightKey, calculationMode CalculationMode, maxConstraints, minConstraints map[helper.WeightKey]float64) *BaseCalculation {
+func NewBaseCalculation(options *CalculationOptions) *BaseCalculation {
 	return &BaseCalculation{
 		log:             logging.DefaultLogger.WithField("subsystem", subsystem),
-		graph:           graph,
-		source:          source,
-		destination:     destination,
-		weightTypes:     weightTypes,
-		calculationMode: calculationMode,
-		maxConstraints:  maxConstraints,
-		minConstraints:  minConstraints,
+		graph:           options.graph,
+		source:          options.sourceNode,
+		destination:     options.destinationNode,
+		weightKeys:      options.weightKeys,
+		calculationMode: options.calculationMode,
+		maxConstraints:  options.maxConstraints,
+		minConstraints:  options.minConstraints,
 	}
 }

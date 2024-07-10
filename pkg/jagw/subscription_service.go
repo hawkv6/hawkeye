@@ -3,7 +3,9 @@ package jagw
 import (
 	"context"
 	"fmt"
+	"io"
 	"strconv"
+	"sync"
 
 	"github.com/hawkv6/hawkeye/pkg/adapter"
 	"github.com/hawkv6/hawkeye/pkg/config"
@@ -22,12 +24,13 @@ type JagwSubscriptionService struct {
 	grpcClientConnection   *grpc.ClientConn
 	subscriptionClient     jagw.SubscriptionServiceClient
 	adapter                adapter.Adapter
-	quitChan               chan struct{}
 	eventChan              chan domain.NetworkEvent
 	lsNodesSubscription    jagw.SubscriptionService_SubscribeToLsNodesClient
 	lsLinksSubscription    jagw.SubscriptionService_SubscribeToLsLinksClient
 	lsPrefixesSubscription jagw.SubscriptionService_SubscribeToLsPrefixesClient
 	lsSrv6SidsSubscription jagw.SubscriptionService_SubscribeToLsSrv6SidsClient
+	cancelFunctions        []context.CancelFunc
+	wg                     sync.WaitGroup
 }
 
 func NewJagwSubscriptionService(config config.Config, adapter adapter.Adapter, eventChan chan domain.NetworkEvent) *JagwSubscriptionService {
@@ -35,8 +38,9 @@ func NewJagwSubscriptionService(config config.Config, adapter adapter.Adapter, e
 		log:                    logging.DefaultLogger.WithField("subsystem", Subsystem),
 		jagwSubscriptionSocket: config.GetJagwServiceAddress() + ":" + strconv.FormatUint(uint64(config.GetJagwSubscriptionPort()), 10),
 		adapter:                adapter,
-		quitChan:               make(chan struct{}),
 		eventChan:              eventChan,
+		cancelFunctions:        make([]context.CancelFunc, 0),
+		wg:                     sync.WaitGroup{},
 	}
 }
 
@@ -50,7 +54,7 @@ func (subscriptionService *JagwSubscriptionService) Init() error {
 
 func (subscriptionService *JagwSubscriptionService) createSubscriptionClient() error {
 	subscriptionService.log.Debugln("Initializing gRPC client connection")
-	grpcClientConnection, err := grpc.Dial(subscriptionService.jagwSubscriptionSocket,
+	grpcClientConnection, err := grpc.NewClient(subscriptionService.jagwSubscriptionSocket,
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("Error when dialing gRPC server: %s", err)
@@ -89,15 +93,17 @@ func (subscriptionService *JagwSubscriptionService) createSubscriptions() error 
 }
 
 func (subscriptionService *JagwSubscriptionService) createLsNodesSubscription() error {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 	subscription := &jagw.TopologySubscription{
 		Properties: helper.GetLsNodeProperties(),
 	}
 	stream, err := subscriptionService.subscriptionClient.SubscribeToLsNodes(ctx, subscription)
 	if err != nil {
+		cancel()
 		return fmt.Errorf("Error when calling SubscribeToLsNodes on SubscriptionService: %s", err)
 	}
 	subscriptionService.lsNodesSubscription = stream
+	subscriptionService.cancelFunctions = append(subscriptionService.cancelFunctions, cancel)
 	return nil
 }
 
@@ -112,12 +118,16 @@ func (subscriptionService *JagwSubscriptionService) enqueueNodeEvent(lsNodeEvent
 
 func (subscriptionService *JagwSubscriptionService) subscribeLsNodes() {
 	subscriptionService.log.Debugln("Subscribing to LsNodes")
+	ctx := subscriptionService.lsNodesSubscription.Context()
+	subscriptionService.wg.Add(1)
 	for {
+		event, err := subscriptionService.lsNodesSubscription.Recv()
 		select {
-		case <-subscriptionService.quitChan:
+		case <-ctx.Done():
+			subscriptionService.log.Debugln("LsNode stream ended")
+			subscriptionService.wg.Done()
 			return
 		default:
-			event, err := subscriptionService.lsNodesSubscription.Recv()
 			if err != nil {
 				subscriptionService.log.Errorf("Error when receiving LsNode event: %s", err)
 			}
@@ -127,16 +137,17 @@ func (subscriptionService *JagwSubscriptionService) subscribeLsNodes() {
 }
 
 func (subscriptionService *JagwSubscriptionService) createLsLinksSubscription() error {
-	subscriptionService.log.Debugln("Subscribing to LsLinks")
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 	subscription := &jagw.TopologySubscription{
 		Properties: helper.GetLsLinkProperties(),
 	}
 	stream, err := subscriptionService.subscriptionClient.SubscribeToLsLinks(ctx, subscription)
 	if err != nil {
+		cancel()
 		return fmt.Errorf("Error when calling SubscribeToLsLinks on SubscriptionService: %s", err)
 	}
 	subscriptionService.lsLinksSubscription = stream
+	subscriptionService.cancelFunctions = append(subscriptionService.cancelFunctions, cancel)
 	return nil
 }
 
@@ -150,12 +161,17 @@ func (subscriptionService *JagwSubscriptionService) enqueueLinkEvent(lsLinkEvent
 }
 
 func (subscriptionService *JagwSubscriptionService) subscribeLsLinks() {
+	subscriptionService.log.Debugln("Subscribing to LsLinks")
+	ctx := subscriptionService.lsLinksSubscription.Context()
+	subscriptionService.wg.Add(1)
 	for {
+		event, err := subscriptionService.lsLinksSubscription.Recv()
 		select {
-		case <-subscriptionService.quitChan:
+		case <-ctx.Done():
+			subscriptionService.log.Debugln("LsLink stream ended")
+			subscriptionService.wg.Done()
 			return
 		default:
-			event, err := subscriptionService.lsLinksSubscription.Recv()
 			if err != nil {
 				subscriptionService.log.Errorf("Error when receiving LsLink event: %s", err)
 				continue
@@ -166,16 +182,17 @@ func (subscriptionService *JagwSubscriptionService) subscribeLsLinks() {
 }
 
 func (subscriptionService *JagwSubscriptionService) createLsPrefixesSubscription() error {
-	subscriptionService.log.Debugln("Subscribing to LsPrefix")
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 	subscription := &jagw.TopologySubscription{
 		Properties: helper.GetLsPrefixProperties(),
 	}
 	stream, err := subscriptionService.subscriptionClient.SubscribeToLsPrefixes(ctx, subscription)
 	if err != nil {
+		cancel()
 		return fmt.Errorf("Error when calling SubscribeToLsPrefix on SubscriptionService: %s", err)
 	}
 	subscriptionService.lsPrefixesSubscription = stream
+	subscriptionService.cancelFunctions = append(subscriptionService.cancelFunctions, cancel)
 	return nil
 }
 
@@ -189,12 +206,17 @@ func (subscriptionService *JagwSubscriptionService) enqueuePrefixEvent(lsPrefixE
 }
 
 func (subscriptionService *JagwSubscriptionService) subscribeLsPrefixes() {
+	subscriptionService.log.Debugln("Subscribing to LsPrefix")
+	ctx := subscriptionService.lsPrefixesSubscription.Context()
+	subscriptionService.wg.Add(1)
 	for {
+		event, err := subscriptionService.lsPrefixesSubscription.Recv()
 		select {
-		case <-subscriptionService.quitChan:
+		case <-ctx.Done():
+			subscriptionService.log.Debugln("LsPrefix stream ended")
+			subscriptionService.wg.Done()
 			return
 		default:
-			event, err := subscriptionService.lsPrefixesSubscription.Recv()
 			if err != nil {
 				subscriptionService.log.Errorf("Error when receiving LsPrefix event: %s", err)
 				continue
@@ -205,16 +227,17 @@ func (subscriptionService *JagwSubscriptionService) subscribeLsPrefixes() {
 }
 
 func (subscriptionService *JagwSubscriptionService) createLsSrv6SidsSubscription() error {
-	subscriptionService.log.Debugln("Subscribing to LsSrv6Sids")
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 	subscription := &jagw.TopologySubscription{
 		Properties: helper.GetLsSrv6SidsProperties(),
 	}
 	stream, err := subscriptionService.subscriptionClient.SubscribeToLsSrv6Sids(ctx, subscription)
 	if err != nil {
+		cancel()
 		return fmt.Errorf("Error when calling SubscribeToLsSrv6Sids on SubscriptionService: %s", err)
 	}
 	subscriptionService.lsSrv6SidsSubscription = stream
+	subscriptionService.cancelFunctions = append(subscriptionService.cancelFunctions, cancel)
 	return nil
 }
 
@@ -228,12 +251,21 @@ func (subscriptionService *JagwSubscriptionService) enqueueSrv6Sids(lsSrv6SidsEv
 }
 
 func (subscriptionService *JagwSubscriptionService) subscribeLsSrv6Sids() {
+	subscriptionService.log.Debugln("Subscribing to LsSrv6Sids")
+	ctx := subscriptionService.lsSrv6SidsSubscription.Context()
+	subscriptionService.wg.Add(1)
 	for {
+		event, err := subscriptionService.lsSrv6SidsSubscription.Recv()
 		select {
-		case <-subscriptionService.quitChan:
+		case <-ctx.Done():
+			subscriptionService.log.Debugln("LsSrv6Sids stream ended")
+			subscriptionService.wg.Done()
 			return
 		default:
-			event, err := subscriptionService.lsSrv6SidsSubscription.Recv()
+			if err == io.EOF {
+				subscriptionService.log.Debugln("LsSrv6Sids stream ended")
+				return
+			}
 			if err != nil {
 				subscriptionService.log.Errorf("Error when receiving LsSrv6Sids event: %s", err)
 				continue
@@ -244,7 +276,9 @@ func (subscriptionService *JagwSubscriptionService) subscribeLsSrv6Sids() {
 }
 
 func (subscriptionService *JagwSubscriptionService) Stop() {
-	subscriptionService.log.Infoln("Closing JAGW Subscription Service")
-	subscriptionService.grpcClientConnection.Close()
-	close(subscriptionService.quitChan)
+	subscriptionService.log.Infoln("Stopping JAGW Subscription Service")
+	for _, cancel := range subscriptionService.cancelFunctions {
+		cancel()
+	}
+	subscriptionService.wg.Wait()
 }
