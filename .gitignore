@@ -10,6 +10,7 @@
 
 # Test binary, built with `go test -c`
 *.test
+!uml/test
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
@@ -26,8 +27,8 @@ bin/
 # png folder
 png/
 
-# 
-test/uml
+# no UML files 
+*.uml
 
 
 ## VS Code
