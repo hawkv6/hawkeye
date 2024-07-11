@@ -101,6 +101,42 @@ func TestInMemoryCache_StoreClientNetwork(t *testing.T) {
 	}
 }
 
+func TestInMemoryCache_RemoveClientNetwork(t *testing.T) {
+	cache := NewInMemoryCache()
+	type args struct {
+		prefix domain.Prefix
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "Test RemoveClientNetwork - Case 1",
+			args: args{
+				prefix: setUpDomainPrefix("2_0_2_0_0_2001:db8:b::_64_0000.0000.000b", "0000.0000.000b", "2001:db8:b::", 64),
+			},
+		},
+		{
+			name: "Test RemoveClientNetwork - Case 2",
+			args: args{
+				prefix: setUpDomainPrefix("2_0_2_0_0_2001:db8:c::_64_0000.0000.000c", "0000.0000.000c", "2001:db8:c::", 64),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cache.StoreClientNetwork(tt.args.prefix)
+			cache.RemoveClientNetwork(tt.args.prefix)
+			if _, exists := cache.prefixStore[tt.args.prefix.GetKey()]; exists {
+				t.Errorf("Prefix %s was not removed from the cache", tt.args.prefix.GetKey())
+			}
+			if _, exists := cache.prefixToRouterIdMap[tt.args.prefix.GetPrefix()]; exists {
+				t.Errorf("Prefix %s was not removed from the prefixToRouterIdMap", tt.args.prefix.GetPrefix())
+			}
+		})
+	}
+}
+
 func TestInMemoryCache_GetClientNetworkByKey(t *testing.T) {
 	cache := NewInMemoryCache()
 	type args struct {
