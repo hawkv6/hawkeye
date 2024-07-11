@@ -9,8 +9,13 @@ import (
 
 type FullConfig struct {
 	*BaseConfig
-	jagwSubscriptionPort uint16 `validate:"required,gte=1,lte=65535"`
-	grpcPort             uint16 `validate:"required,gte=1,lte=65535"`
+	jagwSubscriptionPort uint16
+	grpcPort             uint16
+}
+
+type FullConfigBuilder struct {
+	JagwSubscriptionPort uint16 `validate:"required,gte=1,lte=65535"`
+	GrpcPort             uint16 `validate:"required,gte=1,lte=65535"`
 }
 
 func NewFullConfig(jagwServiceAddress, jagwRequestPort, jagwSubscriptionPort, grpcPort string) (*FullConfig, error) {
@@ -31,14 +36,18 @@ func NewFullConfig(jagwServiceAddress, jagwRequestPort, jagwSubscriptionPort, gr
 	}
 	grpcPortUint := uint16(grpcPortInt)
 
-	config := &FullConfig{
-		BaseConfig:           baseConfig,
-		jagwSubscriptionPort: jagwSubscriptionPortUint,
-		grpcPort:             grpcPortUint,
+	builder := &FullConfigBuilder{
+		JagwSubscriptionPort: jagwSubscriptionPortUint,
+		GrpcPort:             grpcPortUint,
 	}
 	validate := validator.New()
-	if err := validate.Struct(config); err != nil {
+	if err := validate.Struct(builder); err != nil {
 		return nil, err
+	}
+	config := &FullConfig{
+		BaseConfig:           baseConfig,
+		jagwSubscriptionPort: builder.JagwSubscriptionPort,
+		grpcPort:             builder.GrpcPort,
 	}
 	return config, nil
 }

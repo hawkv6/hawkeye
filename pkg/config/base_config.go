@@ -11,8 +11,13 @@ import (
 
 type BaseConfig struct {
 	log                *logrus.Entry
-	jagwServiceAddress string `validate:"required,hostname"`
-	jagwRequestPort    uint16 `validate:"required,gte=1,lte=65535"`
+	jagwServiceAddress string
+	jagwRequestPort    uint16
+}
+
+type BaseConfigBuilder struct {
+	JagwServiceAddress string `validate:"required,hostname|ip"`
+	JagwRequestPort    uint16 `validate:"required,gte=1,lte=65535"`
 }
 
 func NewBaseConfig(jagwServiceAddress, jagwRequestPort string) (*BaseConfig, error) {
@@ -22,30 +27,35 @@ func NewBaseConfig(jagwServiceAddress, jagwRequestPort string) (*BaseConfig, err
 	}
 	requestPortUint := uint16(requestPortInt)
 
+	builder := &BaseConfigBuilder{
+		JagwServiceAddress: jagwServiceAddress,
+		JagwRequestPort:    requestPortUint,
+	}
+
+	validate := validator.New()
+	if err := validate.Struct(builder); err != nil {
+		return nil, err
+	}
 	config := &BaseConfig{
 		log:                logging.DefaultLogger.WithField("subsystem", Subsystem),
-		jagwServiceAddress: jagwServiceAddress,
-		jagwRequestPort:    requestPortUint,
-	}
-	validate := validator.New()
-	if err := validate.Struct(config); err != nil {
-		return nil, err
+		jagwServiceAddress: builder.JagwServiceAddress,
+		jagwRequestPort:    builder.JagwRequestPort,
 	}
 	return config, nil
 }
 
-func (c *BaseConfig) GetJagwServiceAddress() string {
-	return c.jagwServiceAddress
+func (config *BaseConfig) GetJagwServiceAddress() string {
+	return config.jagwServiceAddress
 }
 
-func (c *BaseConfig) GetJagwRequestPort() uint16 {
-	return c.jagwRequestPort
+func (config *BaseConfig) GetJagwRequestPort() uint16 {
+	return config.jagwRequestPort
 }
 
-func (c *BaseConfig) GetJagwSubscriptionPort() uint16 {
+func (config *BaseConfig) GetJagwSubscriptionPort() uint16 {
 	return 0
 }
 
-func (c *BaseConfig) GetGrpcPort() uint16 {
+func (config *BaseConfig) GetGrpcPort() uint16 {
 	return 0
 }
