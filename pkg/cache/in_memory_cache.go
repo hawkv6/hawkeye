@@ -109,9 +109,8 @@ func (cache *InMemoryCache) GetNodeByIgpRouterId(igpRouterId string) domain.Node
 	key, ok := cache.igpRouterIdToRouterKeyMap[igpRouterId]
 	if !ok {
 		return nil
-	} else {
-		return cache.nodeStore[key]
 	}
+	return cache.nodeStore[key]
 }
 
 func (cache *InMemoryCache) StoreServiceSid(serviceType, servicePrefixSid string) {
