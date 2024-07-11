@@ -88,6 +88,15 @@ func TestNewBaseConfig(t *testing.T) {
 			want:    nil,
 			wantErr: true,
 		},
+		{
+			name: "Invalid request port",
+			args: args{
+				jagwServiceAddress: "localhost",
+				jagwRequestPort:    "no port",
+			},
+			want:    nil,
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

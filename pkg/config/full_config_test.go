@@ -72,6 +72,28 @@ func TestNewFullConfig(t *testing.T) {
 			want:    nil,
 			wantErr: true,
 		},
+		{
+			name: "Invalid config - wrong subscription port ",
+			args: args{
+				jagwServiceAddress:   "localhost",
+				jagwRequestPort:      "9002",
+				jagwSubscriptionPort: "no port",
+				grpcPort:             "10000",
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "Invalid config - wrong grpcPort port",
+			args: args{
+				jagwServiceAddress:   "localhost",
+				jagwRequestPort:      "9002",
+				jagwSubscriptionPort: "9003",
+				grpcPort:             "no port",
+			},
+			want:    nil,
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
