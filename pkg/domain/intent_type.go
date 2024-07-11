@@ -11,7 +11,7 @@ const (
 	IntentTypeLowJitter
 	IntentTypeFlexAlgo
 	IntentTypeSFC
-	IntentLowUtilization
+	IntentTypeLowUtilization
 )
 
 func (it IntentType) String() string {
@@ -32,7 +32,7 @@ func (it IntentType) String() string {
 		return "FlexAlgo"
 	case IntentTypeSFC:
 		return "SFC"
-	case IntentLowUtilization:
+	case IntentTypeLowUtilization:
 		return "LowUtilization"
 	default:
 		return "Unknown"

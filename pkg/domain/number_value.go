@@ -7,23 +7,32 @@ import (
 )
 
 type NumberValue struct {
+	BaseValue
+	numberValue int32
+}
+
+type NumberValueBuilder struct {
 	BaseValue   `validate:"required"`
-	numberValue int32 `validate:"required,min=0"`
+	NumberValue int32 `validate:"required,min=1"`
 }
 
 func NewNumberValue(valueType ValueType, numberValue *int32) (*NumberValue, error) {
 	if numberValue == nil {
 		return nil, fmt.Errorf("Number value was not provided")
 	}
-	value := &NumberValue{
+	value := &NumberValueBuilder{
 		BaseValue:   *NewBaseValue(valueType),
-		numberValue: *numberValue,
+		NumberValue: *numberValue,
 	}
 	validate := validator.New()
 	if err := validate.Struct(value); err != nil {
 		return nil, err
 	}
-	return value, nil
+	newNumberValue := &NumberValue{
+		BaseValue:   value.BaseValue,
+		numberValue: value.NumberValue,
+	}
+	return newNumberValue, nil
 }
 
 func (numberValue *NumberValue) GetNumberValue() int32 {

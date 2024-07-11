@@ -32,7 +32,7 @@ type LinkInput struct {
 	UnidirDelayVariation           *uint32  `validate:"required"`
 	MaxLinkBWKbps                  *uint64  `validate:"required,min=1"`
 	UnidirAvailableBw              *uint32  `validate:"required"`
-	UnidirPacketLoss               *float64 `validate:"required,min=0"`
+	UnidirPacketLoss               *float64 `validate:"required,min=0,max=100"`
 	UnidirBandwidthUtilization     *uint32  `validate:"required"`
 	NormalizedUnidirLinkDelay      *float64 `validate:"required,min=0,max=1"`
 	NormalizedUnidirDelayVariation *float64 `validate:"required,min=0,max=1"`

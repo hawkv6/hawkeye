@@ -45,7 +45,6 @@ func (adapter *DomainAdapter) ConvertNodeEvent(lsNodeEvent *jagw.LsNodeEvent) (d
 		}
 		return domain.NewUpdateNodeEvent(node), nil
 	} else {
-
 		return nil, fmt.Errorf("Unknown action: %s", *lsNodeEvent.Action)
 	}
 }
@@ -125,7 +124,6 @@ func (adapter *DomainAdapter) convertValuesToDomain(apiValues []*api.Value) ([]d
 	for _, apiValue := range apiValues {
 		var value domain.Value
 		var err error
-
 		switch apiValue.Type {
 		case api.ValueType_VALUE_TYPE_MIN_VALUE:
 			value, err = domain.NewNumberValue(domain.ValueTypeMinValue, apiValue.NumberValue)
@@ -138,15 +136,12 @@ func (adapter *DomainAdapter) convertValuesToDomain(apiValues []*api.Value) ([]d
 		default:
 			return nil, fmt.Errorf("Value type unspecified")
 		}
-
 		if err != nil {
 			adapter.log.Errorln("Error creating value: ", err)
 			return nil, err
 		}
-
 		valueList = append(valueList, value)
 	}
-
 	return valueList, nil
 }
 
@@ -167,7 +162,7 @@ func (adapter *DomainAdapter) convertIntentTypeToDomain(apiIntentType api.Intent
 	case api.IntentType_INTENT_TYPE_SFC:
 		return domain.IntentTypeSFC, nil
 	case api.IntentType_INTENT_TYPE_LOW_UTILIZATION:
-		return domain.IntentLowUtilization, nil
+		return domain.IntentTypeLowUtilization, nil
 	default:
 		return domain.IntentTypeUnspecified, fmt.Errorf("Intent type unspecified")
 	}

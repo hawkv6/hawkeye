@@ -83,7 +83,7 @@ func (provider *CalculationSetupProvider) getWeightKeyAndCalcMode(intentType dom
 		return helper.PacketLossKey, CalculationModeSum
 	case domain.IntentTypeLowJitter:
 		return helper.JitterKey, CalculationModeSum
-	case domain.IntentLowUtilization:
+	case domain.IntentTypeLowUtilization:
 		return helper.UtilizedBandwidthKey, CalculationModeSum
 	default:
 		return helper.UndefinedKey, CalculationModeUndefined
