@@ -1307,10 +1307,6 @@ func TestDomainAdapter_ConvertIntentTypeToDomain(t *testing.T) {
 	}
 }
 
-func getDomainIntent(intentType domain.IntentType, values []domain.Value) domain.Intent {
-	intent, _ := domain.NewDomainIntent(intentType, values)
-	return intent
-}
 func TestDomainAdapter_ConvertIntentsToDomain(t *testing.T) {
 	type fields struct {
 		log *logrus.Entry
@@ -1338,7 +1334,7 @@ func TestDomainAdapter_ConvertIntentsToDomain(t *testing.T) {
 				},
 			},
 			want: []domain.Intent{
-				getDomainIntent(domain.IntentTypeHighBandwidth, []domain.Value{}),
+				domain.NewDomainIntent(domain.IntentTypeHighBandwidth, []domain.Value{}),
 			},
 			wantErr: false,
 		},
@@ -1394,8 +1390,8 @@ func TestDomainAdapter_ConvertIntentsToDomain(t *testing.T) {
 				},
 			},
 			want: []domain.Intent{
-				getDomainIntent(domain.IntentTypeLowLatency, []domain.Value{}),
-				getDomainIntent(domain.IntentTypeLowPacketLoss, []domain.Value{getDomainMaxValue(proto.Int32(2))}),
+				domain.NewDomainIntent(domain.IntentTypeLowLatency, []domain.Value{}),
+				domain.NewDomainIntent(domain.IntentTypeLowPacketLoss, []domain.Value{getDomainMaxValue(proto.Int32(2))}),
 			},
 			wantErr: false,
 		},
@@ -1456,7 +1452,7 @@ func TestDomainAdapter_ConvertPathRequest(t *testing.T) {
 				stream: nil,
 				ctx:    context.Background(),
 			},
-			want:    getDomainPathRequest("fc:a::10", "fc:b::10", []domain.Intent{getDomainIntent(domain.IntentTypeHighBandwidth, []domain.Value{})}, nil, context.Background()),
+			want:    getDomainPathRequest("fc:a::10", "fc:b::10", []domain.Intent{domain.NewDomainIntent(domain.IntentTypeHighBandwidth, []domain.Value{})}, nil, context.Background()),
 			wantErr: false,
 		},
 		{
@@ -1480,7 +1476,7 @@ func TestDomainAdapter_ConvertPathRequest(t *testing.T) {
 				stream: nil,
 				ctx:    context.Background(),
 			},
-			want:    getDomainPathRequest("fc:a::10", "fc:b::10", []domain.Intent{getDomainIntent(domain.IntentTypeLowLatency, []domain.Value{getDomainMaxValue(proto.Int32(100))})}, nil, context.Background()),
+			want:    getDomainPathRequest("fc:a::10", "fc:b::10", []domain.Intent{domain.NewDomainIntent(domain.IntentTypeLowLatency, []domain.Value{getDomainMaxValue(proto.Int32(100))})}, nil, context.Background()),
 			wantErr: false,
 		},
 		{
@@ -1498,6 +1494,27 @@ func TestDomainAdapter_ConvertPathRequest(t *testing.T) {
 							Values: []*api.Value{
 								{Type: api.ValueType_VALUE_TYPE_MAX_VALUE, NumberValue: proto.Int32(100)},
 							},
+						},
+					},
+				},
+				stream: nil,
+				ctx:    context.Background(),
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "Convert API path request to domain path request with values error validation failed - Undefined intent type",
+			fields: fields{
+				log: logging.DefaultLogger.WithField("subsystem", Subsystem),
+			},
+			args: args{
+				pathRequest: &api.PathRequest{
+					Ipv6SourceAddress:      "fc:a::10",
+					Ipv6DestinationAddress: "fc:b::10",
+					Intents: []*api.Intent{
+						{
+							Type: api.IntentType_INTENT_TYPE_UNSPECIFIED,
 						},
 					},
 				},
@@ -1692,7 +1709,7 @@ func TestDomainAdapter_ConvertIntentsToApi(t *testing.T) {
 			},
 			args: args{
 				intents: []domain.Intent{
-					getDomainIntent(domain.IntentTypeHighBandwidth, []domain.Value{}),
+					domain.NewDomainIntent(domain.IntentTypeHighBandwidth, []domain.Value{}),
 				},
 			},
 			want: []*api.Intent{
@@ -1709,8 +1726,8 @@ func TestDomainAdapter_ConvertIntentsToApi(t *testing.T) {
 			},
 			args: args{
 				intents: []domain.Intent{
-					getDomainIntent(domain.IntentTypeLowLatency, []domain.Value{}),
-					getDomainIntent(domain.IntentTypeLowPacketLoss, []domain.Value{}),
+					domain.NewDomainIntent(domain.IntentTypeLowLatency, []domain.Value{}),
+					domain.NewDomainIntent(domain.IntentTypeLowPacketLoss, []domain.Value{}),
 				},
 			},
 			want: []*api.Intent{
@@ -1731,8 +1748,8 @@ func TestDomainAdapter_ConvertIntentsToApi(t *testing.T) {
 			},
 			args: args{
 				intents: []domain.Intent{
-					getDomainIntent(domain.IntentTypeLowLatency, []domain.Value{}),
-					getDomainIntent(domain.IntentTypeLowPacketLoss, []domain.Value{getDomainMinValue(proto.Int32(10))}),
+					domain.NewDomainIntent(domain.IntentTypeLowLatency, []domain.Value{}),
+					domain.NewDomainIntent(domain.IntentTypeLowPacketLoss, []domain.Value{getDomainMinValue(proto.Int32(10))}),
 				},
 			},
 			want: []*api.Intent{
@@ -1787,7 +1804,7 @@ func TestDomainAdapter_ConvertPathResult(t *testing.T) {
 			fields: fields{
 				log: logging.DefaultLogger.WithField("subsystem", Subsystem),
 			},
-			pathResult: getDomainPathResult("fc:a::10", "fc:b::10", []string{"fc:c::10", "fc:d::10"}, []domain.Intent{getDomainIntent(domain.IntentTypeLowLatency, []domain.Value{})}),
+			pathResult: getDomainPathResult("fc:a::10", "fc:b::10", []string{"fc:c::10", "fc:d::10"}, []domain.Intent{domain.NewDomainIntent(domain.IntentTypeLowLatency, []domain.Value{})}),
 			want: &api.PathResult{
 				Ipv6SourceAddress:      "fc:a::10",
 				Ipv6DestinationAddress: "fc:b::10",
@@ -1806,7 +1823,7 @@ func TestDomainAdapter_ConvertPathResult(t *testing.T) {
 			fields: fields{
 				log: logging.DefaultLogger.WithField("subsystem", Subsystem),
 			},
-			pathResult: getDomainPathResult("fc:a::10", "fc:b::10", []string{"fc:c::10", "fc:d::10"}, []domain.Intent{getDomainIntent(domain.IntentTypeLowPacketLoss, []domain.Value{getDomainMaxValue(proto.Int32(10))})}),
+			pathResult: getDomainPathResult("fc:a::10", "fc:b::10", []string{"fc:c::10", "fc:d::10"}, []domain.Intent{domain.NewDomainIntent(domain.IntentTypeLowPacketLoss, []domain.Value{getDomainMaxValue(proto.Int32(10))})}),
 			want: &api.PathResult{
 				Ipv6SourceAddress:      "fc:a::10",
 				Ipv6DestinationAddress: "fc:b::10",
@@ -1830,7 +1847,7 @@ func TestDomainAdapter_ConvertPathResult(t *testing.T) {
 			fields: fields{
 				log: logging.DefaultLogger.WithField("subsystem", Subsystem),
 			},
-			pathResult: getDomainPathResult("fc:a::10", "fc:b::10", []string{"fc:c::10", "fc:d::10"}, []domain.Intent{getDomainIntent(domain.IntentTypeLowPacketLoss, []domain.Value{getDomainMaxValue(proto.Int32(10))}), getDomainIntent(domain.IntentTypeLowLatency, []domain.Value{})}),
+			pathResult: getDomainPathResult("fc:a::10", "fc:b::10", []string{"fc:c::10", "fc:d::10"}, []domain.Intent{domain.NewDomainIntent(domain.IntentTypeLowPacketLoss, []domain.Value{getDomainMaxValue(proto.Int32(10))}), domain.NewDomainIntent(domain.IntentTypeLowLatency, []domain.Value{})}),
 			want: &api.PathResult{
 				Ipv6SourceAddress:      "fc:a::10",
 				Ipv6DestinationAddress: "fc:b::10",

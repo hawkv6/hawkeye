@@ -179,11 +179,7 @@ func (adapter *DomainAdapter) convertIntentsToDomain(apiIntents []*api.Intent) (
 		if err != nil {
 			return nil, err
 		}
-		intent, err := domain.NewDomainIntent(intentType, values)
-		if err != nil {
-			adapter.log.Errorln("Error creating intent: ", err)
-			return nil, err
-		}
+		intent := domain.NewDomainIntent(intentType, values)
 		intentList = append(intentList, intent)
 	}
 	return intentList, nil

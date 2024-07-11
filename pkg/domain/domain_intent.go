@@ -2,8 +2,6 @@ package domain
 
 import (
 	"strconv"
-
-	"github.com/go-playground/validator"
 )
 
 type Intent interface {
@@ -13,21 +11,15 @@ type Intent interface {
 }
 
 type DomainIntent struct {
-	intentType IntentType `validate:"required, min=0"`
+	intentType IntentType
 	values     []Value
 }
 
-func NewDomainIntent(intentType IntentType, values []Value) (*DomainIntent, error) {
-	intent := &DomainIntent{
+func NewDomainIntent(intentType IntentType, values []Value) *DomainIntent {
+	return &DomainIntent{
 		intentType: intentType,
 		values:     values,
 	}
-	validate := validator.New()
-	err := validate.Struct(intent)
-	if err != nil {
-		return nil, err
-	}
-	return intent, nil
 }
 
 func (intent *DomainIntent) GetIntentType() IntentType {
