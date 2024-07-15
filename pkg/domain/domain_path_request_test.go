@@ -499,6 +499,34 @@ func TestNewDomainPathRequest(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name:                   "Test NewDomainPathRequest validation error: no correct source ipv6",
+			ipv6SourceAddress:      "no correct IP",
+			ipv6DestinationAddress: "2001:db8::2",
+			stream:                 api.NewMockIntentController_GetIntentPathServer(gomock.NewController(t)),
+			ctx:                    context.Background(),
+			intents: []Intent{
+				NewDomainIntent(IntentTypeSFC, []Value{GetStringValue(ValueTypeSFC, proto.String("fw")), GetStringValue(ValueTypeSFC, proto.String("ids"))}),
+				NewDomainIntent(IntentTypeFlexAlgo, []Value{getNumberValue(ValueTypeFlexAlgoNr, proto.Int32(128))}),
+				NewDomainIntent(IntentTypeLowLatency, []Value{getNumberValue(ValueTypeMaxValue, proto.Int32(10))}),
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:                   "Test NewDomainPathRequest validation error: no correct destination ipv6",
+			ipv6SourceAddress:      "2001:db8::1",
+			ipv6DestinationAddress: "no correct IP",
+			stream:                 api.NewMockIntentController_GetIntentPathServer(gomock.NewController(t)),
+			ctx:                    context.Background(),
+			intents: []Intent{
+				NewDomainIntent(IntentTypeSFC, []Value{GetStringValue(ValueTypeSFC, proto.String("fw")), GetStringValue(ValueTypeSFC, proto.String("ids"))}),
+				NewDomainIntent(IntentTypeFlexAlgo, []Value{getNumberValue(ValueTypeFlexAlgoNr, proto.Int32(128))}),
+				NewDomainIntent(IntentTypeLowLatency, []Value{getNumberValue(ValueTypeMaxValue, proto.Int32(10))}),
+			},
+			want:    nil,
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
