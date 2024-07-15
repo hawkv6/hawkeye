@@ -265,23 +265,66 @@ func TestNetworkGraph_DeleteNode(t *testing.T) {
 		id           string
 		name         string
 		srAlgorithms []uint32
+		edges        map[string]Edge
 	}{
 		{
 			testName:     "TestNetworkGraph DeleteNode()",
 			id:           "2_0_0_0000.0000.0001",
 			name:         "XR-1",
 			srAlgorithms: []uint32{0, 1, 128, 129},
+			edges: map[string]Edge{
+				"2_0_2_0_0000.0000.0001_2001:db8:12::1_0000.0000.0002_2001:db8:12::2": &NetworkEdge{
+					id:   "2_0_2_0_0000.0000.0001_2001:db8:12::1_0000.0000.0002_2001:db8:12::2",
+					from: NewNetworkNode("2_0_0_0000.0000.0001", "XR-1", []uint32{0, 1, 128}),
+					to:   NewNetworkNode("2_0_0_0000.0000.0002", "XR-2", []uint32{0, 1, 128, 129}),
+					weights: map[helper.WeightKey]float64{
+						helper.IgpMetricKey:            10,
+						helper.LatencyKey:              2000,
+						helper.JitterKey:               100,
+						helper.MaximumLinkBandwidth:    1000000,
+						helper.AvailableBandwidthKey:   999000,
+						helper.UtilizedBandwidthKey:    1000,
+						helper.PacketLossKey:           0.1,
+						helper.NormalizedLatencyKey:    0.2,
+						helper.NormalizedJitterKey:     0.2,
+						helper.NormalizedPacketLossKey: 0.2,
+					},
+				},
+				"2_0_2_0_0000.0000.0001_2001:db8:13::1_0000.0000.0003_2001:db8:13::3": &NetworkEdge{
+					id:   "2_0_2_0_0000.0000.0001_2001:db8:13::1_0000.0000.0003_2001:db8:13::3",
+					from: NewNetworkNode("2_0_0_0000.0000.0001", "XR-1", []uint32{0, 1, 128}),
+					to:   NewNetworkNode("2_0_0_0000.0000.0003", "XR-3", []uint32{0, 1, 128}),
+					weights: map[helper.WeightKey]float64{
+						helper.IgpMetricKey:            10,
+						helper.LatencyKey:              2000,
+						helper.JitterKey:               100,
+						helper.MaximumLinkBandwidth:    1000000,
+						helper.AvailableBandwidthKey:   999000,
+						helper.UtilizedBandwidthKey:    1000,
+						helper.PacketLossKey:           0.1,
+						helper.NormalizedLatencyKey:    0.2,
+						helper.NormalizedJitterKey:     0.2,
+						helper.NormalizedPacketLossKey: 0.2,
+					},
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			graph := NewNetworkGraph()
 			node := NewNetworkNode(tt.id, tt.name, tt.srAlgorithms)
+			node.edges = tt.edges
 			assert.Nil(t, graph.nodes[tt.id])
 			graph.nodes[tt.id] = node
+			graph.edges = tt.edges
 			graph.DeleteNode(node)
 			_, exists := graph.nodes[tt.id]
 			assert.False(t, exists)
+			for _, edge := range tt.edges {
+				_, exists := graph.edges[edge.GetId()]
+				assert.False(t, exists)
+			}
 		})
 	}
 }
@@ -637,9 +680,50 @@ func TestNetworkGraph_addEdgesToSubgraph(t *testing.T) {
 	tests := []struct {
 		testName string
 		edges    map[string]Edge
+		wantErr  bool
 	}{
 		{
 			testName: "TestNetworkGraph addEdgesToSubgraph",
+			edges: map[string]Edge{
+				"2_0_0_0000.0000.0001_to_2_0_0_0000.0000.0002": NewNetworkEdge(
+					"2_0_0_0000.0000.0001_to_2_0_0_0000.0000.0002",
+					NewNetworkNode("2_0_0_0000.0000.0001", "XR-1", []uint32{0, 1, 128, 129}),
+					NewNetworkNode("2_0_0_0000.0000.0002", "XR-2", []uint32{0, 1, 128}),
+					map[helper.WeightKey]float64{
+						helper.IgpMetricKey:            10,
+						helper.LatencyKey:              2000,
+						helper.JitterKey:               100,
+						helper.MaximumLinkBandwidth:    1000000,
+						helper.AvailableBandwidthKey:   999000,
+						helper.UtilizedBandwidthKey:    1000,
+						helper.PacketLossKey:           0.1,
+						helper.NormalizedLatencyKey:    0.2,
+						helper.NormalizedJitterKey:     0.2,
+						helper.NormalizedPacketLossKey: 0.2,
+					},
+				),
+				"2_0_0_0000.0000.0002_to_2_0_0_0000.0000.0003": NewNetworkEdge(
+					"2_0_0_0000.0000.0002_to_2_0_0_0000.0000.0003",
+					NewNetworkNode("2_0_0_0000.0000.0002", "XR-2", []uint32{0, 1, 128}),
+					NewNetworkNode("2_0_0_0000.0000.0003", "XR-3", []uint32{0, 1, 128, 129}),
+					map[helper.WeightKey]float64{
+						helper.IgpMetricKey:            10,
+						helper.LatencyKey:              2000,
+						helper.JitterKey:               100,
+						helper.MaximumLinkBandwidth:    1000000,
+						helper.AvailableBandwidthKey:   999000,
+						helper.UtilizedBandwidthKey:    1000,
+						helper.PacketLossKey:           0.1,
+						helper.NormalizedLatencyKey:    0.2,
+						helper.NormalizedJitterKey:     0.2,
+						helper.NormalizedPacketLossKey: 0.2,
+					},
+				),
+			},
+			wantErr: false,
+		},
+		{
+			testName: "TestNetworkGraph addEdgesToSubgraph failure node does not exist",
 			edges: map[string]Edge{
 				"2_0_0_0000.0000.0001_to_2_0_0_0000.0000.0002": NewNetworkEdge(
 					"2_0_0_0000.0000.0001_to_2_0_0_0000.0000.0002",
@@ -755,6 +839,70 @@ func TestNetworkGraph_UpdateSubGraphs(t *testing.T) {
 			assert.Equal(t, 2, len(graph.subGraphs[129].nodes))
 			assert.Equal(t, 2, len(graph.subGraphs[128].edges))
 			assert.Equal(t, 0, len(graph.subGraphs[129].edges))
+		})
+	}
+}
+
+func TestNetworkGraph_GetSubGraphs(t *testing.T) {
+	tests := []struct {
+		testName string
+		edges    map[string]Edge
+	}{
+		{
+			testName: "TestNetworkGraph GetSubGraphs",
+			edges: map[string]Edge{
+				"2_0_0_0000.0000.0001_to_2_0_0_0000.0000.0002": NewNetworkEdge(
+					"2_0_0_0000.0000.0001_to_2_0_0_0000.0000.0002",
+					NewNetworkNode("2_0_0_0000.0000.0001", "XR-1", []uint32{0, 1, 128, 129}),
+					NewNetworkNode("2_0_0_0000.0000.0002", "XR-2", []uint32{0, 1, 128}),
+					map[helper.WeightKey]float64{
+						helper.IgpMetricKey:            10,
+						helper.LatencyKey:              2000,
+						helper.JitterKey:               100,
+						helper.MaximumLinkBandwidth:    1000000,
+						helper.AvailableBandwidthKey:   999000,
+						helper.UtilizedBandwidthKey:    1000,
+						helper.PacketLossKey:           0.1,
+						helper.NormalizedLatencyKey:    0.2,
+						helper.NormalizedJitterKey:     0.2,
+						helper.NormalizedPacketLossKey: 0.2,
+					},
+				),
+				"2_0_0_0000.0000.0002_to_2_0_0_0000.0000.0003": NewNetworkEdge(
+					"2_0_0_0000.0000.0002_to_2_0_0_0000.0000.0003",
+					NewNetworkNode("2_0_0_0000.0000.0002", "XR-2", []uint32{0, 1, 128}),
+					NewNetworkNode("2_0_0_0000.0000.0003", "XR-3", []uint32{0, 1, 128, 129}),
+					map[helper.WeightKey]float64{
+						helper.IgpMetricKey:            10,
+						helper.LatencyKey:              2000,
+						helper.JitterKey:               100,
+						helper.MaximumLinkBandwidth:    1000000,
+						helper.AvailableBandwidthKey:   999000,
+						helper.UtilizedBandwidthKey:    1000,
+						helper.PacketLossKey:           0.1,
+						helper.NormalizedLatencyKey:    0.2,
+						helper.NormalizedJitterKey:     0.2,
+						helper.NormalizedPacketLossKey: 0.2,
+					},
+				),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			graph := NewNetworkGraph()
+			for _, edge := range tt.edges {
+				graph.nodes[edge.From().GetId()] = edge.From()
+				graph.nodes[edge.To().GetId()] = edge.To()
+			}
+			graph.edges = tt.edges
+			graph.UpdateSubGraphs()
+			subGraph := graph.GetSubGraph(128)
+			assert.Equal(t, 3, len(subGraph.nodes))
+			assert.Equal(t, 2, len(subGraph.edges))
+			subGraph = graph.GetSubGraph(129)
+			assert.Equal(t, 2, len(subGraph.nodes))
+			assert.Equal(t, 0, len(subGraph.edges))
 		})
 	}
 }

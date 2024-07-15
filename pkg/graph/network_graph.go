@@ -113,12 +113,7 @@ func (graph *NetworkGraph) addNodesToSubgraph(newSubGraphs map[uint32]*NetworkGr
 func (graph *NetworkGraph) addEdgesToSubgraph(newSubGraphs map[uint32]*NetworkGraph) {
 	for _, edge := range graph.edges {
 		for flexAlgo := range edge.GetFlexibleAlgorithms() {
-			if _, exists := newSubGraphs[flexAlgo]; !exists {
-				graph.log.Errorf("Subgraph for flex algo %d does not exist, but was found in edge %s", flexAlgo, edge.GetId())
-			}
-			if err := newSubGraphs[flexAlgo].AddEdge(edge); err != nil {
-				graph.log.Errorf("Failed to add edge %s to subgraph %d: %v", edge.GetId(), flexAlgo, err)
-			}
+			_ = newSubGraphs[flexAlgo].AddEdge(edge)
 		}
 	}
 }
