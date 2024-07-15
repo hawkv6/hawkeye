@@ -534,7 +534,7 @@ func TestDomainLink_GetUndirLinkDelay(t *testing.T) {
 	}
 }
 
-func TestDomainLink_GetUndirLinkDelayVariation(t *testing.T) {
+func TestDomainLink_GetUndirDelayVariation(t *testing.T) {
 	tests := []struct {
 		name                           string
 		key                            *string
@@ -553,7 +553,7 @@ func TestDomainLink_GetUndirLinkDelayVariation(t *testing.T) {
 		want                           uint32
 	}{
 		{
-			name:                           "Test DomainLink GetUnidirLinkDelayVariation",
+			name:                           "Test DomainLink GetUnidirDelayVariation",
 			key:                            proto.String("2_0_2_0_0000.0000.000b_2001:db8:b6::b_0000.0000.0006_2001:db8:b6::6"),
 			igpRouterId:                    proto.String("0000.0000.000b"),
 			remoteIgpRouterId:              proto.String("0000.0000.0006"),
@@ -567,7 +567,7 @@ func TestDomainLink_GetUndirLinkDelayVariation(t *testing.T) {
 			normalizedUnidirLinkDelay:      proto.Float64(0.05),
 			normalizedUnidirDelayVariation: proto.Float64(0.016452169298129225),
 			normalizedUnidirPacketLoss:     proto.Float64(1e-10),
-			want:                           2000,
+			want:                           100,
 		},
 	}
 
@@ -587,7 +587,7 @@ func TestDomainLink_GetUndirLinkDelayVariation(t *testing.T) {
 			tt.normalizedUnidirDelayVariation,
 			tt.normalizedUnidirPacketLoss,
 		)
-		assert.Equal(t, tt.want, link.GetUnidirLinkDelay())
+		assert.Equal(t, tt.want, link.GetUnidirDelayVariation())
 	}
 }
 

@@ -271,6 +271,13 @@ func TestDomainPathRequest_validateIntents(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "Test validateIntents sfc with no value",
+			intents: []Intent{
+				NewDomainIntent(IntentTypeSFC, []Value{}),
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -355,7 +362,7 @@ func TestNewDomainPathRequest(t *testing.T) {
 					NewDomainIntent(IntentTypeLowLatency, []Value{getNumberValue(ValueTypeMaxValue, proto.Int32(10))}),
 					NewDomainIntent(IntentTypeLowPacketLoss, []Value{getNumberValue(ValueTypeMaxValue, proto.Int32(20))}),
 				},
-			stream:                 api.NewMockIntentController_GetIntentPathServer(gomock.NewController(t)),
+				stream: api.NewMockIntentController_GetIntentPathServer(gomock.NewController(t)),
 				ctx:    context.Background(),
 			},
 			wantErr: false,
@@ -399,7 +406,7 @@ func TestNewDomainPathRequest(t *testing.T) {
 				intents: []Intent{
 					NewDomainIntent(IntentTypeFlexAlgo, []Value{getNumberValue(ValueTypeFlexAlgoNr, proto.Int32(128))}),
 				},
-			stream:                 api.NewMockIntentController_GetIntentPathServer(gomock.NewController(t)),
+				stream: api.NewMockIntentController_GetIntentPathServer(gomock.NewController(t)),
 				ctx:    context.Background(),
 			},
 			wantErr: false,
@@ -431,7 +438,7 @@ func TestNewDomainPathRequest(t *testing.T) {
 				intents: []Intent{
 					NewDomainIntent(IntentTypeLowLatency, []Value{getNumberValue(ValueTypeMaxValue, proto.Int32(10))}),
 				},
-			stream:                 api.NewMockIntentController_GetIntentPathServer(gomock.NewController(t)),
+				stream: api.NewMockIntentController_GetIntentPathServer(gomock.NewController(t)),
 				ctx:    context.Background(),
 			},
 			wantErr: false,
@@ -463,7 +470,7 @@ func TestNewDomainPathRequest(t *testing.T) {
 				intents: []Intent{
 					NewDomainIntent(IntentTypeSFC, []Value{GetStringValue(ValueTypeSFC, proto.String("fw"))}),
 				},
-			stream:                 api.NewMockIntentController_GetIntentPathServer(gomock.NewController(t)),
+				stream: api.NewMockIntentController_GetIntentPathServer(gomock.NewController(t)),
 				ctx:    context.Background(),
 			},
 			wantErr: false,

@@ -37,6 +37,24 @@ func TestNewNumberValue(t *testing.T) {
 			numberValue: proto.Int32(128),
 			wantErr:     false,
 		},
+		{
+			name:        "Test NewNumberValue type flex algo negative number",
+			valueType:   ValueTypeFlexAlgoNr,
+			numberValue: proto.Int32(-1),
+			wantErr:     true,
+		},
+		{
+			name:        "Test NewNumberValue type max negative number",
+			valueType:   ValueTypeMaxValue,
+			numberValue: proto.Int32(-1),
+			wantErr:     true,
+		},
+		{
+			name:        "Test NewNumberValue type min negative number",
+			valueType:   ValueTypeMinValue,
+			numberValue: proto.Int32(-1),
+			wantErr:     true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

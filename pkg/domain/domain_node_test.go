@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,6 +15,8 @@ func TestNewDomainNode(t *testing.T) {
 		igpRouterId *string
 		nodeName    *string
 		srAlgorithm []uint32
+		wantErr     bool
+		want        *DomainNode
 	}{
 		{
 			name:        "Test NewDomainNode",
@@ -21,6 +24,22 @@ func TestNewDomainNode(t *testing.T) {
 			igpRouterId: proto.String("0000.0000.0004"),
 			nodeName:    proto.String("XR-4"),
 			srAlgorithm: []uint32{0},
+			wantErr:     false,
+			want: &DomainNode{
+				key:         "2_0_0_0000.0000.0004",
+				igpRouterId: "0000.0000.0004",
+				name:        "XR-4",
+				srAlgorithm: []uint32{0},
+			},
+		},
+		{
+			name:        "Test NewDomainNode error no nodeName provided",
+			key:         proto.String("2_0_0_0000.0000.0004"),
+			igpRouterId: proto.String("0000.0000.0004"),
+			nodeName:    nil,
+			srAlgorithm: []uint32{0},
+			wantErr:     true,
+			want:        nil,
 		},
 	}
 
@@ -31,10 +50,13 @@ func TestNewDomainNode(t *testing.T) {
 			tt.nodeName,
 			tt.srAlgorithm,
 		)
-		if err != nil {
+		if (err != nil) != tt.wantErr {
 			t.Errorf("Error creating DomainNode: %v", err)
+			return
 		}
-		assert.NotNil(t, node)
+		if !reflect.DeepEqual(node, tt.want) {
+			t.Errorf("NewDomainNode() test '%s' = %v, want %v", tt.name, node, tt.want)
+		}
 	}
 }
 
