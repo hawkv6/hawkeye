@@ -100,7 +100,6 @@ func (graph *NetworkGraph) DeleteEdge(edge Edge) {
 }
 
 func (graph *NetworkGraph) addNodesToSubgraph(newSubGraphs map[uint32]*NetworkGraph) {
-
 	for _, node := range graph.nodes {
 		for flexAlgo := range node.GetFlexibleAlgorithms() {
 			if _, exists := newSubGraphs[flexAlgo]; !exists {

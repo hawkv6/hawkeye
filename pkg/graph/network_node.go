@@ -10,7 +10,7 @@ type NetworkNode struct {
 func translateSrToFlexibleAlgorithm(srAlgorithms []uint32) map[uint32]struct{} {
 	flexibleAlgorithms := make(map[uint32]struct{})
 	for _, flexAlgoNumber := range srAlgorithms {
-		if flexAlgoNumber != 0 && flexAlgoNumber != 1 {
+		if flexAlgoNumber >= 128 && flexAlgoNumber <= 255 {
 			flexibleAlgorithms[flexAlgoNumber] = struct{}{}
 		}
 	}
