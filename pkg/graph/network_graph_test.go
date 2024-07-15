@@ -760,6 +760,7 @@ func TestNetworkGraph_addEdgesToSubgraph(t *testing.T) {
 					},
 				),
 			},
+			wantErr: true,
 		},
 	}
 
@@ -773,6 +774,9 @@ func TestNetworkGraph_addEdgesToSubgraph(t *testing.T) {
 			graph.edges = tt.edges
 			newSubGraphs := make(map[uint32]*NetworkGraph)
 			graph.addNodesToSubgraph(newSubGraphs)
+			if tt.wantErr {
+				graph.nodes = nil
+			}
 			graph.addEdgesToSubgraph(newSubGraphs)
 			assert.Equal(t, 2, len(newSubGraphs[128].edges))
 			assert.Equal(t, 0, len(newSubGraphs[129].edges))
