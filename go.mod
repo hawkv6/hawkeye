@@ -9,6 +9,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.9.0
+	go.uber.org/mock v0.4.0
 	gonum.org/v1/plot v0.14.0
 	google.golang.org/grpc v1.64.0
 	google.golang.org/protobuf v1.34.2

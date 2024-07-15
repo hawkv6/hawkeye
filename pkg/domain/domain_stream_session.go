@@ -14,19 +14,28 @@ type StreamSession interface {
 }
 
 type DomainStreamSession struct {
-	pathRequest PathRequest `validate:"required"`
-	pathResult  PathResult  `validate:"required"`
+	pathRequest PathRequest
+	pathResult  PathResult
 }
 
-func NewDefaultStreamSession(pathRequest PathRequest, pathResponse PathResult) (*DomainStreamSession, error) {
+type DomainStreamSessionInput struct {
+	PathRequest  PathRequest `validate:"required"`
+	PathResponse PathResult  `validate:"required"`
+}
+
+func NewDomainStreamSession(pathRequest PathRequest, pathResponse PathResult) (*DomainStreamSession, error) {
+	domainStreamSessionInput := &DomainStreamSessionInput{
+		PathRequest:  pathRequest,
+		PathResponse: pathResponse,
+	}
+	validator := validator.New()
+	err := validator.Struct(domainStreamSessionInput)
+	if err != nil {
+		return nil, err
+	}
 	defaultStreamSession := &DomainStreamSession{
 		pathRequest: pathRequest,
 		pathResult:  pathResponse,
-	}
-	validator := validator.New()
-	err := validator.Struct(defaultStreamSession)
-	if err != nil {
-		return nil, err
 	}
 	return defaultStreamSession, nil
 }

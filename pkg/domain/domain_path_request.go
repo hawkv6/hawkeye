@@ -18,11 +18,19 @@ type PathRequest interface {
 }
 
 type DomainPathRequest struct {
-	ipv6SourceAddress      string   `validate:"required,ipv6"`
-	ipv6DestinationAddress string   `validate:"required,ipv6"`
-	intents                []Intent `validate:"required,dive,uniqueIntentTypes"`
+	ipv6SourceAddress      string
+	ipv6DestinationAddress string
+	intents                []Intent
 	stream                 api.IntentController_GetIntentPathServer
 	ctx                    context.Context
+}
+
+type DomainPathRequestInput struct {
+	Ipv6SourceAddress      string                                   `validate:"required,ipv6"`
+	Ipv6DestinationAddress string                                   `validate:"required,ipv6"`
+	Intents                []Intent                                 `validate:"required"`
+	Stream                 api.IntentController_GetIntentPathServer `validate:"required"`
+	Ctx                    context.Context                          `validate:"required"`
 }
 
 func validateMinMaxValues(intentType IntentType, values []Value) error {
@@ -72,16 +80,25 @@ func validateServiceFunctionChainIntentType(intent Intent, intentType IntentType
 		if len(values) == 0 {
 			return fmt.Errorf("Service Function Chain intent should have at least one VALUE_TYPE_SERVICE_FUNCTION_CHAIN")
 		}
+		services := make(map[string]bool, 0)
 		for _, value := range values {
 			if value.GetValueType() != ValueTypeSFC {
 				return fmt.Errorf("Service Function Chain value should be of type VALUE_TYPE_SERVICE_FUNCTION_CHAIN")
 			}
+			service := value.GetStringValue()
+			if _, exists := services[service]; exists {
+				return fmt.Errorf("Service Function Chain value %v appears more than once", value.GetStringValue())
+			}
+			services[service] = true
 		}
 	}
 	return nil
 }
 
 func validateIntents(intents []Intent) error {
+	if len(intents) == 0 {
+		return fmt.Errorf("At least one intent should be provided")
+	}
 	intentTypes := make(map[IntentType]bool)
 	for _, intent := range intents {
 		intentType := intent.GetIntentType()
@@ -103,22 +120,27 @@ func validateIntents(intents []Intent) error {
 }
 
 func NewDomainPathRequest(ipv6SourceAddress string, ipv6DestinationAddress string, intents []Intent, stream api.IntentController_GetIntentPathServer, ctx context.Context) (*DomainPathRequest, error) {
+	pathRequestInput := DomainPathRequestInput{
+		Ipv6SourceAddress:      ipv6SourceAddress,
+		Ipv6DestinationAddress: ipv6DestinationAddress,
+		Intents:                intents,
+		Stream:                 stream,
+		Ctx:                    ctx,
+	}
+	validator := validator.New()
+	err := validator.Struct(pathRequestInput)
+	if err != nil {
+		return nil, err
+	}
 	if err := validateIntents(intents); err != nil {
 		return nil, err
 	}
-
 	pathRequest := &DomainPathRequest{
 		ipv6SourceAddress:      ipv6SourceAddress,
 		ipv6DestinationAddress: ipv6DestinationAddress,
 		intents:                intents,
 		stream:                 stream,
 		ctx:                    ctx,
-	}
-
-	validator := validator.New()
-	err := validator.Struct(pathRequest)
-	if err != nil {
-		return nil, err
 	}
 	return pathRequest, nil
 }

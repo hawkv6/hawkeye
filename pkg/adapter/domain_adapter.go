@@ -3,6 +3,7 @@ package adapter
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/hawkv6/hawkeye/pkg/api"
 	"github.com/hawkv6/hawkeye/pkg/domain"
@@ -243,7 +244,7 @@ func (adapter *DomainAdapter) convertIntentsToApi(intents []domain.Intent) []*ap
 }
 
 func (adapter *DomainAdapter) ConvertPathResult(pathResult domain.PathResult) (*api.PathResult, error) {
-	if pathResult == nil {
+	if pathResult == nil || reflect.ValueOf(pathResult).IsNil() {
 		return nil, fmt.Errorf("PathResult could not be calculated due to error")
 	}
 	ipv6SidAddresses := pathResult.GetIpv6SidAddresses()

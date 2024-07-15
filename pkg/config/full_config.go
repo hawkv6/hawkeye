@@ -13,7 +13,7 @@ type FullConfig struct {
 	grpcPort             uint16
 }
 
-type FullConfigBuilder struct {
+type FullConfigInput struct {
 	JagwSubscriptionPort uint16 `validate:"required,gte=1,lte=65535"`
 	GrpcPort             uint16 `validate:"required,gte=1,lte=65535"`
 }
@@ -36,18 +36,18 @@ func NewFullConfig(jagwServiceAddress, jagwRequestPort, jagwSubscriptionPort, gr
 	}
 	grpcPortUint := uint16(grpcPortInt)
 
-	builder := &FullConfigBuilder{
+	fullConfigInput := &FullConfigInput{
 		JagwSubscriptionPort: jagwSubscriptionPortUint,
 		GrpcPort:             grpcPortUint,
 	}
 	validate := validator.New()
-	if err := validate.Struct(builder); err != nil {
+	if err := validate.Struct(fullConfigInput); err != nil {
 		return nil, err
 	}
 	config := &FullConfig{
 		BaseConfig:           baseConfig,
-		jagwSubscriptionPort: builder.JagwSubscriptionPort,
-		grpcPort:             builder.GrpcPort,
+		jagwSubscriptionPort: fullConfigInput.JagwSubscriptionPort,
+		grpcPort:             fullConfigInput.GrpcPort,
 	}
 	return config, nil
 }

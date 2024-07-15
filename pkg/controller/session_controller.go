@@ -95,7 +95,7 @@ func (controller *SessionController) handlePathRequest(pathRequest domain.PathRe
 			controller.errorChan <- err
 			return
 		}
-		streamSession, err := domain.NewDefaultStreamSession(pathRequest, pathResult)
+		streamSession, err := domain.NewDomainStreamSession(pathRequest, pathResult)
 		if err != nil {
 			controller.log.Warnln("Failed to create stream session: ", err)
 			controller.errorChan <- err

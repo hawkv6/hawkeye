@@ -11,7 +11,7 @@ type NumberValue struct {
 	numberValue int32
 }
 
-type NumberValueBuilder struct {
+type NumberValueInput struct {
 	BaseValue   `validate:"required"`
 	NumberValue int32 `validate:"required,min=1"`
 }
@@ -20,17 +20,17 @@ func NewNumberValue(valueType ValueType, numberValue *int32) (*NumberValue, erro
 	if numberValue == nil {
 		return nil, fmt.Errorf("Number value was not provided")
 	}
-	value := &NumberValueBuilder{
+	numberValueInput := &NumberValueInput{
 		BaseValue:   *NewBaseValue(valueType),
 		NumberValue: *numberValue,
 	}
 	validate := validator.New()
-	if err := validate.Struct(value); err != nil {
+	if err := validate.Struct(numberValueInput); err != nil {
 		return nil, err
 	}
 	newNumberValue := &NumberValue{
-		BaseValue:   value.BaseValue,
-		numberValue: value.NumberValue,
+		BaseValue:   numberValueInput.BaseValue,
+		numberValue: numberValueInput.NumberValue,
 	}
 	return newNumberValue, nil
 }

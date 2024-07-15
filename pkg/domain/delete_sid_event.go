@@ -10,3 +10,7 @@ func NewDeleteSidEvent(key string) *DeleteSidEvent {
 		key: key,
 	}
 }
+
+func (deleteSidEvent *DeleteSidEvent) GetKey() string {
+	return deleteSidEvent.key
+}

@@ -15,7 +15,7 @@ type BaseConfig struct {
 	jagwRequestPort    uint16
 }
 
-type BaseConfigBuilder struct {
+type BaseConfigInput struct {
 	JagwServiceAddress string `validate:"required,hostname|ip"`
 	JagwRequestPort    uint16 `validate:"required,gte=1,lte=65535"`
 }
@@ -27,19 +27,19 @@ func NewBaseConfig(jagwServiceAddress, jagwRequestPort string) (*BaseConfig, err
 	}
 	requestPortUint := uint16(requestPortInt)
 
-	builder := &BaseConfigBuilder{
+	baseConfigInput := &BaseConfigInput{
 		JagwServiceAddress: jagwServiceAddress,
 		JagwRequestPort:    requestPortUint,
 	}
 
 	validate := validator.New()
-	if err := validate.Struct(builder); err != nil {
+	if err := validate.Struct(baseConfigInput); err != nil {
 		return nil, err
 	}
 	config := &BaseConfig{
 		log:                logging.DefaultLogger.WithField("subsystem", Subsystem),
-		jagwServiceAddress: builder.JagwServiceAddress,
-		jagwRequestPort:    builder.JagwRequestPort,
+		jagwServiceAddress: baseConfigInput.JagwServiceAddress,
+		jagwRequestPort:    baseConfigInput.JagwRequestPort,
 	}
 	return config, nil
 }

@@ -16,20 +16,32 @@ type PathResult interface {
 type DomainPathResult struct {
 	PathRequest
 	graph.Path
-	ipv6SidAddresses    []string `validate:"required,dive,ipv6"`
+	ipv6SidAddresses    []string
 	serviceSidAddresses []string
 }
 
+type DomainPathResultInput struct {
+	PathRequest      PathRequest `validate:"required"`
+	Path             graph.Path  `validate:"required"`
+	Ipv6SidAddresses []string    `validate:"required,dive,ipv6"`
+}
+
 func NewDomainPathResult(pathRequest PathRequest, shortestPath graph.Path, ipv6SidAddresses []string) (*DomainPathResult, error) {
+	domainPathResultInput := &DomainPathResultInput{
+		Ipv6SidAddresses: ipv6SidAddresses,
+		PathRequest:      pathRequest,
+		Path:             shortestPath,
+	}
+
+	validator := validator.New()
+	err := validator.Struct(domainPathResultInput)
+	if err != nil {
+		return nil, err
+	}
 	defaultPathResult := &DomainPathResult{
 		PathRequest:      pathRequest,
 		Path:             shortestPath,
-		ipv6SidAddresses: ipv6SidAddresses,
-	}
-	validator := validator.New()
-	err := validator.Struct(defaultPathResult)
-	if err != nil {
-		return nil, err
+		ipv6SidAddresses: domainPathResultInput.Ipv6SidAddresses,
 	}
 	return defaultPathResult, nil
 }

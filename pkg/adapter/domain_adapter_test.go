@@ -7,9 +7,11 @@ import (
 
 	"github.com/hawkv6/hawkeye/pkg/api"
 	"github.com/hawkv6/hawkeye/pkg/domain"
+	"github.com/hawkv6/hawkeye/pkg/graph"
 	"github.com/hawkv6/hawkeye/pkg/logging"
 	"github.com/jalapeno-api-gateway/jagw-go/jagw"
 	"github.com/sirupsen/logrus"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -1419,6 +1421,7 @@ func getDomainPathRequest(source string, destination string, intents []domain.In
 }
 
 func TestDomainAdapter_ConvertPathRequest(t *testing.T) {
+	stream := api.NewMockIntentController_GetIntentPathServer(gomock.NewController(t))
 	type fields struct {
 		log *logrus.Entry
 	}
@@ -1449,10 +1452,10 @@ func TestDomainAdapter_ConvertPathRequest(t *testing.T) {
 						},
 					},
 				},
-				stream: nil,
+				stream: stream,
 				ctx:    context.Background(),
 			},
-			want:    getDomainPathRequest("fc:a::10", "fc:b::10", []domain.Intent{domain.NewDomainIntent(domain.IntentTypeHighBandwidth, []domain.Value{})}, nil, context.Background()),
+			want:    getDomainPathRequest("fc:a::10", "fc:b::10", []domain.Intent{domain.NewDomainIntent(domain.IntentTypeHighBandwidth, []domain.Value{})}, stream, context.Background()),
 			wantErr: false,
 		},
 		{
@@ -1473,10 +1476,10 @@ func TestDomainAdapter_ConvertPathRequest(t *testing.T) {
 						},
 					},
 				},
-				stream: nil,
+				stream: stream,
 				ctx:    context.Background(),
 			},
-			want:    getDomainPathRequest("fc:a::10", "fc:b::10", []domain.Intent{domain.NewDomainIntent(domain.IntentTypeLowLatency, []domain.Value{getDomainMaxValue(proto.Int32(100))})}, nil, context.Background()),
+			want:    getDomainPathRequest("fc:a::10", "fc:b::10", []domain.Intent{domain.NewDomainIntent(domain.IntentTypeLowLatency, []domain.Value{getDomainMaxValue(proto.Int32(100))})}, stream, context.Background()),
 			wantErr: false,
 		},
 		{
@@ -1497,7 +1500,7 @@ func TestDomainAdapter_ConvertPathRequest(t *testing.T) {
 						},
 					},
 				},
-				stream: nil,
+				stream: stream,
 				ctx:    context.Background(),
 			},
 			want:    nil,
@@ -1518,7 +1521,7 @@ func TestDomainAdapter_ConvertPathRequest(t *testing.T) {
 						},
 					},
 				},
-				stream: nil,
+				stream: stream,
 				ctx:    context.Background(),
 			},
 			want:    nil,
@@ -1782,13 +1785,15 @@ func TestDomainAdapter_ConvertIntentsToApi(t *testing.T) {
 	}
 }
 
-func getDomainPathResult(ipv6SourceAddress, ipv6DestinationAddress string, ipv6SidAddresses []string, intents []domain.Intent) domain.PathResult {
-	pathRequest := getDomainPathRequest(ipv6SourceAddress, ipv6DestinationAddress, intents, nil, context.Background())
-	pathResult, _ := domain.NewDomainPathResult(pathRequest, nil, ipv6SidAddresses)
+func getDomainPathResult(ipv6SourceAddress, ipv6DestinationAddress string, ipv6SidAddresses []string, intents []domain.Intent, stream api.IntentController_GetIntentPathServer, path graph.Path) domain.PathResult {
+	pathRequest := getDomainPathRequest(ipv6SourceAddress, ipv6DestinationAddress, intents, stream, context.Background())
+	pathResult, _ := domain.NewDomainPathResult(pathRequest, path, ipv6SidAddresses)
 	return pathResult
 }
 
 func TestDomainAdapter_ConvertPathResult(t *testing.T) {
+	stream := api.NewMockIntentController_GetIntentPathServer(gomock.NewController(t))
+	path := graph.NewMockPath(gomock.NewController(t))
 	type fields struct {
 		log *logrus.Entry
 	}
@@ -1804,7 +1809,7 @@ func TestDomainAdapter_ConvertPathResult(t *testing.T) {
 			fields: fields{
 				log: logging.DefaultLogger.WithField("subsystem", Subsystem),
 			},
-			pathResult: getDomainPathResult("fc:a::10", "fc:b::10", []string{"fc:c::10", "fc:d::10"}, []domain.Intent{domain.NewDomainIntent(domain.IntentTypeLowLatency, []domain.Value{})}),
+			pathResult: getDomainPathResult("fc:a::10", "fc:b::10", []string{"fc:c::10", "fc:d::10"}, []domain.Intent{domain.NewDomainIntent(domain.IntentTypeLowLatency, []domain.Value{})}, stream, path),
 			want: &api.PathResult{
 				Ipv6SourceAddress:      "fc:a::10",
 				Ipv6DestinationAddress: "fc:b::10",
@@ -1823,7 +1828,7 @@ func TestDomainAdapter_ConvertPathResult(t *testing.T) {
 			fields: fields{
 				log: logging.DefaultLogger.WithField("subsystem", Subsystem),
 			},
-			pathResult: getDomainPathResult("fc:a::10", "fc:b::10", []string{"fc:c::10", "fc:d::10"}, []domain.Intent{domain.NewDomainIntent(domain.IntentTypeLowPacketLoss, []domain.Value{getDomainMaxValue(proto.Int32(10))})}),
+			pathResult: getDomainPathResult("fc:a::10", "fc:b::10", []string{"fc:c::10", "fc:d::10"}, []domain.Intent{domain.NewDomainIntent(domain.IntentTypeLowPacketLoss, []domain.Value{getDomainMaxValue(proto.Int32(10))})}, stream, path),
 			want: &api.PathResult{
 				Ipv6SourceAddress:      "fc:a::10",
 				Ipv6DestinationAddress: "fc:b::10",
@@ -1847,7 +1852,7 @@ func TestDomainAdapter_ConvertPathResult(t *testing.T) {
 			fields: fields{
 				log: logging.DefaultLogger.WithField("subsystem", Subsystem),
 			},
-			pathResult: getDomainPathResult("fc:a::10", "fc:b::10", []string{"fc:c::10", "fc:d::10"}, []domain.Intent{domain.NewDomainIntent(domain.IntentTypeLowPacketLoss, []domain.Value{getDomainMaxValue(proto.Int32(10))}), domain.NewDomainIntent(domain.IntentTypeLowLatency, []domain.Value{})}),
+			pathResult: getDomainPathResult("fc:a::10", "fc:b::10", []string{"fc:c::10", "fc:d::10"}, []domain.Intent{domain.NewDomainIntent(domain.IntentTypeLowPacketLoss, []domain.Value{getDomainMaxValue(proto.Int32(10))}), domain.NewDomainIntent(domain.IntentTypeLowLatency, []domain.Value{})}, stream, path),
 			want: &api.PathResult{
 				Ipv6SourceAddress:      "fc:a::10",
 				Ipv6DestinationAddress: "fc:b::10",
@@ -1886,11 +1891,11 @@ func TestDomainAdapter_ConvertPathResult(t *testing.T) {
 		}
 		got, err := adapter.ConvertPathResult(tt.pathResult)
 		if (err != nil) != tt.wantErr {
-			t.Errorf("ConvertPathResult() error = %v, wantErr %v", err, tt.wantErr)
+			t.Errorf("ConvertPathResult() with name '%s' had error = %v, wantErr %v", tt.name, err, tt.wantErr)
 			return
 		}
 		if !reflect.DeepEqual(got, tt.want) {
-			t.Errorf("ConvertPathResult() = %v, want %v", got, tt.want)
+			t.Errorf("ConvertPathResult() '%s' = %v, want %v", tt.name, got, tt.want)
 		}
 	}
 }
