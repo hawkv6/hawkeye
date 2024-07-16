@@ -16,5 +16,5 @@ type CalculationUpdateOptions struct {
 }
 
 type CalculationUpdater interface {
-	UpdateCalculation(*CalculationUpdateOptions) (*domain.PathResult, error)
+	UpdateCalculation(*CalculationUpdateOptions) (domain.PathResult, error)
 }

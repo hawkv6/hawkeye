@@ -2,8 +2,6 @@ package domain
 
 import (
 	"context"
-
-	"github.com/go-playground/validator"
 )
 
 type StreamSession interface {
@@ -18,26 +16,11 @@ type DomainStreamSession struct {
 	pathResult  PathResult
 }
 
-type DomainStreamSessionInput struct {
-	PathRequest  PathRequest `validate:"required"`
-	PathResponse PathResult  `validate:"required"`
-}
-
-func NewDomainStreamSession(pathRequest PathRequest, pathResponse PathResult) (*DomainStreamSession, error) {
-	domainStreamSessionInput := &DomainStreamSessionInput{
-		PathRequest:  pathRequest,
-		PathResponse: pathResponse,
-	}
-	validator := validator.New()
-	err := validator.Struct(domainStreamSessionInput)
-	if err != nil {
-		return nil, err
-	}
-	defaultStreamSession := &DomainStreamSession{
+func NewDomainStreamSession(pathRequest PathRequest, pathResponse PathResult) *DomainStreamSession {
+	return &DomainStreamSession{
 		pathRequest: pathRequest,
 		pathResult:  pathResponse,
 	}
-	return defaultStreamSession, nil
 }
 
 func (streamSession *DomainStreamSession) GetContext() context.Context {

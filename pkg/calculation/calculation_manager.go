@@ -122,7 +122,7 @@ func (manager *CalculationManager) getCalculationUpdateOptions(streamSession dom
 		pathRequest:           pathRequest,
 	}
 }
-func (manager *CalculationManager) CalculatePathUpdate(streamSession domain.StreamSession) (*domain.PathResult, error) {
+func (manager *CalculationManager) CalculatePathUpdate(streamSession domain.StreamSession) (domain.PathResult, error) {
 	calculationUpdateOptions := manager.getCalculationUpdateOptions(streamSession)
 	manager.log.Debugln("Recalculate path with new network state")
 	newPathResult, err := manager.CalculateBestPath(calculationUpdateOptions.pathRequest)

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/hawkv6/hawkeye/pkg/calculation"
@@ -40,7 +41,7 @@ func (controller *SessionController) watchForContextCancellation(pathRequest dom
 	<-pathRequest.GetContext().Done()
 	controller.mu.Lock()
 	defer controller.mu.Unlock()
-	controller.log.Debugf("Context of path request %s has been cancelled", pathRequest.Serialize())
+	controller.log.Debugf("Context of path request %s has been cancelled", serializedPathRequest)
 	delete(controller.openSessions, serializedPathRequest)
 }
 
@@ -50,10 +51,20 @@ func (controller *SessionController) recalculatePathUpdate(session domain.Stream
 		controller.log.Errorln("Failed to recalculate path update: ", err)
 		controller.errorChan <- err
 	} else if result != nil {
-		controller.pathResultChan <- *result
+		controller.pathResultChan <- result
 	} else {
 		controller.log.Debugln("No path update available")
 	}
+}
+
+func (controller *SessionController) getSessionSnapshot() map[string]domain.StreamSession {
+	controller.mu.Lock()
+	defer controller.mu.Unlock()
+	sessionsSnapshot := make(map[string]domain.StreamSession, len(controller.openSessions))
+	for key, session := range controller.openSessions {
+		sessionsSnapshot[key] = session
+	}
+	return sessionsSnapshot
 }
 
 func (controller *SessionController) recalculateSessions() {
@@ -62,16 +73,9 @@ func (controller *SessionController) recalculateSessions() {
 		return
 	}
 
-	controller.mu.Lock()
-	sessionsSnapshot := make(map[string]domain.StreamSession, len(controller.openSessions))
-	for key, session := range controller.openSessions {
-		sessionsSnapshot[key] = session
-	}
-	controller.mu.Unlock()
-
 	controller.log.Debugln("Pending updates trigger recalculations of all open sessions")
 	wg := sync.WaitGroup{}
-	for sessionKey, session := range sessionsSnapshot {
+	for sessionKey, session := range controller.getSessionSnapshot() {
 		controller.log.Debugln("Recalculating for session: ", sessionKey)
 		wg.Add(1)
 		go func(sessionKey string, session domain.StreamSession) {
@@ -80,31 +84,56 @@ func (controller *SessionController) recalculateSessions() {
 			controller.recalculatePathUpdate(session)
 		}(sessionKey, session)
 	}
+	wg.Wait()
+}
+
+func (controller *SessionController) sessionExists(sessionSnapshot map[string]domain.StreamSession, pathRequest domain.PathRequest) bool {
+	serializedPathRequest := pathRequest.Serialize()
+	_, ok := sessionSnapshot[serializedPathRequest]
+	return ok
+}
+
+func (controller *SessionController) sendExistingPathResult(sessionSnapshot map[string]domain.StreamSession, pathRequest domain.PathRequest) {
+	serializedPathRequest := pathRequest.Serialize()
+	controller.log.Debugln("Path request already exists - returning existing path result for path request: ", serializedPathRequest)
+	controller.pathResultChan <- sessionSnapshot[serializedPathRequest].GetPathResult()
+}
+
+func (controller *SessionController) calculateAndCreateSession(serializedRequest string, pathRequest domain.PathRequest) (domain.PathResult, error) {
+	pathResult, err := controller.manager.CalculateBestPath(pathRequest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate path result: %w", err)
+	}
+
+	controller.mu.Lock()
+	controller.openSessions[serializedRequest] = domain.NewDomainStreamSession(pathRequest, pathResult)
+	controller.mu.Unlock()
+
+	return pathResult, nil
+}
+
+func (controller *SessionController) handleError(err error) {
+	controller.log.Warnln(err)
+	controller.errorChan <- err
 }
 
 func (controller *SessionController) handlePathRequest(pathRequest domain.PathRequest) {
 	serializedPathRequest := pathRequest.Serialize()
 	controller.log.Debugln("Received path request: ", serializedPathRequest)
-	if _, ok := controller.openSessions[serializedPathRequest]; ok {
-		controller.log.Debugln("Path request already exists - returning existing path result")
-		controller.pathResultChan <- controller.openSessions[serializedPathRequest].GetPathResult()
-	} else {
-		pathResult, err := controller.manager.CalculateBestPath(pathRequest)
-		if err != nil {
-			controller.log.Warnln("Failed to calculate path result: ", err)
-			controller.errorChan <- err
-			return
-		}
-		streamSession, err := domain.NewDomainStreamSession(pathRequest, pathResult)
-		if err != nil {
-			controller.log.Warnln("Failed to create stream session: ", err)
-			controller.errorChan <- err
-			return
-		}
-		controller.openSessions[serializedPathRequest] = streamSession
-		go controller.watchForContextCancellation(pathRequest, serializedPathRequest)
-		controller.pathResultChan <- pathResult
+	sessionSnapshot := controller.getSessionSnapshot()
+	if controller.sessionExists(sessionSnapshot, pathRequest) {
+		controller.sendExistingPathResult(sessionSnapshot, pathRequest)
+		return
 	}
+
+	pathResult, err := controller.calculateAndCreateSession(serializedPathRequest, pathRequest)
+	if err != nil {
+		controller.handleError(err)
+		return
+	}
+
+	go controller.watchForContextCancellation(pathRequest, serializedPathRequest)
+	controller.pathResultChan <- pathResult
 }
 
 func (controller *SessionController) Start() {

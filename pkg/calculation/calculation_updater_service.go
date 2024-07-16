@@ -102,20 +102,20 @@ func (service *CalculationUpdaterService) updateCurrentResult(weightKeys []helpe
 	return nil
 }
 
-func (service *CalculationUpdaterService) handleSumCalculationMode(currentPathResult, newPathResult domain.PathResult, streamSession domain.StreamSession) (*domain.PathResult, error) {
+func (service *CalculationUpdaterService) handleSumCalculationMode(currentPathResult, newPathResult domain.PathResult, streamSession domain.StreamSession) (domain.PathResult, error) {
 	newPathTotalCost := newPathResult.GetTotalCost()
 	currentPathTotalCost := currentPathResult.GetTotalCost()
 	if newPathTotalCost < currentPathTotalCost*(1-helper.FlappingThreshold) {
 		service.log.Debugf("New path will be applied, cost of new path is by more than 10 percent smaller, current: %f to new: %f", currentPathTotalCost, newPathTotalCost)
 		streamSession.SetPathResult(newPathResult)
-		return &newPathResult, nil
+		return newPathResult, nil
 	} else {
 		service.log.Debugf("No path changes, cost of new path is not smaller by more than 10 percent, current: %f to new: %f", currentPathTotalCost, newPathTotalCost)
 	}
 	return nil, nil
 }
 
-func (service *CalculationUpdaterService) handleNonSumCalculationMode(currentPathResult, newPathResult domain.PathResult, streamSession domain.StreamSession) (*domain.PathResult, error) {
+func (service *CalculationUpdaterService) handleNonSumCalculationMode(currentPathResult, newPathResult domain.PathResult, streamSession domain.StreamSession) (domain.PathResult, error) {
 	newPathMinimumValue := newPathResult.GetBottleneckValue()
 	newPathMinimumEdge := newPathResult.GetBottleneckEdge()
 	currentPathMinimumValue := currentPathResult.GetBottleneckValue()
@@ -125,7 +125,7 @@ func (service *CalculationUpdaterService) handleNonSumCalculationMode(currentPat
 		service.log.Debugf("Bottleneck in new path is %v with value %g: ", newPathMinimumEdge, newPathMinimumValue)
 		service.log.Debugf("New Path will be applied, bottleneck of new path is by more than 10 percent smaller, current: %f to new: %f", currentPathMinimumValue, newPathMinimumValue)
 		streamSession.SetPathResult(newPathResult)
-		return &newPathResult, nil
+		return newPathResult, nil
 	} else {
 		service.log.Debugf("No path changes, cost of new path is not smaller by more than 10 percent, current: %f to new: %f", currentPathMinimumValue, newPathMinimumValue)
 	}
@@ -143,7 +143,7 @@ func (service *CalculationUpdaterService) AreServicesStillValid(serviceSidList [
 	return true
 }
 
-func (service *CalculationUpdaterService) handlePathChange(weightKeys []helper.WeightKey, calculationMode CalculationMode, currentPathResult, newPathResult domain.PathResult, streamSession domain.StreamSession) (*domain.PathResult, error) {
+func (service *CalculationUpdaterService) handlePathChange(weightKeys []helper.WeightKey, calculationMode CalculationMode, currentPathResult, newPathResult domain.PathResult, streamSession domain.StreamSession) (domain.PathResult, error) {
 	service.log.Debugln("Better Path found, check for applicability")
 	service.log.Debugln("Validate current path and its cost")
 
@@ -151,14 +151,14 @@ func (service *CalculationUpdaterService) handlePathChange(weightKeys []helper.W
 	if firstIntent.GetIntentType() == domain.IntentTypeSFC {
 		if !service.AreServicesStillValid(currentPathResult.GetServiceSidList()) {
 			streamSession.SetPathResult(newPathResult)
-			return &newPathResult, nil
+			return newPathResult, nil
 		}
 	}
 
 	if err := service.updateCurrentResult(weightKeys, calculationMode, currentPathResult); err != nil {
 		service.log.Errorln("Current Path is not valid anymore, new path will be applied: ", err)
 		streamSession.SetPathResult(newPathResult)
-		return &newPathResult, nil
+		return newPathResult, nil
 	}
 
 	service.log.Debugln("Current path is still valid, check if new path is better")
@@ -169,7 +169,7 @@ func (service *CalculationUpdaterService) handlePathChange(weightKeys []helper.W
 	}
 }
 
-func (service *CalculationUpdaterService) UpdateCalculation(options *CalculationUpdateOptions) (*domain.PathResult, error) {
+func (service *CalculationUpdaterService) UpdateCalculation(options *CalculationUpdateOptions) (domain.PathResult, error) {
 	if !reflect.DeepEqual(options.newPathResult.GetIpv6SidAddresses(), options.currentAppliedSidList) {
 		return service.handlePathChange(options.weightKeys, options.calculationMode, options.currentPathResult, options.newPathResult, options.streamSession)
 	} else {
