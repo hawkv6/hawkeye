@@ -423,15 +423,6 @@ func TestRequestService_convertLsLinks(t *testing.T) {
 }
 
 func TestRequestService_getLsLinks(t *testing.T) {
-	lsLinksResponse := getLsLinksResponse()
-	config := config.NewMockConfig(gomock.NewController(t))
-	config.EXPECT().GetJagwServiceAddress().Return("localhost").AnyTimes()
-	config.EXPECT().GetJagwRequestPort().Return(uint16(9902)).AnyTimes()
-	adapter := adapter.NewDomainAdapter()
-	processor := processor.NewMockProcessor(gomock.NewController(t))
-	requestClient := jagw.NewMockRequestServiceClient(gomock.NewController(t))
-	jagwRequestService := NewJagwRequestService(config, adapter, processor)
-	jagwRequestService.requestClient = requestClient
 	tests := []struct {
 		name           string
 		wantRequestErr bool
@@ -465,6 +456,15 @@ func TestRequestService_getLsLinks(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			lsLinksResponse := getLsLinksResponse()
+			config := config.NewMockConfig(gomock.NewController(t))
+			config.EXPECT().GetJagwServiceAddress().Return("localhost").AnyTimes()
+			config.EXPECT().GetJagwRequestPort().Return(uint16(9902)).AnyTimes()
+			adapter := adapter.NewDomainAdapter()
+			processor := processor.NewMockProcessor(gomock.NewController(t))
+			requestClient := jagw.NewMockRequestServiceClient(gomock.NewController(t))
+			jagwRequestService := NewJagwRequestService(config, adapter, processor)
+			jagwRequestService.requestClient = requestClient
 			if tt.wantRequestErr {
 				requestClient.EXPECT().GetLsLinks(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("Error to get LsLinks")).Times(1)
 			} else {
@@ -488,12 +488,6 @@ func TestRequestService_getLsLinks(t *testing.T) {
 }
 
 func TestRequestService_shouldSkipPrefix(t *testing.T) {
-	config := config.NewMockConfig(gomock.NewController(t))
-	config.EXPECT().GetJagwServiceAddress().Return("localhost").AnyTimes()
-	config.EXPECT().GetJagwRequestPort().Return(uint16(9902)).AnyTimes()
-	adapter := adapter.NewDomainAdapter()
-	processor := processor.NewMockProcessor(gomock.NewController(t))
-	LsPrefixResponse := getLsPrefixesResponse()
 	tests := []struct {
 		name       string
 		hasLocator bool
@@ -517,6 +511,12 @@ func TestRequestService_shouldSkipPrefix(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			config := config.NewMockConfig(gomock.NewController(t))
+			config.EXPECT().GetJagwServiceAddress().Return("localhost").AnyTimes()
+			config.EXPECT().GetJagwRequestPort().Return(uint16(9902)).AnyTimes()
+			adapter := adapter.NewDomainAdapter()
+			processor := processor.NewMockProcessor(gomock.NewController(t))
+			LsPrefixResponse := getLsPrefixesResponse()
 			jagwRequestService := NewJagwRequestService(config, adapter, processor)
 			for _, lsPrefix := range LsPrefixResponse.LsPrefixes {
 				if tt.hasLocator {
