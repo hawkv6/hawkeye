@@ -4,7 +4,7 @@ go 1.21.6
 
 require (
 	github.com/go-playground/validator v9.31.0+incompatible
-	github.com/jalapeno-api-gateway/jagw-go v1.4.0
+	github.com/jalapeno-api-gateway/jagw-go v1.4.1
 	github.com/montanaflynn/stats v0.7.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
