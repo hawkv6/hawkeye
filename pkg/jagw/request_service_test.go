@@ -429,7 +429,6 @@ func TestRequestService_getLsLinks(t *testing.T) {
 	config.EXPECT().GetJagwRequestPort().Return(uint16(9902)).AnyTimes()
 	adapter := adapter.NewDomainAdapter()
 	processor := processor.NewMockProcessor(gomock.NewController(t))
-	processor.EXPECT().ProcessLinks(gomock.Any()).Return(nil).AnyTimes()
 	requestClient := jagw.NewMockRequestServiceClient(gomock.NewController(t))
 	jagwRequestService := NewJagwRequestService(config, adapter, processor)
 	jagwRequestService.requestClient = requestClient
@@ -437,21 +436,31 @@ func TestRequestService_getLsLinks(t *testing.T) {
 		name           string
 		wantRequestErr bool
 		wantConvertErr bool
+		wantProcessErr bool
 	}{
 		{
 			name:           "TestRequestService_getLsLinks success",
 			wantRequestErr: false,
 			wantConvertErr: false,
+			wantProcessErr: false,
 		},
 		{
 			name:           "TestRequestService_getLsLinks request error",
 			wantRequestErr: true,
 			wantConvertErr: false,
+			wantProcessErr: false,
 		},
 		{
 			name:           "TestRequestService_getLsLinks convert error",
 			wantRequestErr: false,
 			wantConvertErr: true,
+			wantProcessErr: false,
+		},
+		{
+			name:           "TestRequestService_getLsLinks process error",
+			wantRequestErr: false,
+			wantConvertErr: false,
+			wantProcessErr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -464,9 +473,14 @@ func TestRequestService_getLsLinks(t *testing.T) {
 			if tt.wantConvertErr {
 				lsLinksResponse.LsLinks[0].Key = nil
 			}
+			if tt.wantProcessErr {
+				processor.EXPECT().ProcessLinks(gomock.Any()).Return(fmt.Errorf("Error to process links")).AnyTimes()
+			} else {
+				processor.EXPECT().ProcessLinks(gomock.Any()).Return(nil).AnyTimes()
+			}
 			err := jagwRequestService.getLsLinks()
-			if (err != nil) != (tt.wantRequestErr || tt.wantConvertErr) {
-				t.Errorf("RequestService.getLsLinks() '%s' error = %v, wantRequestErr %v, wantConvertError %v", tt.name, err, tt.wantRequestErr, tt.wantConvertErr)
+			if (err != nil) != (tt.wantRequestErr || tt.wantConvertErr || tt.wantProcessErr) {
+				t.Errorf("RequestService.getLsLinks() '%s' error = %v, wantRequestErr %v, wantConvertError %v, wantProcessError %v", tt.name, err, tt.wantRequestErr, tt.wantConvertErr, tt.wantProcessErr)
 				return
 			}
 		})
@@ -486,17 +500,17 @@ func TestRequestService_shouldSkipPrefix(t *testing.T) {
 		isLoopback bool
 	}{
 		{
-			name:       "TestRequestService_shouldSkipPrefix success",
+			name:       "TestRequestService_shouldSkipPrefix no skip",
 			hasLocator: false,
 			isLoopback: false,
 		},
 		{
-			name:       "TestRequestService_shouldSkipPrefix error has locator",
+			name:       "TestRequestService_shouldSkipPrefix skip, has locator",
 			hasLocator: true,
 			isLoopback: false,
 		},
 		{
-			name:       "TestRequestService_shouldSkipPrefix error is loopback",
+			name:       "TestRequestService_shouldSkipPrefix skip, is loopback",
 			hasLocator: false,
 			isLoopback: true,
 		},
@@ -526,16 +540,24 @@ func TestRequestService_convertLsPrefix(t *testing.T) {
 	adapter := adapter.NewDomainAdapter()
 	processor := processor.NewMockProcessor(gomock.NewController(t))
 	tests := []struct {
-		name    string
-		wantErr bool
+		name             string
+		wantErr          bool
+		shouldSkipPrefix bool
 	}{
 		{
-			name:    "TestRequestService_convertLsPrefix success",
-			wantErr: false,
+			name:             "TestRequestService_convertLsPrefix success",
+			wantErr:          false,
+			shouldSkipPrefix: false,
 		},
 		{
-			name:    "TestRequestService_convertLsPrefix error",
-			wantErr: true,
+			name:             "TestRequestService_convertLsPrefix error",
+			wantErr:          true,
+			shouldSkipPrefix: false,
+		},
+		{
+			name:             "TestRequestService_convertLsPrefix skip prefix",
+			wantErr:          false,
+			shouldSkipPrefix: true,
 		},
 	}
 	for _, tt := range tests {
@@ -544,9 +566,16 @@ func TestRequestService_convertLsPrefix(t *testing.T) {
 			if tt.wantErr {
 				lsPrefixesResponse.LsPrefixes[0].Key = nil
 			}
+			if tt.shouldSkipPrefix {
+				lsPrefixesResponse.LsPrefixes[0].Srv6Locator = &jagw.Srv6LocatorTlv{}
+			}
 			prefixes, err := jagwRequestService.convertLsPrefix(lsPrefixesResponse.LsPrefixes)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("RequestService.convertLsPrefix() '%s' error = %v, wantErr %v", tt.name, err, tt.wantErr)
+				return
+			}
+			if tt.shouldSkipPrefix {
+				assert.Equal(t, len(lsPrefixesResponse.LsPrefixes)-1, len(prefixes))
 				return
 			}
 			if !tt.wantErr {

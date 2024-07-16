@@ -3,6 +3,7 @@ package jagw
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strconv"
 
 	"github.com/hawkv6/hawkeye/pkg/adapter"
@@ -133,11 +134,11 @@ func (requestService *JagwRequestService) getLsLinks() error {
 }
 
 func (requestService *JagwRequestService) shouldSkipPrefix(lsPrefix *jagw.LsPrefix) bool {
-	if lsPrefix.Srv6Locator != nil {
+	if !reflect.ValueOf(lsPrefix.Srv6Locator).IsNil() {
 		requestService.log.Debugf("Skip prefix %s because it has a SRv6 locator TLV", lsPrefix.GetKey())
 		return true
 	}
-	if lsPrefix.PrefixLen != nil && *lsPrefix.PrefixLen == 128 {
+	if !reflect.ValueOf(lsPrefix.PrefixLen).IsNil() && *lsPrefix.PrefixLen == 128 {
 		requestService.log.Debugf("Skip prefix %s because it has a prefix length of 128 (belongs to Loopback0)", lsPrefix.GetKey())
 		return true
 	}
