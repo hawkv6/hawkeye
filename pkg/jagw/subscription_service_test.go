@@ -3,6 +3,7 @@ package jagw
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/hawkv6/hawkeye/pkg/adapter"
@@ -205,8 +206,6 @@ func TestJagwSubscriptionService_subcribeLsNodes_enqueueNodeEvent(t *testing.T) 
 	config.EXPECT().GetJagwSubscriptionPort().Return(uint16(9903)).AnyTimes()
 	adapter := adapter.NewDomainAdapter()
 	lsNodesSubscription := jagw.NewMockSubscriptionService_SubscribeToLsNodesClient(gomock.NewController(t))
-	lsNodesSubscriptionContext, lsNodesSubscriptionCancel := context.WithCancel(context.Background())
-	lsNodesSubscription.EXPECT().Context().Return(lsNodesSubscriptionContext).AnyTimes()
 	tests := []struct {
 		name           string
 		wantConvertErr bool
@@ -216,7 +215,7 @@ func TestJagwSubscriptionService_subcribeLsNodes_enqueueNodeEvent(t *testing.T) 
 			name:           "TestJagwSubscriptionService_subcribeLsNodes_enqueueNodeEvent success",
 			wantConvertErr: false,
 			setup: func(jagwSubscriptionService *JagwSubscriptionService) {
-				lsNodesSubscription.EXPECT().Recv().Return(nodeEvent, nil).AnyTimes()
+				lsNodesSubscription.EXPECT().Recv().Return(nil, fmt.Errorf("Closed connection")).AnyTimes().After(lsNodesSubscription.EXPECT().Recv().Return(nodeEvent, nil).Times(1))
 				jagwSubscriptionService.lsNodesSubscription = lsNodesSubscription
 			},
 		},
@@ -244,14 +243,22 @@ func TestJagwSubscriptionService_subcribeLsNodes_enqueueNodeEvent(t *testing.T) 
 		t.Run(tt.name, func(t *testing.T) {
 			jagwSubscriptionService := NewJagwSubscriptionService(config, adapter, make(chan domain.NetworkEvent))
 			tt.setup(jagwSubscriptionService)
-			go jagwSubscriptionService.subscribeLsNodes()
+			lsNodesSubscriptionContext, lsNodesSubscriptionCancel := context.WithCancel(context.Background())
+			lsNodesSubscription.EXPECT().Context().Return(lsNodesSubscriptionContext).AnyTimes()
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			go func() {
+				jagwSubscriptionService.subscribeLsNodes()
+				wg.Done()
+			}()
 			if !tt.wantConvertErr {
 				event := <-jagwSubscriptionService.eventChan
 				assert.NotNil(t, event)
 			}
+			lsNodesSubscriptionCancel()
+			wg.Wait()
 		})
 	}
-	lsNodesSubscriptionCancel()
 }
 
 func TestJagwSubscriptionService_subcribeLsLinks_enqueueLinkEvent(t *testing.T) {
@@ -261,8 +268,6 @@ func TestJagwSubscriptionService_subcribeLsLinks_enqueueLinkEvent(t *testing.T) 
 	config.EXPECT().GetJagwSubscriptionPort().Return(uint16(9903)).AnyTimes()
 	adapter := adapter.NewDomainAdapter()
 	lsLinkSubscription := jagw.NewMockSubscriptionService_SubscribeToLsLinksClient(gomock.NewController(t))
-	lsLinkSubscriptionContext, lsLinkSubscriptionCancel := context.WithCancel(context.Background())
-	lsLinkSubscription.EXPECT().Context().Return(lsLinkSubscriptionContext).AnyTimes()
 	tests := []struct {
 		name           string
 		wantConvertErr bool
@@ -272,7 +277,7 @@ func TestJagwSubscriptionService_subcribeLsLinks_enqueueLinkEvent(t *testing.T) 
 			name:           "TestJagwSubscriptionService_subscribeLsLinks_enqueueLinkEvent success",
 			wantConvertErr: false,
 			setup: func(jagwSubscriptionService *JagwSubscriptionService) {
-				lsLinkSubscription.EXPECT().Recv().Return(linkEvent, nil).AnyTimes()
+				lsLinkSubscription.EXPECT().Recv().Return(nil, fmt.Errorf("Closed connection")).AnyTimes().After(lsLinkSubscription.EXPECT().Recv().Return(linkEvent, nil).Times(1))
 				jagwSubscriptionService.lsLinksSubscription = lsLinkSubscription
 			},
 		},
@@ -300,14 +305,22 @@ func TestJagwSubscriptionService_subcribeLsLinks_enqueueLinkEvent(t *testing.T) 
 		t.Run(tt.name, func(t *testing.T) {
 			jagwSubscriptionService := NewJagwSubscriptionService(config, adapter, make(chan domain.NetworkEvent))
 			tt.setup(jagwSubscriptionService)
-			go jagwSubscriptionService.subscribeLsLinks()
+			lsLinkSubscriptionContext, lsLinkSubscriptionCancel := context.WithCancel(context.Background())
+			lsLinkSubscription.EXPECT().Context().Return(lsLinkSubscriptionContext).AnyTimes()
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			go func() {
+				jagwSubscriptionService.subscribeLsLinks()
+				wg.Done()
+			}()
 			if !tt.wantConvertErr {
 				event := <-jagwSubscriptionService.eventChan
 				assert.NotNil(t, event)
 			}
+			lsLinkSubscriptionCancel()
+			wg.Wait()
 		})
 	}
-	lsLinkSubscriptionCancel()
 }
 
 func TestJagwSubscriptionService_subscribeLsPrefixes_enqueuePrefixEvent(t *testing.T) {
@@ -317,8 +330,6 @@ func TestJagwSubscriptionService_subscribeLsPrefixes_enqueuePrefixEvent(t *testi
 	config.EXPECT().GetJagwSubscriptionPort().Return(uint16(9903)).AnyTimes()
 	adapter := adapter.NewDomainAdapter()
 	lsPrefixesSubscription := jagw.NewMockSubscriptionService_SubscribeToLsPrefixesClient(gomock.NewController(t))
-	lsPrefixesSubscriptionContext, lsPrefixesSubscriptionCancel := context.WithCancel(context.Background())
-	lsPrefixesSubscription.EXPECT().Context().Return(lsPrefixesSubscriptionContext).AnyTimes()
 	tests := []struct {
 		name           string
 		wantConvertErr bool
@@ -328,7 +339,7 @@ func TestJagwSubscriptionService_subscribeLsPrefixes_enqueuePrefixEvent(t *testi
 			name:           "TestJagwSubscriptionService_subscribeLsPrefixes_enqueuePrefixEvent success",
 			wantConvertErr: false,
 			setup: func(jagwSubscriptionService *JagwSubscriptionService) {
-				lsPrefixesSubscription.EXPECT().Recv().Return(prefixEvent, nil).AnyTimes()
+				lsPrefixesSubscription.EXPECT().Recv().Return(nil, fmt.Errorf("Closed connection")).AnyTimes().After(lsPrefixesSubscription.EXPECT().Recv().Return(prefixEvent, nil).Times(1))
 				jagwSubscriptionService.lsPrefixesSubscription = lsPrefixesSubscription
 			},
 		},
@@ -355,14 +366,21 @@ func TestJagwSubscriptionService_subscribeLsPrefixes_enqueuePrefixEvent(t *testi
 		t.Run(tt.name, func(t *testing.T) {
 			jagwSubscriptionService := NewJagwSubscriptionService(config, adapter, make(chan domain.NetworkEvent))
 			tt.setup(jagwSubscriptionService)
-			go jagwSubscriptionService.subscribeLsPrefixes()
+			lsPrefixesSubscriptionContext, lsPrefixesSubscriptionCancel := context.WithCancel(context.Background())
+			lsPrefixesSubscription.EXPECT().Context().Return(lsPrefixesSubscriptionContext).AnyTimes()
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			go func() {
+				jagwSubscriptionService.subscribeLsPrefixes()
+				wg.Done()
+			}()
 			if !tt.wantConvertErr {
 				event := <-jagwSubscriptionService.eventChan
 				assert.NotNil(t, event)
 			}
+			lsPrefixesSubscriptionCancel()
 		})
 	}
-	lsPrefixesSubscriptionCancel()
 }
 
 func TestJagwSubscriptionService_subscribeLsSrv6Sids_enqueueSrv6SidEvent(t *testing.T) {
@@ -372,8 +390,6 @@ func TestJagwSubscriptionService_subscribeLsSrv6Sids_enqueueSrv6SidEvent(t *test
 	config.EXPECT().GetJagwSubscriptionPort().Return(uint16(9903)).AnyTimes()
 	adapter := adapter.NewDomainAdapter()
 	lsSrv6SidsSubscription := jagw.NewMockSubscriptionService_SubscribeToLsSrv6SidsClient(gomock.NewController(t))
-	lsSrv6SidsSubscriptionContext, lsSrv6SidsSubscriptionCancel := context.WithCancel(context.Background())
-	lsSrv6SidsSubscription.EXPECT().Context().Return(lsSrv6SidsSubscriptionContext).AnyTimes()
 	tests := []struct {
 		name           string
 		wantConvertErr bool
@@ -383,7 +399,7 @@ func TestJagwSubscriptionService_subscribeLsSrv6Sids_enqueueSrv6SidEvent(t *test
 			name:           "TestJagwSubscriptionService_subscribeLsSrv6Sids_enqueueSrv6SidEvent success",
 			wantConvertErr: false,
 			setup: func(jagwSubscriptionService *JagwSubscriptionService) {
-				lsSrv6SidsSubscription.EXPECT().Recv().Return(srv6SidEvent, nil).AnyTimes()
+				lsSrv6SidsSubscription.EXPECT().Recv().Return(nil, fmt.Errorf("Closed connection")).AnyTimes().After(lsSrv6SidsSubscription.EXPECT().Recv().Return(srv6SidEvent, nil).Times(1))
 				jagwSubscriptionService.lsSrv6SidsSubscription = lsSrv6SidsSubscription
 			},
 		},
@@ -410,12 +426,20 @@ func TestJagwSubscriptionService_subscribeLsSrv6Sids_enqueueSrv6SidEvent(t *test
 		t.Run(tt.name, func(t *testing.T) {
 			jagwSubscriptionService := NewJagwSubscriptionService(config, adapter, make(chan domain.NetworkEvent))
 			tt.setup(jagwSubscriptionService)
-			go jagwSubscriptionService.subscribeLsSrv6Sids()
+			lsSrv6SidsSubscriptionContext, lsSrv6SidsSubscriptionCancel := context.WithCancel(context.Background())
+			lsSrv6SidsSubscription.EXPECT().Context().Return(lsSrv6SidsSubscriptionContext).AnyTimes()
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			go func() {
+				jagwSubscriptionService.subscribeLsSrv6Sids()
+				wg.Done()
+			}()
 			if !tt.wantConvertErr {
 				event := <-jagwSubscriptionService.eventChan
 				assert.NotNil(t, event)
 			}
+			lsSrv6SidsSubscriptionCancel()
+			wg.Wait()
 		})
 	}
-	lsSrv6SidsSubscriptionCancel()
 }

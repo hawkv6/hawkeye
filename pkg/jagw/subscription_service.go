@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/hawkv6/hawkeye/pkg/adapter"
 	"github.com/hawkv6/hawkeye/pkg/config"
@@ -121,6 +122,7 @@ func (subscriptionService *JagwSubscriptionService) subscribeLsNodes() {
 		default:
 			if err != nil {
 				subscriptionService.log.Errorf("Error when receiving LsNode event: %s", err)
+				time.Sleep(1 * time.Second)
 				continue
 			}
 			subscriptionService.enqueueNodeEvent(event)
@@ -166,6 +168,7 @@ func (subscriptionService *JagwSubscriptionService) subscribeLsLinks() {
 		default:
 			if err != nil {
 				subscriptionService.log.Errorf("Error when receiving LsLink event: %s", err)
+				time.Sleep(1 * time.Second)
 				continue
 			}
 			subscriptionService.enqueueLinkEvent(event)
@@ -211,6 +214,7 @@ func (subscriptionService *JagwSubscriptionService) subscribeLsPrefixes() {
 		default:
 			if err != nil {
 				subscriptionService.log.Errorf("Error when receiving LsPrefix event: %s", err)
+				time.Sleep(1 * time.Second)
 				continue
 			}
 			subscriptionService.enqueuePrefixEvent(event)
@@ -256,6 +260,7 @@ func (subscriptionService *JagwSubscriptionService) subscribeLsSrv6Sids() {
 		default:
 			if err != nil {
 				subscriptionService.log.Errorf("Error when receiving LsSrv6Sids event: %s", err)
+				time.Sleep(1 * time.Second)
 				continue
 			}
 			subscriptionService.enqueueSrv6SidEvent(event)
