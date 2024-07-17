@@ -43,7 +43,7 @@ func NewGrpcMessagingServer(adapter adapter.Adapter, config config.Config, messa
 
 func (server *GrpcMessagingServer) Start() error {
 	listenAddress := fmt.Sprintf(":%d", server.grpcPort)
-	list, err := net.Listen("tcp", listenAddress)
+	listener, err := net.Listen("tcp", listenAddress)
 	if err != nil {
 		return fmt.Errorf("Failed to listen: %v", err)
 	}
@@ -53,7 +53,7 @@ func (server *GrpcMessagingServer) Start() error {
 	api.RegisterIntentControllerServer(grpcServer, server)
 
 	go func() {
-		if err := grpcServer.Serve(list); err != nil {
+		if err := grpcServer.Serve(listener); err != nil {
 			server.log.Fatalf("Error starting gRPC server %v", err)
 		}
 	}()
@@ -70,28 +70,38 @@ func (server *GrpcMessagingServer) handleIncomingPathRequests(stream api.IntentC
 			server.log.Debugln("Context cancelled, stopping receiving the stream")
 			return
 		default:
-			apiRequest, err := stream.Recv()
-			if err != nil {
-				if err == io.EOF {
-					server.log.Debugf("Stream %s ended", peerInfo.Addr)
-					return
-				} else {
-					server.log.Errorln("Error receiving message: ", err)
+			if err := server.processStream(stream, peerInfo, ctx); err != nil {
+				if err != io.EOF {
+					server.log.Errorln("Error processing stream: ", err)
 					server.internalChan <- err
-					return
 				}
-			}
-			server.log.Debugln("Received request: ", apiRequest)
-			pathRequest, err := server.adapter.ConvertPathRequest(apiRequest, stream, ctx)
-			if err != nil {
-				server.log.Errorln("Error converting PathRequest: ", err)
-				server.internalChan <- err
 				return
 			}
-			server.pathRequestChan <- pathRequest
-			go server.handleIntentPathResponse(stream, ctx)
 		}
 	}
+}
+
+func (server *GrpcMessagingServer) processStream(stream api.IntentController_GetIntentPathServer, peerInfo *peer.Peer, ctx context.Context) error {
+	apiRequest, err := stream.Recv()
+	if err != nil {
+		if err == io.EOF && peerInfo != nil {
+			server.log.Debugf("Stream %s ended", peerInfo.Addr)
+		} else {
+			server.log.Errorln("Error receiving message: ", err)
+		}
+		return err
+	}
+
+	server.log.Debugln("Received request: ", apiRequest)
+	pathRequest, err := server.adapter.ConvertPathRequest(apiRequest, stream, ctx)
+	if err != nil {
+		server.log.Errorln("Error converting PathRequest: ", err)
+		return err
+	}
+
+	server.pathRequestChan <- pathRequest
+	go server.handleIntentPathResponse(stream, ctx)
+	return nil
 }
 
 func (server *GrpcMessagingServer) GetIntentPath(stream api.IntentController_GetIntentPathServer) error {
@@ -109,25 +119,32 @@ func (server *GrpcMessagingServer) GetIntentPath(stream api.IntentController_Get
 	}
 }
 
+func (server *GrpcMessagingServer) processPathResult(stream api.IntentController_GetIntentPathServer, pathResult domain.PathResult) error {
+	result, err := server.adapter.ConvertPathResult(pathResult)
+	if err != nil {
+		return fmt.Errorf("error converting PathResult: %w", err)
+	}
+	if err := stream.Send(result); err != nil {
+		return fmt.Errorf("error sending message: %w", err)
+	}
+	return nil
+}
+
 func (server *GrpcMessagingServer) handleIntentPathResponse(stream api.IntentController_GetIntentPathServer, ctx context.Context) {
 	for {
 		select {
 		case pathResult := <-server.pathResultChan:
-			result, err := server.adapter.ConvertPathResult(pathResult)
-			if err != nil {
-				server.log.Errorln("Error converting PathResult: ", err)
-				server.internalChan <- err
-				return
-			}
-			if err := stream.Send(result); err != nil {
-				server.log.Errorln("Error sending message: ", err)
+			if err := server.processPathResult(stream, pathResult); err != nil {
+				server.log.Errorln("Error in processPathResult: ", err)
 				server.internalChan <- err
 				return
 			}
 		case err := <-server.errorChan:
+			server.log.Errorln("Received error: ", err)
 			server.internalChan <- err
+			return
 		case <-ctx.Done():
-			server.log.Debugln("Context cancelled, stopping GetIntentPathResponse")
+			server.log.Debugln("Context cancelled, stopping handleIntentPathResponse")
 			return
 		}
 	}
