@@ -93,13 +93,17 @@ func TestGrpcMessagingServer_GetIntentPath(t *testing.T) {
 			} else {
 				cancel()
 			}
+			wg := sync.WaitGroup{}
+			wg.Add(1)
 			go func() {
 				err := server.GetIntentPath(stream)
 				if (err != nil) != tt.wantErr {
 					t.Errorf("GrpcMessagingServer.GetIntentPath() error = %v, wantErr %v", err, tt.wantErr)
 				}
+				wg.Done()
 			}()
 			time.Sleep(100 * time.Millisecond)
+			wg.Wait()
 		})
 	}
 }
@@ -148,21 +152,11 @@ func TestGrpcMessagingServer_processStream(t *testing.T) {
 		wantReceiveErr bool
 		receiveErr     error
 		wantConvertErr bool
-		apiRequest     *api.PathRequest
 	}{
 		{
 			name:           "TestGrpcMessagingServer_processStream no error",
 			wantReceiveErr: false,
 			wantConvertErr: false,
-			apiRequest: &api.PathRequest{
-				Ipv6SourceAddress:      "2001:db8::1",
-				Ipv6DestinationAddress: "2001:db8::2",
-				Intents: []*api.Intent{
-					{
-						Type: api.IntentType_INTENT_TYPE_LOW_LATENCY,
-					},
-				},
-			},
 		},
 		{
 			name:           "TestGrpcMessagingServer_processStream receive error EOF",
@@ -180,37 +174,43 @@ func TestGrpcMessagingServer_processStream(t *testing.T) {
 			name:           "TestGrpcMessagingServer_processStream convert error",
 			wantReceiveErr: false,
 			wantConvertErr: true,
-			apiRequest: &api.PathRequest{
-				Ipv6SourceAddress:      "2001:db8::1",
-				Ipv6DestinationAddress: "2001:db8::2",
-				Intents:                []*api.Intent{},
-			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			config := config.NewMockConfig(gomock.NewController(t))
 			config.EXPECT().GetGrpcPort().Return(uint16(10000)).AnyTimes()
-			adapter := adapter.NewDomainAdapter()
+			adapter := adapter.NewMockAdapter(gomock.NewController(t))
 			channels := NewPathMessagingChannels()
 			server := NewGrpcMessagingServer(adapter, config, channels)
 			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
 			stream := api.NewMockIntentController_GetIntentPathServer(gomock.NewController(t))
 			stream.EXPECT().Context().Return(ctx).AnyTimes()
 			if tt.wantReceiveErr {
 				stream.EXPECT().Recv().Return(nil, tt.receiveErr).AnyTimes()
 			} else {
-				stream.EXPECT().Recv().Return(tt.apiRequest, nil).AnyTimes()
-				cancel()
+				stream.EXPECT().Recv().Return(&api.PathRequest{}, nil).AnyTimes()
 			}
+			if tt.wantConvertErr {
+				adapter.EXPECT().ConvertPathRequest(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, assert.AnError).AnyTimes()
+			} else {
+				adapter.EXPECT().ConvertPathRequest(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+			}
+			wg := sync.WaitGroup{}
+			wg.Add(1)
 			go func() {
 				err := server.processStream(stream, nil, ctx)
 				if (err != nil) != (tt.wantReceiveErr || tt.wantConvertErr) {
 					t.Errorf("GrpcMessagingServer.processStream() error = %v, wantReceiveErr %v, wantConvertErr %v", err, tt.wantReceiveErr, tt.wantConvertErr)
 				}
+				wg.Done()
 			}()
 			time.Sleep(100 * time.Millisecond)
+			go func() {
+				<-server.pathRequestChan
+			}()
+			cancel()
+			wg.Wait()
 		})
 	}
 }
@@ -293,7 +293,6 @@ func TestGrpcMessagingServer_handleIntentPathResponse(t *testing.T) {
 			channels := NewPathMessagingChannels()
 			server := NewGrpcMessagingServer(adapter, config, channels)
 			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
 			stream := api.NewMockIntentController_GetIntentPathServer(gomock.NewController(t))
 			stream.EXPECT().Context().Return(ctx).AnyTimes()
 			go func() {
@@ -310,6 +309,7 @@ func TestGrpcMessagingServer_handleIntentPathResponse(t *testing.T) {
 				channels.GetErrorChan() <- assert.AnError
 			}
 			time.Sleep(100 * time.Millisecond)
+			cancel()
 		})
 	}
 }
