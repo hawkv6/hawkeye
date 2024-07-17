@@ -304,7 +304,7 @@ func TestGrpcMessagingServer_handleIntentPathResponse(t *testing.T) {
 				channels.GetPathResponseChan() <- nil
 			} else if tt.wantProcessErr {
 				adapter.EXPECT().ConvertPathResult(gomock.Any()).Return(nil, assert.AnError).AnyTimes()
-				channels.GetErrorChan() <- assert.AnError
+				channels.GetPathResponseChan() <- nil
 			} else if tt.wantOtherErr {
 				channels.GetErrorChan() <- assert.AnError
 			}
