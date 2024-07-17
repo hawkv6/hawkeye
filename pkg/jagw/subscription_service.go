@@ -3,7 +3,6 @@ package jagw
 import (
 	"context"
 	"fmt"
-	"io"
 	"strconv"
 	"sync"
 
@@ -46,18 +45,10 @@ func NewJagwSubscriptionService(config config.Config, adapter adapter.Adapter, e
 
 func (subscriptionService *JagwSubscriptionService) Init() error {
 	subscriptionService.log.Debugln("Initializing JAGW Subscription Service")
-	if err := subscriptionService.createSubscriptionClient(); err != nil {
-		return fmt.Errorf("Error creating subscription client: %s", err)
-	}
-	return nil
-}
-
-func (subscriptionService *JagwSubscriptionService) createSubscriptionClient() error {
-	subscriptionService.log.Debugln("Initializing gRPC client connection")
 	grpcClientConnection, err := grpc.NewClient(subscriptionService.jagwSubscriptionSocket,
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return fmt.Errorf("Error when dialing gRPC server: %s", err)
+		return err
 	}
 	subscriptionService.grpcClientConnection = grpcClientConnection
 	subscriptionService.subscriptionClient = jagw.NewSubscriptionServiceClient(grpcClientConnection)
@@ -130,6 +121,7 @@ func (subscriptionService *JagwSubscriptionService) subscribeLsNodes() {
 		default:
 			if err != nil {
 				subscriptionService.log.Errorf("Error when receiving LsNode event: %s", err)
+				continue
 			}
 			subscriptionService.enqueueNodeEvent(event)
 		}
@@ -241,7 +233,7 @@ func (subscriptionService *JagwSubscriptionService) createLsSrv6SidsSubscription
 	return nil
 }
 
-func (subscriptionService *JagwSubscriptionService) enqueueSrv6Sids(lsSrv6SidsEvent *jagw.LsSrv6SidEvent) {
+func (subscriptionService *JagwSubscriptionService) enqueueSrv6SidEvent(lsSrv6SidsEvent *jagw.LsSrv6SidEvent) {
 	event, err := subscriptionService.adapter.ConvertSidEvent(lsSrv6SidsEvent)
 	if err != nil {
 		subscriptionService.log.Errorf("Error converting LsSrv6SidsEvent: %s", err)
@@ -262,15 +254,11 @@ func (subscriptionService *JagwSubscriptionService) subscribeLsSrv6Sids() {
 			subscriptionService.wg.Done()
 			return
 		default:
-			if err == io.EOF {
-				subscriptionService.log.Debugln("LsSrv6Sids stream ended")
-				return
-			}
 			if err != nil {
 				subscriptionService.log.Errorf("Error when receiving LsSrv6Sids event: %s", err)
 				continue
 			}
-			subscriptionService.enqueueSrv6Sids(event)
+			subscriptionService.enqueueSrv6SidEvent(event)
 		}
 	}
 }
