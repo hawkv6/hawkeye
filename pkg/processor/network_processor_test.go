@@ -294,7 +294,7 @@ func TestNetworkProcessor_Start(t *testing.T) {
 				wg.Done()
 			}()
 			eventChan <- nil
-			time.Sleep(helper.NetworkProcessorHoldTime)
+			time.Sleep(100 * time.Millisecond)
 			networkProcessor.quitChan <- struct{}{}
 			wg.Wait()
 		})
@@ -337,6 +337,7 @@ func TestNetworkProcessor_Stop(t *testing.T) {
 				networkProcessor.Start()
 				wg.Done()
 			}()
+			time.Sleep(100 * time.Millisecond)
 			networkProcessor.Stop()
 			wg.Wait()
 		})
