@@ -212,10 +212,12 @@ func TestNetworkProcessor_triggerUpdates(t *testing.T) {
 	tests := []struct {
 		name                string
 		needsSubgraphUpdate bool
+		mutexLocked         bool
 	}{
 		{
 			name:                "TestNetworkProcessor_triggerUpdates no subgraph update",
 			needsSubgraphUpdate: false,
+			mutexLocked:         true,
 		},
 		{
 			name:                "TestNetworkProcessor_triggerUpdates subgraph update",
@@ -239,6 +241,11 @@ func TestNetworkProcessor_triggerUpdates(t *testing.T) {
 				EventDispatcher:      eventDispatcher,
 			}
 			networkProcessor := NewNetworkProcessor(graphMock, cacheMock, nil, make(chan struct{}), eventOptions)
+			if tt.mutexLocked {
+				networkProcessor.mutexesLocked = true
+				cacheMock.EXPECT().Unlock().Return().AnyTimes()
+				graphMock.EXPECT().Unlock().Return().AnyTimes()
+			}
 			if tt.needsSubgraphUpdate {
 				networkProcessor.needsSubgraphUpdate = true
 				graphMock.EXPECT().UpdateSubGraphs().Return().AnyTimes()
@@ -293,8 +300,11 @@ func TestNetworkProcessor_Start(t *testing.T) {
 				networkProcessor.Start()
 				wg.Done()
 			}()
+			// trigerr dispatchEvent
 			eventChan <- nil
-			time.Sleep(100 * time.Millisecond)
+			//trigger updates
+			time.Sleep(1*time.Second + helper.NetworkProcessorHoldTime)
+			<-networkProcessor.updateChan
 			networkProcessor.quitChan <- struct{}{}
 			wg.Wait()
 		})
