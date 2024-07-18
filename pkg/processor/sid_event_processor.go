@@ -30,10 +30,11 @@ func (processor *SidEventProcessor) addSidtoCache(sid domain.Sid) {
 func (processor *SidEventProcessor) deleteSidFromCache(key string) {
 	processor.log.Debugf("Delete SRv6 SID %s from cache", key)
 	sid := processor.cache.GetSidByKey(key)
-	if sid == nil {
+	if sid != nil {
+		processor.cache.RemoveSid(sid)
+	} else {
 		processor.log.Debugf("SID with key %s does not exist in cache", key)
 	}
-	processor.cache.RemoveSid(sid)
 }
 
 func (processor *SidEventProcessor) ProcessSids(sids []domain.Sid) {
