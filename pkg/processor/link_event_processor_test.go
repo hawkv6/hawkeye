@@ -854,8 +854,8 @@ func TestLinkEventProcessor_HandleEvent(t *testing.T) {
 			processor := NewLinkEventProcessor(graphMock, cache.NewInMemoryCache())
 			var event domain.NetworkEvent
 			link, err := domain.NewDomainLink(&key, &igpRouterId, &remoteIgpRouterId, &igpMetric, &unidirLinkDelay, &undirDelayVariation, &maxLinkBWKbps, &unidirAvailableBandwidth, &undirBandwidthUtilization, &unidirPacketLoss, &normalizedUnidirLinkDelay, &normalizedUnidirDelayVariation, &normalizedUnidirPacketLoss)
+			assert.NoError(t, err)
 			if tt.eventType == "add" {
-				assert.NoError(t, err)
 				event = domain.NewAddLinkEvent(link)
 				graphMock.EXPECT().EdgeExists(gomock.Any()).Return(true).AnyTimes()
 			} else if tt.eventType == "update" {

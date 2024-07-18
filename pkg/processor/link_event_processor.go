@@ -69,11 +69,11 @@ func (processor *LinkEventProcessor) getOrCreateNode(nodeIgpRouterId string) gra
 		return processor.graph.GetNode(nodeIgpRouterId)
 	}
 	node := processor.cache.GetNodeByIgpRouterId(nodeIgpRouterId)
-	if node != nil {
+	if node == nil {
 		processor.log.Errorf("Node with igp router id %s not in cache - create it only in graph (will be added in cache by next AddLsNodeEvent)", nodeIgpRouterId)
-		return processor.graph.AddNode(graph.NewNetworkNode(nodeIgpRouterId, node.GetName(), node.GetSrAlgorithm()))
+		return processor.graph.AddNode(graph.NewNetworkNode(nodeIgpRouterId, "", []uint32{}))
 	}
-	return processor.graph.AddNode(graph.NewNetworkNode(nodeIgpRouterId, "", []uint32{}))
+	return processor.graph.AddNode(graph.NewNetworkNode(nodeIgpRouterId, node.GetName(), node.GetSrAlgorithm()))
 }
 
 func (processor *LinkEventProcessor) addLinkToGraph(link domain.Link) error {
