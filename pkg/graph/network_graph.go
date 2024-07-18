@@ -92,11 +92,13 @@ func (graph *NetworkGraph) AddEdge(edge Edge) error {
 }
 
 func (graph *NetworkGraph) DeleteEdge(edge Edge) {
-	from := edge.From()
-	to := edge.To()
-	from.DeleteEdge(edge.GetId())
-	to.DeleteEdge(edge.GetId())
-	delete(graph.edges, edge.GetId())
+	if edge != nil {
+		from := edge.From()
+		to := edge.To()
+		from.DeleteEdge(edge.GetId())
+		to.DeleteEdge(edge.GetId())
+		delete(graph.edges, edge.GetId())
+	}
 }
 
 func (graph *NetworkGraph) addNodesToSubgraph(newSubGraphs map[uint32]*NetworkGraph) {

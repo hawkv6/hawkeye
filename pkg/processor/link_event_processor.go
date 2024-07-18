@@ -40,18 +40,17 @@ func (processor *LinkEventProcessor) getCurrentLinkWeights(link domain.Link) map
 	}
 }
 
-func (processor *LinkEventProcessor) deleteEdge(key string) {
+func (processor *LinkEventProcessor) deleteEdge(key string) bool {
 	processor.log.Debugln("Delete edge with key: ", key)
 	if processor.graph.EdgeExists(key) {
 		edge := processor.graph.GetEdge(key)
-		if edge == nil {
-			processor.log.Debugf("Edge with key %s does not exist in graph", key)
-		}
 		processor.log.Debugf("Delete edge with key %s from graph between %s and %s", key, edge.From().GetName(), edge.To().GetName())
 		processor.graph.DeleteEdge(edge)
+		return true
 	} else {
 		processor.log.Debugf("Edge with key %s does not exist in graph", key)
 	}
+	return false
 }
 
 func (processor *LinkEventProcessor) addEdgeToGraph(edge graph.Edge) error {
@@ -90,11 +89,11 @@ func (processor *LinkEventProcessor) addLinkToGraph(link domain.Link) error {
 		to := processor.getOrCreateNode(link.GetRemoteIgpRouterId())
 		return processor.addEdgeToGraph(graph.NewNetworkEdge(key, from, to, weights))
 	}
+	processor.log.Debugf("Link with key %s already exists in graph", key)
 	return nil
 }
 
 func (processor *LinkEventProcessor) setEdgeWeight(edge graph.Edge, key helper.WeightKey, value float64) error {
-
 	if value == 0 && key != helper.NormalizedLatencyKey && key != helper.NormalizedJitterKey && key != helper.NormalizedPacketLossKey {
 		return fmt.Errorf("Value is 0, not setting %s", key)
 	}
@@ -132,22 +131,37 @@ func (processor *LinkEventProcessor) ProcessLinks(links []domain.Link) error {
 	return nil
 }
 
+func (processor *LinkEventProcessor) handleAddLinkEvent(event *domain.AddLinkEvent) bool {
+	processor.log.Debugln("Received AddLinkEvent: ", event.GetKey())
+	if err := processor.addLinkToGraph(event.Link); err != nil {
+		processor.log.Warnln("Error adding link to graph: ", err)
+		return false
+	}
+	return true
+}
+
+func (processor *LinkEventProcessor) handleUpdateLinkEvent(event *domain.UpdateLinkEvent) bool {
+	processor.log.Debugln("Received UpdateLinkEvent: ", event.GetKey())
+	if err := processor.updateLinkInGraph(event.Link); err != nil {
+		processor.log.Warnln("Error updating link in graph: ", err)
+	}
+	return false
+}
+
+func (processor *LinkEventProcessor) handleDeleteLinkEvent(event *domain.DeleteLinkEvent) bool {
+	key := event.GetKey()
+	processor.log.Debugln("Received DeleteLinkEvent: ", key)
+	return processor.deleteEdge(key)
+}
+
 func (processor *LinkEventProcessor) HandleEvent(event domain.NetworkEvent) bool {
 	switch eventType := event.(type) {
 	case *domain.AddLinkEvent:
-		processor.log.Debugln("Received AddLinkEvent: ", eventType.GetKey())
-		if err := processor.addLinkToGraph(eventType.Link); err != nil {
-			processor.log.Warnln("Error adding link to graph: ", err)
-		}
+		processor.handleAddLinkEvent(eventType)
 	case *domain.UpdateLinkEvent:
-		processor.log.Debugln("Received UpdateLinkEvent: ", eventType.GetKey())
-		if err := processor.updateLinkInGraph(eventType.Link); err != nil {
-			processor.log.Warnln("Error updating link in graph: ", err)
-		}
-		return false
+		processor.handleUpdateLinkEvent(eventType)
 	case *domain.DeleteLinkEvent:
-		processor.log.Debugln("Received DeleteLinkEvent: ", eventType.GetKey())
-		processor.deleteEdge(eventType.GetKey())
+		processor.handleDeleteLinkEvent(eventType)
 	default:
 		processor.log.Warnf("Unknown event type: %T", eventType)
 		return false

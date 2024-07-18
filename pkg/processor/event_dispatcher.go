@@ -36,10 +36,6 @@ func NewEventDispatcher(nodeEventHandler *NodeEventProcessor, linkEventHandler *
 }
 
 func (dispatcher *EventDispatcher) Dispatch(event domain.NetworkEvent) bool {
-	if handler, ok := dispatcher.eventHandlers[reflect.TypeOf(event)]; ok {
-		return handler.HandleEvent(event)
-	} else {
-		dispatcher.log.Warnf("No handler found for event: %v", event)
-	}
-	return false
+	handler := dispatcher.eventHandlers[reflect.TypeOf(event)]
+	return handler.HandleEvent(event)
 }
