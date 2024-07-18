@@ -133,10 +133,12 @@ func TestLinkEventProcessor_addEdgeToGraph(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "TestLinkEventProcessor_addEdgeToGraph success",
+			name:    "TestLinkEventProcessor_addEdgeToGraph success",
+			wantErr: false,
 		},
 		{
-			name: "TestLinkEventProcessor_addEdgeToGraph error",
+			name:    "TestLinkEventProcessor_addEdgeToGraph error",
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -144,18 +146,18 @@ func TestLinkEventProcessor_addEdgeToGraph(t *testing.T) {
 			graphMock := graph.NewMockGraph(gomock.NewController(t))
 			processor := NewLinkEventProcessor(graphMock, cache.NewInMemoryCache())
 			edge := graph.NewMockEdge(gomock.NewController(t))
-			edge.EXPECT().GetId().Return("edge id")
+			edge.EXPECT().GetId().Return("edge id").AnyTimes()
 			from := graph.NewMockNode(gomock.NewController(t))
 			to := graph.NewMockNode(gomock.NewController(t))
-			edge.EXPECT().From().Return(from)
-			edge.EXPECT().To().Return(to)
-			from.EXPECT().GetName().Return("from")
-			to.EXPECT().GetName().Return("to")
+			edge.EXPECT().From().Return(from).AnyTimes()
+			edge.EXPECT().To().Return(to).AnyTimes()
+			from.EXPECT().GetName().Return("from").AnyTimes()
+			to.EXPECT().GetName().Return("to").AnyTimes()
 			edge.EXPECT().GetAllWeights().Return(map[helper.WeightKey]float64{})
 			if !tt.wantErr {
-				graphMock.EXPECT().AddEdge(edge).Return(nil)
+				graphMock.EXPECT().AddEdge(edge).Return(nil).AnyTimes()
 			} else {
-				graphMock.EXPECT().AddEdge(edge).Return(fmt.Errorf("Edge with id %s already exists", edge.GetId()))
+				graphMock.EXPECT().AddEdge(edge).Return(fmt.Errorf("Edge with id %s already exists", edge.GetId())).AnyTimes()
 			}
 			err := processor.addEdgeToGraph(edge)
 			if (err != nil) != tt.wantErr {
