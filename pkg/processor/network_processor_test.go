@@ -300,11 +300,12 @@ func TestNetworkProcessor_Start(t *testing.T) {
 				networkProcessor.Start()
 				wg.Done()
 			}()
-			// trigerr dispatchEvent
+			// trigger dispatchEvent
 			eventChan <- nil
 			//trigger updates
 			time.Sleep(1*time.Second + helper.NetworkProcessorHoldTime)
 			<-networkProcessor.updateChan
+			networkProcessor.mutexesLocked = true
 			networkProcessor.quitChan <- struct{}{}
 			wg.Wait()
 		})
