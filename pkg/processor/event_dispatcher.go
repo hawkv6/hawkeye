@@ -36,6 +36,9 @@ func NewEventDispatcher(nodeEventHandler *NodeEventProcessor, linkEventHandler *
 }
 
 func (dispatcher *EventDispatcher) Dispatch(event domain.NetworkEvent) bool {
-	handler := dispatcher.eventHandlers[reflect.TypeOf(event)]
-	return handler.HandleEvent(event)
+	if event != nil {
+		handler := dispatcher.eventHandlers[reflect.TypeOf(event)]
+		return handler.HandleEvent(event)
+	}
+	return false
 }

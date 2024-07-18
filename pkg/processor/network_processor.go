@@ -24,6 +24,7 @@ type NetworkProcessor struct {
 	linkProcessor       LinkProcessor
 	prefixProcessor     PrefixProcessor
 	sidProcessor        SidProcessor
+	mutexesLocked       bool
 }
 
 type EventOptions struct {
@@ -49,6 +50,7 @@ func NewNetworkProcessor(graph graph.Graph, cache cache.Cache, eventChan chan do
 		prefixProcessor:     eventOptions.PrefixEventProcessor,
 		sidProcessor:        eventOptions.SidEventProcessor,
 		eventDispatcher:     eventOptions.EventDispatcher,
+		mutexesLocked:       false,
 	}
 }
 
@@ -68,41 +70,48 @@ func (processor *NetworkProcessor) ProcessSids(sids []domain.Sid) {
 	processor.sidProcessor.ProcessSids(sids)
 }
 
+func (processor *NetworkProcessor) dispatchEvent(event domain.NetworkEvent, timer *time.Timer, holdTime time.Duration) {
+	if !processor.mutexesLocked {
+		processor.log.Debugln("Locking cache and graph mutexes")
+		processor.cache.Lock()
+		processor.graph.Lock()
+		processor.mutexesLocked = true
+	}
+	if processor.eventDispatcher.Dispatch(event) {
+		processor.needsSubgraphUpdate = true
+	}
+	timer.Reset(holdTime)
+}
+
+func (processor *NetworkProcessor) triggerUpdates() {
+	if processor.mutexesLocked {
+		processor.log.Debugln("Unlocking cache and graph mutexes")
+		processor.cache.Unlock()
+		processor.graph.Unlock()
+		processor.mutexesLocked = false
+	}
+	if processor.needsSubgraphUpdate {
+		processor.graph.UpdateSubGraphs()
+		processor.needsSubgraphUpdate = false
+	}
+	processor.updateChan <- struct{}{}
+}
+
 func (processor *NetworkProcessor) Start() {
 	holdTime := helper.NetworkProcessorHoldTime
 	processor.log.Infof("Starting processing network updates with hold time %s", holdTime.String())
 
 	timer := time.NewTimer(holdTime)
 	defer timer.Stop()
-	mutexesLocked := false
 
 	for {
 		select {
 		case event := <-processor.eventChan:
-			if !mutexesLocked {
-				processor.log.Debugln("Locking cache and graph mutexes")
-				processor.cache.Lock()
-				processor.graph.Lock()
-				mutexesLocked = true
-			}
-			if processor.eventDispatcher.Dispatch(event) {
-				processor.needsSubgraphUpdate = true
-			}
-			timer.Reset(holdTime)
+			processor.dispatchEvent(event, timer, holdTime)
 		case <-timer.C:
-			if mutexesLocked {
-				processor.log.Debugln("Unlocking cache and graph mutexes")
-				processor.cache.Unlock()
-				processor.graph.Unlock()
-				mutexesLocked = false
-			}
-			if processor.needsSubgraphUpdate {
-				processor.graph.UpdateSubGraphs()
-				processor.needsSubgraphUpdate = false
-			}
-			processor.updateChan <- struct{}{}
+			processor.triggerUpdates()
 		case <-processor.quitChan:
-			if mutexesLocked {
+			if processor.mutexesLocked {
 				processor.cache.Unlock()
 				processor.graph.Unlock()
 			}

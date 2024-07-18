@@ -127,7 +127,9 @@ func (processor *LinkEventProcessor) ProcessLinks(links []domain.Link) error {
 			return err
 		}
 	}
-	processor.graph.UpdateSubGraphs()
+	if len(links) > 0 {
+		processor.graph.UpdateSubGraphs()
+	}
 	return nil
 }
 
