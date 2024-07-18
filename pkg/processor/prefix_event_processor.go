@@ -40,6 +40,33 @@ func (processor *PrefixEventProcessor) addNetworkToCache(prefix domain.Prefix, n
 	processor.cache.StoreClientNetwork(prefix)
 }
 
+func (processor *PrefixEventProcessor) updatePrefixCounts(count int, networkAddress string, subnetLength uint8, prefix domain.Prefix) {
+	if count > 1 {
+		processor.log.Debugf("Decrement network %s/%d from announced prefix count", networkAddress, subnetLength)
+		processor.prefixCounts[networkAddress]--
+	} else {
+		processor.log.Debugf("Delete client network %s/%d from cache", networkAddress, subnetLength)
+		delete(processor.prefixCounts, networkAddress)
+		processor.cache.RemoveClientNetwork(prefix)
+	}
+}
+
+func (processor *PrefixEventProcessor) deleteClientNetwork(key string) error {
+	prefix := processor.cache.GetClientNetworkByKey(key)
+	if prefix == nil {
+		return fmt.Errorf("Network with key %s does not exist in cache", key)
+	}
+
+	networkAddress, subnetLength := prefix.GetPrefix(), prefix.GetPrefixLength()
+	count, exists := processor.prefixCounts[networkAddress]
+	if !exists {
+		return fmt.Errorf("Network %s/%d does not exist in prefix counts", networkAddress, subnetLength)
+	}
+
+	processor.updatePrefixCounts(count, networkAddress, subnetLength, prefix)
+	return nil
+}
+
 func (processor *PrefixEventProcessor) processPrefix(prefix domain.Prefix) {
 	networkAddress := prefix.GetPrefix()
 	subnetLength := prefix.GetPrefixLength()
@@ -49,27 +76,6 @@ func (processor *PrefixEventProcessor) processPrefix(prefix domain.Prefix) {
 	} else {
 		processor.clearDuplicateAnnouncedPrefix(prefix, networkAddress, subnetLength)
 	}
-}
-
-func (processor *PrefixEventProcessor) deleteClientNetwork(key string) error {
-	prefix := processor.cache.GetClientNetworkByKey(key)
-	if prefix == nil {
-		return fmt.Errorf("Network with key %s does not exist in cache", key)
-	}
-	networkAddress := prefix.GetPrefix()
-	subnetLength := prefix.GetPrefixLength()
-	if _, ok := processor.prefixCounts[networkAddress]; !ok {
-		return fmt.Errorf("Network %s/%d does not exist in prefix counts", networkAddress, subnetLength)
-	}
-	if processor.prefixCounts[networkAddress] > 1 {
-		processor.log.Debugf("Decrement network %s/%d from announced prefix count", networkAddress, subnetLength)
-		processor.prefixCounts[networkAddress]--
-		return nil
-	}
-	processor.log.Debugf("Delete client network %s/%d from cache", networkAddress, subnetLength)
-	delete(processor.prefixCounts, networkAddress)
-	processor.cache.RemoveClientNetwork(prefix)
-	return nil
 }
 
 func (processor *PrefixEventProcessor) ProcessPrefixes(prefixes []domain.Prefix) {
@@ -88,6 +94,8 @@ func (processor *PrefixEventProcessor) HandleEvent(event domain.NetworkEvent) bo
 		if err := processor.deleteClientNetwork(eventType.GetKey()); err != nil {
 			processor.log.Warnln("Error deleting client network from cache: ", err)
 		}
+	default:
+		processor.log.Warnln("Unknown event type: ", eventType)
 	}
 	return false
 }
