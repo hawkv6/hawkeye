@@ -529,6 +529,7 @@ func TestConsulServiceMonitor_monitorServiceHealth(t *testing.T) {
 				serviceMonitor.monitorServiceHealth(ctx, serviceType)
 				wg.Done()
 			}()
+			time.Sleep(100 * time.Millisecond)
 			cancel()
 			wg.Wait()
 		})
@@ -658,6 +659,26 @@ func TestConsulServiceMonitor_updateMonitoredServices(t *testing.T) {
 				cancel()
 			}
 			serviceMonitor.wg.Wait()
+		})
+	}
+}
+
+func TestConsulServiceMonitor_stopMonitoredServices(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{
+			name: "TestConsulServiceMonitor_stopMonitoredServices",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cacheMock := cache.NewMockCache(gomock.NewController(t))
+			serviceMonitor, err := NewConsulServiceMonitor(cacheMock, make(chan struct{}), "localhost")
+			assert.NoError(t, err)
+			serviceMonitor.monitoredServices = make(map[string]context.CancelFunc)
+			serviceMonitor.monitoredServices["fw"] = func() {}
+			serviceMonitor.stopMonitoredServices()
 		})
 	}
 }
