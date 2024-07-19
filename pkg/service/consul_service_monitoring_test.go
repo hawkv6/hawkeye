@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/consul/api"
 	"github.com/hawkv6/hawkeye/pkg/cache"
@@ -588,86 +589,78 @@ func TestConsulServiceMonitor_stopMonitoringRemovedServices(t *testing.T) {
 	}
 }
 
-// func TestConsulServiceMonitor_startServiceHealthMonitoring(t *testing.T) {
-// 	const FW = "fw"
-// 	const IDS = "ids"
-// 	tests := []struct {
-// 		name         string
-// 		serviceTypes []string
-// 	}{
-// 		{
-// 			name:         "TestConsulServiceMonitor_startServiceHealthMonitoring only fw service",
-// 			serviceTypes: []string{FW},
-// 		},
-// 		{
-// 			name:         "TestConsulServiceMonitor_startServiceHealthMonitoring only ids service",
-// 			serviceTypes: []string{IDS},
-// 		},
-// 		{
-// 			name:         "TestConsulServiceMonitor_startServiceHealthMonitoring multiple services",
-// 			serviceTypes: []string{FW, IDS},
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			cacheMock := cache.NewMockCache(gomock.NewController(t))
-// 			serviceMonitor, err := NewConsulServiceMonitor(cacheMock, make(chan struct{}), "localhost")
-// 			assert.Nil(t, err)
-// 			serviceMonitor.monitoredServices = make(map[string]context.CancelFunc)
-// 			services := make(map[string][]string)
-// 			for _, serviceType := range tt.serviceTypes {
-// 				services[serviceType] = []string{}
-// 			}
-// 			wg := sync.WaitGroup{}
-// 			wg.Add(1)
-// 			go func() {
-// 				serviceMonitor.startServiceHealthMonitoring(services)
-// 				assert.Len(t, serviceMonitor.monitoredServices, len(tt.serviceTypes))
-// 				wg.Done()
-// 			}()
-// 			for _, cancel := range serviceMonitor.monitoredServices {
-// 				cancel()
-// 			}
-// 			wg.Wait()
-// 		})
-// 	}
-// }
+func TestConsulServiceMonitor_startServiceHealthMonitoring(t *testing.T) {
+	const FW = "fw"
+	const IDS = "ids"
+	tests := []struct {
+		name         string
+		serviceTypes []string
+	}{
+		{
+			name:         "TestConsulServiceMonitor_startServiceHealthMonitoring multiple services",
+			serviceTypes: []string{FW, IDS},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cacheMock := cache.NewMockCache(gomock.NewController(t))
+			serviceMonitor, err := NewConsulServiceMonitor(cacheMock, make(chan struct{}), "localhost")
+			assert.Nil(t, err)
+			serviceMonitor.monitoredServices = make(map[string]context.CancelFunc)
+			services := make(map[string][]string)
+			for _, serviceType := range tt.serviceTypes {
+				services[serviceType] = []string{}
+			}
+			serviceMonitor.startServiceHealthMonitoring(services)
+			serviceMonitor.mu.RLock()
+			for _, cancel := range serviceMonitor.monitoredServices {
+				cancel()
+			}
+			serviceMonitor.mu.RUnlock()
+			serviceMonitor.wg.Wait()
+		})
+	}
+}
 
-// func TestConsulServiceMonitor_updateMonitoredServices(t *testing.T) {
-// 	const FW = "fw"
-// 	const IDS = "ids"
-// 	tests := []struct {
-// 		name         string
-// 		serviceTypes []string
-// 	}{
-// 		{
-// 			name:         "TestConsulServiceMonitor_updasteMonitoredServices only fw service",
-// 			serviceTypes: []string{FW},
-// 		},
-// 		{
-// 			name:         "TestConsulServiceMonitor_updasteMonitoredServices no services",
-// 			serviceTypes: []string{},
-// 		},
-// 		{
-// 			name:         "TestConsulServiceMonitor_updasteMonitoredServices multiple services",
-// 			serviceTypes: []string{FW, IDS},
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			cacheMock := cache.NewMockCache(gomock.NewController(t))
-// 			serviceMonitor, err := NewConsulServiceMonitor(cacheMock, make(chan struct{}), "localhost")
-// 			assert.Nil(t, err)
-// 			serviceMonitor.monitoredServices = make(map[string]context.CancelFunc)
-// 			services := make(map[string][]string)
-// 			for _, serviceType := range tt.serviceTypes {
-// 				services[serviceType] = []string{}
-// 			}
-// 			serviceMonitor.updateMonitoredServices(services)
-// 			assert.Len(t, serviceMonitor.monitoredServices, len(tt.serviceTypes))
-// 		})
-// 	}
-// }
+func TestConsulServiceMonitor_updateMonitoredServices(t *testing.T) {
+	const FW = "fw"
+	const IDS = "ids"
+	tests := []struct {
+		name         string
+		serviceTypes []string
+	}{
+		{
+			name:         "TestConsulServiceMonitor_updasteMonitoredServices only fw service",
+			serviceTypes: []string{FW},
+		},
+		{
+			name:         "TestConsulServiceMonitor_updasteMonitoredServices no services",
+			serviceTypes: []string{},
+		},
+		{
+			name:         "TestConsulServiceMonitor_updasteMonitoredServices multiple services",
+			serviceTypes: []string{FW, IDS},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cacheMock := cache.NewMockCache(gomock.NewController(t))
+			serviceMonitor, err := NewConsulServiceMonitor(cacheMock, make(chan struct{}), "localhost")
+			assert.Nil(t, err)
+			serviceMonitor.monitoredServices = make(map[string]context.CancelFunc)
+			services := make(map[string][]string)
+			for _, serviceType := range tt.serviceTypes {
+				services[serviceType] = []string{}
+			}
+			serviceMonitor.updateMonitoredServices(services)
+			serviceMonitor.mu.RLock()
+			for _, cancel := range serviceMonitor.monitoredServices {
+				cancel()
+			}
+			serviceMonitor.wg.Wait()
+		})
+	}
+}
 
 func TestConsulServiceMonitor_queryAndUpdateMonitoredServices(t *testing.T) {
 	tests := []struct {
@@ -708,6 +701,7 @@ func TestConsulServiceMonitor_Start(t *testing.T) {
 				serviceMonitor.Start()
 				wg.Done()
 			}()
+			time.Sleep(100 * time.Millisecond)
 			close(serviceMonitor.stopChan)
 			wg.Wait()
 		})
