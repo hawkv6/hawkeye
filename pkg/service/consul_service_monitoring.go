@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/go-playground/validator"
 	"github.com/hashicorp/consul/api"
 	"github.com/hawkv6/hawkeye/pkg/cache"
 	"github.com/hawkv6/hawkeye/pkg/helper"
@@ -19,36 +20,50 @@ type ConsulServiceMonitor struct {
 	services          map[string]map[string]*ConcreteService
 	monitoredServices map[string]context.CancelFunc
 	cache             cache.Cache
-	updapteChan       chan struct{}
+	updateChan        chan struct{}
 	needsUpdate       bool
 	mu                sync.RWMutex
 	wg                sync.WaitGroup
 }
 
+type ConsulServiceMonitorInput struct {
+	Address string `validate:"required,hostname|ip"`
+}
+
 func NewConsulServiceMonitor(cache cache.Cache, updateChan chan struct{}, address string) (*ConsulServiceMonitor, error) {
-	config := api.DefaultConfig()
-	if address == "" {
-		return nil, fmt.Errorf("Consul address not set")
+	input := &ConsulServiceMonitorInput{
+		Address: address,
 	}
+	validate := validator.New()
+	if err := validate.Struct(input); err != nil {
+		return nil, err
+	}
+	config := api.DefaultConfig()
 	config.Address = address
 	config.Scheme = "https"
 	client, err := api.NewClient(config)
 	if err != nil {
 		return nil, err
 	}
-	consultServiceMonitor := &ConsulServiceMonitor{
+	return &ConsulServiceMonitor{
 		log:               logging.DefaultLogger.WithField("subsystem", Subsystem),
 		stopChan:          make(chan struct{}),
 		client:            client,
 		services:          make(map[string]map[string]*ConcreteService, 0),
 		monitoredServices: make(map[string]context.CancelFunc, 0),
 		cache:             cache,
-		updapteChan:       updateChan,
+		updateChan:        updateChan,
 		needsUpdate:       false,
 		mu:                sync.RWMutex{},
 		wg:                sync.WaitGroup{},
-	}
-	return consultServiceMonitor, nil
+	}, nil
+}
+
+func (monitor *ConsulServiceMonitor) storeServiceSidInCache(serviceType, prefixSid string) {
+	monitor.cache.Lock()
+	monitor.cache.StoreServiceSid(serviceType, prefixSid)
+	monitor.cache.Unlock()
+	monitor.needsUpdate = true
 }
 
 func (monitor *ConsulServiceMonitor) createServiceEntry(serviceId, serviceType, prefixSid string, healthy bool) {
@@ -66,15 +81,20 @@ func (monitor *ConsulServiceMonitor) createServiceEntry(serviceId, serviceType, 
 	}
 }
 
+func (monitor *ConsulServiceMonitor) removeServiceSidInCache(serviceType, prefixSid string) {
+	monitor.cache.Lock()
+	monitor.cache.RemoveServiceSid(serviceType, prefixSid)
+	monitor.cache.Unlock()
+	monitor.needsUpdate = true
+}
+
 func (monitor *ConsulServiceMonitor) deleteServiceEntry(serviceId, serviceType string) {
 	monitor.mu.Lock()
 	defer monitor.mu.Unlock()
-	monitor.cache.Lock()
-	monitor.cache.RemoveServiceSid(serviceType, serviceId)
-	monitor.cache.Unlock()
+	service := monitor.services[serviceType][serviceId]
+	monitor.removeServiceSidInCache(serviceType, service.prefixSid)
 	delete(monitor.services[serviceType], serviceId)
 	monitor.log.Debugf("Service %s deleted", serviceId)
-	monitor.needsUpdate = true
 }
 
 func (monitor *ConsulServiceMonitor) deleteServiceEntries(knownServices map[string]bool, serviceType string) {
@@ -85,26 +105,19 @@ func (monitor *ConsulServiceMonitor) deleteServiceEntries(knownServices map[stri
 	}
 }
 
-func (monitor *ConsulServiceMonitor) getKnownServices(serviceEntries []*api.ServiceEntry) (map[string]bool, error) {
+func (monitor *ConsulServiceMonitor) getKnownServices(serviceEntries []*api.ServiceEntry) (map[string]bool, string, error) {
 	if len(serviceEntries) == 0 {
-		return nil, fmt.Errorf("No service entries found")
+		return nil, "", fmt.Errorf("No service entries found")
 	}
 	knownServices := make(map[string]bool, len(serviceEntries))
 	serviceType := serviceEntries[0].Service.Service
 	for serviceId := range monitor.services[serviceType] {
 		knownServices[serviceId] = false
 	}
-	return knownServices, nil
+	return knownServices, serviceType, nil
 }
 
-func (monitor *ConsulServiceMonitor) validateServiceEntries(serviceEntries []*api.ServiceEntry) {
-	knownServices, err := monitor.getKnownServices(serviceEntries)
-	if len(serviceEntries) == 0 {
-		return
-	}
-	if err != nil {
-		return
-	}
+func (monitor *ConsulServiceMonitor) processServiceEntries(serviceEntries []*api.ServiceEntry, knownServices map[string]bool, serviceType string) {
 	for _, serviceEntry := range serviceEntries {
 		prefixSid := serviceEntry.Service.Meta["sid"]
 		serviceId := serviceEntry.Service.ID
@@ -112,27 +125,21 @@ func (monitor *ConsulServiceMonitor) validateServiceEntries(serviceEntries []*ap
 			monitor.log.Warnf("SID not found for service %s", serviceId)
 		} else {
 			healthState := serviceEntry.Checks.AggregatedStatus() == api.HealthPassing
-			monitor.createServiceEntry(serviceId, serviceEntry.Service.Service, prefixSid, healthState)
-			knownServices[serviceId] = true
+			if _, exists := knownServices[serviceId]; !exists {
+				monitor.createServiceEntry(serviceId, serviceType, prefixSid, healthState)
+			} else {
+				knownServices[serviceId] = true
+			}
 		}
 	}
-
-	serviceType := serviceEntries[0].Service.Service
-	monitor.deleteServiceEntries(knownServices, serviceType)
 }
 
-func (monitor *ConsulServiceMonitor) storeServiceSidInCache(serviceType, prefixSid string) {
-	monitor.cache.Lock()
-	monitor.cache.StoreServiceSid(serviceType, prefixSid)
-	monitor.cache.Unlock()
-	monitor.needsUpdate = true
-}
-
-func (monitor *ConsulServiceMonitor) removeServiceSidInCache(serviceType, prefixSid string) {
-	monitor.cache.Lock()
-	monitor.cache.RemoveServiceSid(serviceType, prefixSid)
-	monitor.cache.Unlock()
-	monitor.needsUpdate = true
+func (monitor *ConsulServiceMonitor) validateServiceEntries(serviceEntries []*api.ServiceEntry) {
+	knownServices, serviceType, err := monitor.getKnownServices(serviceEntries)
+	if err == nil {
+		monitor.processServiceEntries(serviceEntries, knownServices, serviceType)
+		monitor.deleteServiceEntries(knownServices, serviceType)
+	}
 }
 
 func (monitor *ConsulServiceMonitor) markServiceUnhealthy(service *ConcreteService) {
@@ -153,18 +160,47 @@ func (monitor *ConsulServiceMonitor) markServiceHealthy(service *ConcreteService
 
 func (monitor *ConsulServiceMonitor) checkServiceHealth(serviceEntries []*api.ServiceEntry) {
 	for _, serviceEntry := range serviceEntries {
-		healthy := serviceEntry.Checks.AggregatedStatus() == api.HealthPassing
-		service := monitor.services[serviceEntry.Service.Service][serviceEntry.Service.ID]
-		if service.healthy != healthy {
-			if healthy {
+		currentHealth := serviceEntry.Checks.AggregatedStatus() == api.HealthPassing
+		serviceType := serviceEntry.Service.Service
+		serviceId := serviceEntry.Service.ID
+		service := monitor.services[serviceType][serviceId]
+		if service.healthy == currentHealth {
+			monitor.log.Debugf("Service %s health state unchanged - healthy: %t ", service.serviceId, service.healthy)
+		} else {
+			if currentHealth {
 				monitor.markServiceHealthy(service)
 			} else {
 				monitor.markServiceUnhealthy(service)
 			}
-		} else {
-			monitor.log.Debugf("Service %s health state unchanged - healthy: %t ", service.serviceId, service.healthy)
 		}
 	}
+}
+
+func (monitor *ConsulServiceMonitor) sendUpdate() {
+	if monitor.needsUpdate {
+		monitor.log.Info("Services or service health changed - sending update message")
+		monitor.updateChan <- struct{}{}
+	}
+}
+
+func (monitor *ConsulServiceMonitor) getQueryOptions(lastIndex *uint64) *api.QueryOptions {
+	return &api.QueryOptions{
+		WaitIndex: *lastIndex,
+		WaitTime:  helper.ConsulQueryWaitTime,
+	}
+}
+func (monitor *ConsulServiceMonitor) queryAndUpdateServiceHealth(serviceType string, lastIndex *uint64) bool {
+	monitor.needsUpdate = false
+	serviceEntries, meta, err := monitor.client.Health().Service(serviceType, "", false, monitor.getQueryOptions(lastIndex))
+	if err != nil {
+		monitor.log.Errorf("Error checking service health for %s: %v", serviceType, err)
+		return true // continue polling
+	}
+	monitor.validateServiceEntries(serviceEntries)
+	monitor.checkServiceHealth(serviceEntries)
+	monitor.sendUpdate()
+	*lastIndex = meta.LastIndex
+	return true
 }
 
 func (monitor *ConsulServiceMonitor) monitorServiceHealth(ctx context.Context, serviceType string) {
@@ -175,46 +211,27 @@ func (monitor *ConsulServiceMonitor) monitorServiceHealth(ctx context.Context, s
 			monitor.log.Infoln("Stopping monitoring health state for service type:", serviceType)
 			return
 		default:
-			monitor.needsUpdate = false
-			options := &api.QueryOptions{
-				WaitIndex: lastIndex,
-				WaitTime:  helper.ConsulQueryWaitTime,
-			}
-			serviceEntries, meta, err := monitor.client.Health().Service(serviceType, "", false, options)
-			if err != nil {
-				monitor.log.Errorf("Error checking service health: %v", err)
-				continue
-			}
-			monitor.validateServiceEntries(serviceEntries)
-			monitor.checkServiceHealth(serviceEntries)
-			if monitor.needsUpdate {
-				monitor.log.Info("Services or Service health changed - sending update message")
-				monitor.updapteChan <- struct{}{}
-			}
-			lastIndex = meta.LastIndex
+			monitor.queryAndUpdateServiceHealth(serviceType, &lastIndex)
 		}
 	}
 }
 
-func (monitor *ConsulServiceMonitor) servicesChanged(services map[string][]string) bool {
+func (monitor *ConsulServiceMonitor) unmonitoredServicesExist(services map[string][]string) bool {
 	monitor.mu.RLock()
 	defer monitor.mu.RUnlock()
 	for service := range services {
-		if service == "consul" {
-			continue
-		}
-		if _, exists := monitor.monitoredServices[service]; !exists {
+		if _, exists := monitor.monitoredServices[service]; !exists && service != "consul" {
 			return true
 		}
 	}
 	return false
 }
 
-func (monitor *ConsulServiceMonitor) stopMonitoringRemovedServices(newServiceTypes map[string][]string) {
+func (monitor *ConsulServiceMonitor) stopMonitoringRemovedServices(services map[string][]string) {
 	monitor.mu.Lock()
 	defer monitor.mu.Unlock()
 	for serviceType, cancel := range monitor.monitoredServices {
-		if _, exists := newServiceTypes[serviceType]; !exists {
+		if _, exists := services[serviceType]; !exists {
 			cancel()
 			delete(monitor.monitoredServices, serviceType)
 		}
@@ -237,40 +254,41 @@ func (monitor *ConsulServiceMonitor) startServiceHealthMonitoring(services map[s
 }
 
 func (monitor *ConsulServiceMonitor) updateMonitoredServices(services map[string][]string) {
-	if !monitor.servicesChanged(services) {
+	if monitor.unmonitoredServicesExist(services) {
+		monitor.startServiceHealthMonitoring(services)
+		monitor.stopMonitoringRemovedServices(services)
+	}
+}
+
+func (monitor *ConsulServiceMonitor) stopMonitoredServices() {
+	monitor.log.Infof("Stopping monitoring services, can take up to %v", 2*helper.ConsulQueryWaitTime)
+	monitor.mu.RLock()
+	defer monitor.mu.RUnlock()
+	for _, cancel := range monitor.monitoredServices {
+		cancel()
+	}
+}
+
+func (monitor *ConsulServiceMonitor) queryAndUpdateMonitoredServices(lastIndex *uint64) {
+	services, meta, err := monitor.client.Catalog().Services(monitor.getQueryOptions(lastIndex))
+	if err != nil {
+		monitor.log.Errorf("Error fetching services: %v", err)
 		return
 	}
-	monitor.startServiceHealthMonitoring(services)
-	monitor.stopMonitoringRemovedServices(services)
+	monitor.updateMonitoredServices(services)
+	*lastIndex = meta.LastIndex
 }
 
 func (monitor *ConsulServiceMonitor) Start() {
 	monitor.log.Infoln("Starting monitoring services")
 	lastIndex := uint64(0)
-	monitor.wg.Add(1)
 	for {
 		select {
 		case <-monitor.stopChan:
-			monitor.log.Infof("Stopping monitoring services, can take up to %v", 2*helper.ConsulQueryWaitTime)
-			monitor.mu.RLock()
-			defer monitor.mu.RUnlock()
-			for _, cancel := range monitor.monitoredServices {
-				cancel()
-			}
-			monitor.wg.Done()
+			monitor.stopMonitoredServices()
 			return
 		default:
-			options := &api.QueryOptions{
-				WaitIndex: lastIndex,
-				WaitTime:  helper.ConsulQueryWaitTime,
-			}
-			services, meta, err := monitor.client.Catalog().Services(options)
-			if err != nil {
-				monitor.log.Errorf("Error fetching services: %v", err)
-				continue
-			}
-			monitor.updateMonitoredServices(services)
-			lastIndex = meta.LastIndex
+			monitor.queryAndUpdateMonitoredServices(&lastIndex)
 		}
 	}
 }
@@ -278,5 +296,4 @@ func (monitor *ConsulServiceMonitor) Start() {
 func (monitor *ConsulServiceMonitor) Stop() {
 	close(monitor.stopChan)
 	monitor.wg.Wait()
-	monitor.log.Infoln("Stopped monitoring services")
 }

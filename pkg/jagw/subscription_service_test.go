@@ -456,7 +456,14 @@ func TestJagwSubscriptionService_Stop(t *testing.T) {
 	err := jagwSubscriptionService.Init()
 	assert.NoError(t, err)
 	jagwSubscriptionService.subscriptionClient = subscriptionClient
-	err = jagwSubscriptionService.Start()
-	assert.NoError(t, err)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	go func() {
+		err = jagwSubscriptionService.Start()
+		assert.NoError(t, err)
+		wg.Done()
+	}()
+	time.Sleep(100 * time.Millisecond)
 	jagwSubscriptionService.Stop()
 }
