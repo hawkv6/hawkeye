@@ -612,12 +612,13 @@ func TestConsulServiceMonitor_startServiceHealthMonitoring(t *testing.T) {
 			for _, serviceType := range tt.serviceTypes {
 				services[serviceType] = []string{}
 			}
+
 			serviceMonitor.startServiceHealthMonitoring(services)
-			serviceMonitor.mu.RLock()
+			serviceMonitor.mu.Lock()
 			for _, cancel := range serviceMonitor.monitoredServices {
 				cancel()
 			}
-			serviceMonitor.mu.RUnlock()
+			serviceMonitor.mu.Unlock()
 			serviceMonitor.wg.Wait()
 		})
 	}
