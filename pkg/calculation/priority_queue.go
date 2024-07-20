@@ -71,9 +71,9 @@ func (pq *PriorityQueue) Pop() any {
 }
 
 // update modifies the priority and value of an Item in the queue.
-func (pq *PriorityQueue) Update(item *Item, nodeId string, distance float64) {
+func (pq *PriorityQueue) Update(item *Item, nodeId string, cost float64) {
 	item.nodeId = nodeId
-	item.cost = distance
+	item.cost = cost
 	heap.Fix(pq, item.index)
 }
 
