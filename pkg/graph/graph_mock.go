@@ -161,10 +161,10 @@ func (mr *MockGraphMockRecorder) GetNodes() *gomock.Call {
 }
 
 // GetSubGraph mocks base method.
-func (m *MockGraph) GetSubGraph(arg0 uint32) *NetworkGraph {
+func (m *MockGraph) GetSubGraph(arg0 uint32) Graph {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSubGraph", arg0)
-	ret0, _ := ret[0].(*NetworkGraph)
+	ret0, _ := ret[0].(Graph)
 	return ret0
 }
 

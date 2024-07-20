@@ -132,6 +132,6 @@ func (graph *NetworkGraph) UpdateSubGraphs() {
 	graph.subGraphs = newSubGraphs
 }
 
-func (graph *NetworkGraph) GetSubGraph(algorithm uint32) *NetworkGraph {
+func (graph *NetworkGraph) GetSubGraph(algorithm uint32) Graph {
 	return graph.subGraphs[algorithm]
 }

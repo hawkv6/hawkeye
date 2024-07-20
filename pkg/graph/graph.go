@@ -16,5 +16,5 @@ type Graph interface {
 	EdgeExists(string) bool
 	DeleteEdge(Edge)
 	UpdateSubGraphs()
-	GetSubGraph(uint32) *NetworkGraph
+	GetSubGraph(uint32) Graph
 }

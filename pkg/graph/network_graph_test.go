@@ -904,11 +904,11 @@ func TestNetworkGraph_GetSubGraphs(t *testing.T) {
 			graph.edges = tt.edges
 			graph.UpdateSubGraphs()
 			subGraph := graph.GetSubGraph(128)
-			assert.Equal(t, 3, len(subGraph.nodes))
-			assert.Equal(t, 2, len(subGraph.edges))
+			assert.Equal(t, 3, len(subGraph.GetNodes()))
+			assert.Equal(t, 2, len(subGraph.GetEdges()))
 			subGraph = graph.GetSubGraph(129)
-			assert.Equal(t, 2, len(subGraph.nodes))
-			assert.Equal(t, 0, len(subGraph.edges))
+			assert.Equal(t, 2, len(subGraph.GetNodes()))
+			assert.Equal(t, 0, len(subGraph.GetEdges()))
 		})
 	}
 }
