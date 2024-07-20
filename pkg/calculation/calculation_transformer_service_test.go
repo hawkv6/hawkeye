@@ -108,14 +108,21 @@ func TestCalculationTransformerService_TransformResult(t *testing.T) {
 	tests := []struct {
 		name      string
 		pathIsNil bool
+		wantErr   bool
 	}{
 		{
 			name:      "TestCalculationTransformerService_TransformResult path is nil",
 			pathIsNil: true,
+			wantErr:   false,
 		},
 		{
 			name:      "TestCalculationTransformerService_TransformResult path is not nil",
 			pathIsNil: false,
+			wantErr:   false,
+		},
+		{
+			name:    "TestCalculationTransformerService_TransformResult path error",
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -139,9 +146,14 @@ func TestCalculationTransformerService_TransformResult(t *testing.T) {
 				edge.EXPECT().To().Return(to)
 				path.EXPECT().GetRouterServiceMap().Return(map[string]string{nodeId: serviceSid})
 				cache.EXPECT().GetSrAlgorithmSid(nodeId, uint32(0)).Return(nodeSid)
-				pathResult := service.TransformResult(path, domain.NewMockPathRequest(controller), uint32(0))
-				assert.NotNil(t, pathResult)
-				assert.Equal(t, []string{nodeSid, serviceSid}, pathResult.GetIpv6SidAddresses())
+				var pathResult domain.PathResult
+				if !tt.wantErr {
+					pathResult = service.TransformResult(path, domain.NewMockPathRequest(controller), uint32(0))
+					assert.NotNil(t, pathResult)
+					assert.Equal(t, []string{nodeSid, serviceSid}, pathResult.GetIpv6SidAddresses())
+				} else {
+					assert.Nil(t, service.TransformResult(path, nil, uint32(0)))
+				}
 			}
 		})
 	}
