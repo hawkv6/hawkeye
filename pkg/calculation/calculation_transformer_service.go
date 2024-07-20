@@ -61,12 +61,10 @@ func (service *CalculationTransformerService) TransformResult(path graph.Path, p
 		sidList, serviceSidList = service.translatePathToSidList(path, algorithm)
 	}
 	pathResult, err := domain.NewDomainPathResult(pathRequest, path, sidList)
-	if serviceSidList != nil {
-		pathResult.SetServiceSidList(serviceSidList)
-	}
 	if err != nil {
 		service.log.Errorln("Error creating path result: ", err)
 		return nil
 	}
+	pathResult.SetServiceSidList(serviceSidList)
 	return pathResult
 }

@@ -22,7 +22,6 @@ type DomainPathResult struct {
 
 type DomainPathResultInput struct {
 	PathRequest      PathRequest `validate:"required"`
-	Path             graph.Path  `validate:"required"`
 	Ipv6SidAddresses []string    `validate:"required,dive,ipv6"`
 }
 
@@ -30,7 +29,6 @@ func NewDomainPathResult(pathRequest PathRequest, shortestPath graph.Path, ipv6S
 	domainPathResultInput := &DomainPathResultInput{
 		Ipv6SidAddresses: ipv6SidAddresses,
 		PathRequest:      pathRequest,
-		Path:             shortestPath,
 	}
 
 	validator := validator.New()
