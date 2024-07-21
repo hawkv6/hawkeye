@@ -56,18 +56,18 @@ func (mr *MockCalculationSetupMockRecorder) GetWeightKeysandCalculationMode(inte
 }
 
 // PerformServiceFunctionChainSetup mocks base method.
-func (m *MockCalculationSetup) PerformServiceFunctionChainSetup(intent domain.Intent) (*SfcCalculationOptions, error) {
+func (m *MockCalculationSetup) PerformServiceFunctionChainSetup(intent domain.Intent, algorithm uint32) (*SfcCalculationOptions, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PerformServiceFunctionChainSetup", intent)
+	ret := m.ctrl.Call(m, "PerformServiceFunctionChainSetup", intent, algorithm)
 	ret0, _ := ret[0].(*SfcCalculationOptions)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // PerformServiceFunctionChainSetup indicates an expected call of PerformServiceFunctionChainSetup.
-func (mr *MockCalculationSetupMockRecorder) PerformServiceFunctionChainSetup(intent any) *gomock.Call {
+func (mr *MockCalculationSetupMockRecorder) PerformServiceFunctionChainSetup(intent, algorithm any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PerformServiceFunctionChainSetup", reflect.TypeOf((*MockCalculationSetup)(nil).PerformServiceFunctionChainSetup), intent)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PerformServiceFunctionChainSetup", reflect.TypeOf((*MockCalculationSetup)(nil).PerformServiceFunctionChainSetup), intent, algorithm)
 }
 
 // PerformSetup mocks base method.

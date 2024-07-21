@@ -16,6 +16,23 @@ const (
 	CalculationModeMax
 )
 
+type NodeType int
+
+const (
+	Source NodeType = iota
+	Destination
+)
+
+func (nodeType NodeType) String() string {
+	switch nodeType {
+	case Source:
+		return "Source"
+	case Destination:
+		return "Destination"
+	}
+	return "Unknown"
+}
+
 type Calculation interface {
 	Execute() (graph.Path, error)
 }

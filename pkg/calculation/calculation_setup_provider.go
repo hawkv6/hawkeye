@@ -26,45 +26,36 @@ func NewCalculationSetupProvider(cache cache.Cache, graph graph.Graph) *Calculat
 	}
 }
 
-func (provider *CalculationSetupProvider) getNetworkAddress(ip string) (net.IP, error) {
+func (provider *CalculationSetupProvider) getNetworkAddress(ip string) net.IP {
 	ipv6Address := net.ParseIP(ip)
-	if ipv6Address == nil {
-		return nil, fmt.Errorf("IPv6 Network address could not be parsed, invalid IPv6 address: %s", ip)
-	}
 	mask := net.CIDRMask(64, 128)
-	return ipv6Address.Mask(mask), nil
+	return ipv6Address.Mask(mask)
+}
+
+func (provider *CalculationSetupProvider) getNode(pathRequest domain.PathRequest, nodeType NodeType) (graph.Node, error) {
+	var ipv6 net.IP
+	if nodeType == Source {
+		ipv6 = provider.getNetworkAddress(pathRequest.GetIpv6SourceAddress())
+	} else {
+		ipv6 = provider.getNetworkAddress(pathRequest.GetIpv6DestinationAddress())
+	}
+	routerId := provider.cache.GetRouterIdFromNetworkAddress(ipv6.String())
+	if routerId == "" {
+		return nil, fmt.Errorf("Router ID not found for %s IP: %s", nodeType, ipv6)
+	}
+	node := provider.graph.GetNode(routerId)
+	if node == nil {
+		return nil, fmt.Errorf("%s router not found", nodeType)
+	}
+	return node, nil
 }
 
 func (provider *CalculationSetupProvider) getSourceNode(pathRequest domain.PathRequest) (graph.Node, error) {
-	sourceIpv6, err := provider.getNetworkAddress(pathRequest.GetIpv6SourceAddress())
-	if err != nil {
-		return nil, err
-	}
-	sourceRouterId := provider.cache.GetRouterIdFromNetworkAddress(sourceIpv6.String())
-	if sourceRouterId == "" {
-		return nil, fmt.Errorf("Router ID not found for source IP: %s", sourceIpv6)
-	}
-	source := provider.graph.GetNode(sourceRouterId)
-	if source == nil {
-		return nil, fmt.Errorf("Source router not found")
-	}
-	return source, nil
+	return provider.getNode(pathRequest, Source)
 }
 
 func (provider *CalculationSetupProvider) getDestinationNode(pathRequest domain.PathRequest) (graph.Node, error) {
-	destinationIpv6, err := provider.getNetworkAddress(pathRequest.GetIpv6DestinationAddress())
-	if err != nil {
-		return nil, err
-	}
-	destinationRouterId := provider.cache.GetRouterIdFromNetworkAddress(destinationIpv6.String())
-	if destinationRouterId == "" {
-		return nil, fmt.Errorf("Router ID not found for destination IP: %s", destinationIpv6)
-	}
-	destination := provider.graph.GetNode(destinationRouterId)
-	if destination == nil {
-		return nil, fmt.Errorf("Destination router not found")
-	}
-	return destination, nil
+	return provider.getNode(pathRequest, Destination)
 }
 
 func (provider *CalculationSetupProvider) getWeightKeyAndCalcMode(intentType domain.IntentType) (helper.WeightKey, CalculationMode) {
@@ -105,28 +96,33 @@ func (provider *CalculationSetupProvider) getWeightKey(intentType domain.IntentT
 	}
 }
 
+func (provider *CalculationSetupProvider) getWeightKeys(intents []domain.Intent, offset int) []helper.WeightKey {
+	weightKeys := make([]helper.WeightKey, len(intents)-offset)
+
+	for i := 0; i < len(intents)-offset; i++ {
+		weightKeys[i] = provider.getWeightKey(intents[i+offset].GetIntentType())
+	}
+	return weightKeys
+}
+
 func (provider *CalculationSetupProvider) GetWeightKeysandCalculationMode(intents []domain.Intent) ([]helper.WeightKey, CalculationMode) {
 	if len(intents) == 1 {
 		weightKey, calcType := provider.getWeightKeyAndCalcMode(intents[0].GetIntentType())
 		return []helper.WeightKey{weightKey}, calcType
 	} else {
 		calculationType := CalculationModeSum
-		start := 0
-		if intents[0].GetIntentType() == domain.IntentTypeFlexAlgo {
-			start = 1
+		offset := 0
+		if intents[0].GetIntentType() == domain.IntentTypeFlexAlgo || intents[0].GetIntentType() == domain.IntentTypeSFC {
+			offset += 1
 		}
-		weightKeys := make([]helper.WeightKey, len(intents)-start)
-		weightKeysIndex := 0
-
-		for i := start; i < len(intents); i++ {
-			weightKey := provider.getWeightKey(intents[i].GetIntentType())
-			if len(weightKeys) > weightKeysIndex {
-				weightKeys[weightKeysIndex] = weightKey
-			} else {
-				weightKeys = append(weightKeys, weightKey)
-			}
-			weightKeysIndex++
+		if intents[1].GetIntentType() == domain.IntentTypeFlexAlgo {
+			offset += 1
 		}
+		if len(intents)-offset == 1 {
+			weightKey, calcType := provider.getWeightKeyAndCalcMode(intents[offset].GetIntentType())
+			return []helper.WeightKey{weightKey}, calcType
+		}
+		weightKeys := provider.getWeightKeys(intents, offset)
 
 		return weightKeys, calculationType
 	}
@@ -178,7 +174,7 @@ func (provider *CalculationSetupProvider) getServiceSids(serviceFunctionChainInt
 	return serviceSids, nil
 }
 
-func (provider *CalculationSetupProvider) getServiceRouter(serviceSids [][]string) ([][]string, map[string]string, error) {
+func (provider *CalculationSetupProvider) getServiceRouter(serviceSids [][]string, algorithm uint32) ([][]string, map[string]string, error) {
 	serviceRouters := make([][]string, len(serviceSids))
 	routerServiceMap := make(map[string]string)
 	for index, sids := range serviceSids {
@@ -187,8 +183,10 @@ func (provider *CalculationSetupProvider) getServiceRouter(serviceSids [][]strin
 			if routerId == "" {
 				return nil, nil, fmt.Errorf("Router ID not found for SID: %s", sid)
 			}
-			routerServiceMap[routerId] = sid
-			serviceRouters[index] = append(serviceRouters[index], routerId)
+			if flexAlgoSid := provider.cache.GetSrAlgorithmSid(routerId, algorithm); flexAlgoSid != "" {
+				routerServiceMap[routerId] = sid
+				serviceRouters[index] = append(serviceRouters[index], routerId)
+			}
 		}
 	}
 	provider.log.Debugln("Service Routers: ", serviceRouters)
@@ -213,14 +211,14 @@ func (provider *CalculationSetupProvider) getServiceChainCombinations(serviceRou
 	return serviceChainCombination
 }
 
-func (provider *CalculationSetupProvider) PerformServiceFunctionChainSetup(serviceFunctionChainIntent domain.Intent) (*SfcCalculationOptions, error) {
+func (provider *CalculationSetupProvider) PerformServiceFunctionChainSetup(serviceFunctionChainIntent domain.Intent, algorithm uint32) (*SfcCalculationOptions, error) {
 	sfcCalculationOptions := &SfcCalculationOptions{}
 	serviceSids, err := provider.getServiceSids(serviceFunctionChainIntent)
 	if err != nil {
 		return nil, fmt.Errorf("Error getting service SIDs: %s", err)
 	}
 
-	serviceRouter, routerServiceMap, err := provider.getServiceRouter(serviceSids)
+	serviceRouter, routerServiceMap, err := provider.getServiceRouter(serviceSids, algorithm)
 	if err != nil {
 		return nil, fmt.Errorf("Error getting service routers: %s", err)
 	}
@@ -234,6 +232,7 @@ func (provider *CalculationSetupProvider) PerformServiceFunctionChainSetup(servi
 func (provider *CalculationSetupProvider) PerformSetup(pathRequest domain.PathRequest) (*CalculationOptions, error) {
 	calculationSetupOption := &CalculationOptions{}
 	var err error
+
 	calculationSetupOption.sourceNode, err = provider.getSourceNode(pathRequest)
 	if err != nil {
 		return nil, err
@@ -245,9 +244,6 @@ func (provider *CalculationSetupProvider) PerformSetup(pathRequest domain.PathRe
 	}
 
 	intents := pathRequest.GetIntents()
-	if len(intents) == 0 {
-		return nil, fmt.Errorf("No intents defined in path request")
-	}
 
 	calculationSetupOption.weightKeys, calculationSetupOption.calculationMode = provider.GetWeightKeysandCalculationMode(intents)
 	if calculationSetupOption.calculationMode == CalculationModeUndefined {

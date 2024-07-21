@@ -80,7 +80,7 @@ func (manager *CalculationManager) getFirstNonSfcIntent(intents []domain.Intent)
 }
 
 func (manager *CalculationManager) setupServiceFunctionChainCalculation(intent domain.Intent, calculationOptions *CalculationOptions) error {
-	sfcCalculationOptions, err := manager.calculationSetup.PerformServiceFunctionChainSetup(intent)
+	sfcCalculationOptions, err := manager.calculationSetup.PerformServiceFunctionChainSetup(intent, manager.algorithm)
 	if err != nil {
 		return fmt.Errorf("error setting up service function chain: %w", err)
 	}

@@ -195,7 +195,7 @@ func TestCalculationManager_setUpCalculation(t *testing.T) {
 				calculationSetup.EXPECT().PerformSetup(pathRequest).Return(calculationOptions, nil)
 				if tt.firstIntentType == domain.IntentTypeSFC {
 					SfcCalculationOptions := &SfcCalculationOptions{}
-					calculationSetup.EXPECT().PerformServiceFunctionChainSetup(gomock.Any()).Return(SfcCalculationOptions, nil)
+					calculationSetup.EXPECT().PerformServiceFunctionChainSetup(gomock.Any(), gomock.Any()).Return(SfcCalculationOptions, nil)
 				}
 				if tt.firstIntentType == domain.IntentTypeFlexAlgo {
 					graphMock.EXPECT().GetSubGraph(gomock.Any()).Return(graphMock)
@@ -282,12 +282,12 @@ func TestCalculationManager_setupServiceFunctionChainCalculation(t *testing.T) {
 				graph: graphMock,
 			}
 			if tt.wantErr {
-				calculationSetup.EXPECT().PerformServiceFunctionChainSetup(gomock.Any()).Return(nil, fmt.Errorf("SFC setup failed"))
+				calculationSetup.EXPECT().PerformServiceFunctionChainSetup(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("SFC setup failed"))
 				err := manager.setupServiceFunctionChainCalculation(intent, calculationOptions)
 				assert.Error(t, err)
 			} else {
 				SfcCalculationOptions := &SfcCalculationOptions{}
-				calculationSetup.EXPECT().PerformServiceFunctionChainSetup(gomock.Any()).Return(SfcCalculationOptions, nil)
+				calculationSetup.EXPECT().PerformServiceFunctionChainSetup(gomock.Any(), gomock.Any()).Return(SfcCalculationOptions, nil)
 				err := manager.setupServiceFunctionChainCalculation(intent, calculationOptions)
 				assert.NoError(t, err)
 			}
