@@ -469,7 +469,7 @@ func TestCalculationSetupProvider_GetWeightKeysandCalculationMode(t *testing.T) 
 
 func TestCalculationSetupProvider_GetMaxConstraints(t *testing.T) {
 	numberValue1, _ := domain.NewNumberValue(domain.ValueTypeMaxValue, proto.Int32(10))
-	numberValue2, _ := domain.NewNumberValue(domain.ValueTypeMaxValue, proto.Int32(20))
+	numberValue2, _ := domain.NewNumberValue(domain.ValueTypeMaxValue, proto.Int32(2))
 	tests := []struct {
 		name          string
 		intents       []domain.Intent
@@ -481,6 +481,7 @@ func TestCalculationSetupProvider_GetMaxConstraints(t *testing.T) {
 			intents: []domain.Intent{
 				domain.NewDomainIntent(domain.IntentTypeLowLatency, []domain.Value{numberValue1}),
 			},
+			weightKeys: []helper.WeightKey{helper.NormalizedLatencyKey},
 			wantMaxValues: map[helper.WeightKey]float64{
 				helper.NormalizedLatencyKey: 10,
 			},
@@ -491,9 +492,10 @@ func TestCalculationSetupProvider_GetMaxConstraints(t *testing.T) {
 				domain.NewDomainIntent(domain.IntentTypeLowLatency, []domain.Value{numberValue1}),
 				domain.NewDomainIntent(domain.IntentTypeLowPacketLoss, []domain.Value{numberValue2}),
 			},
+			weightKeys: []helper.WeightKey{helper.NormalizedLatencyKey, helper.NormalizedPacketLossKey},
 			wantMaxValues: map[helper.WeightKey]float64{
-				helper.NormalizedLatencyKey: 10,
-				helper.NormalizedJitterKey:  20,
+				helper.NormalizedLatencyKey:    10,
+				helper.NormalizedPacketLossKey: 0.02,
 			},
 		},
 	}
@@ -503,7 +505,7 @@ func TestCalculationSetupProvider_GetMaxConstraints(t *testing.T) {
 			cacheMock := cache.NewMockCache(controller)
 			graphMock := graph.NewMockGraph(controller)
 			provider := NewCalculationSetupProvider(cacheMock, graphMock)
-			maxValues := provider.getMaxConstraints(tt.intents, []helper.WeightKey{helper.NormalizedLatencyKey, helper.NormalizedJitterKey, helper.NormalizedPacketLossKey})
+			maxValues := provider.getMaxConstraints(tt.intents, tt.weightKeys)
 			assert.Equal(t, tt.wantMaxValues, maxValues)
 		})
 	}

@@ -25,12 +25,11 @@ const (
 
 func (nodeType NodeType) String() string {
 	switch nodeType {
-	case Source:
-		return "Source"
 	case Destination:
 		return "Destination"
+	default:
+		return "Source"
 	}
-	return "Unknown"
 }
 
 type Calculation interface {
