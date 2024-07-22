@@ -1,6 +1,7 @@
 package calculation
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/hawkv6/hawkeye/pkg/graph"
@@ -41,10 +42,10 @@ func (calculation *ServiceFunctionChainCalculation) calculatePathsBetweenService
 		serviceCalculation := NewShortestPathCalculation(calculationOptions)
 		serviceCalculation.SetInitialSourceNodeMetrics(previousPath.GetTotalCost(), previousPath.GetTotalDelay(), previousPath.GetTotalJitter(), previousPath.GetTotalPacketLoss())
 		path, err := serviceCalculation.Execute()
-		cost += path.GetTotalCost()
 		if err != nil {
 			return nil, 0, err
 		}
+		cost += path.GetTotalCost()
 		paths = append(paths, path)
 		previousPath = path
 	}
@@ -61,39 +62,63 @@ func (calculation *ServiceFunctionChainCalculation) calculatePathLastServiceToDe
 	return path, err
 }
 
-func (calculation *ServiceFunctionChainCalculation) processServiceFunctionChain(serviceFunctionChain []string, bestCost float64) (float64, []graph.Path, error) {
-	var paths []graph.Path
-
+func (calculation *ServiceFunctionChainCalculation) evaluateFistSubPath(serviceFunctionChain []string, bestCost float64, cost *float64) (graph.Path, bool, error) {
 	firstPath, err := calculation.calculatePathSourceToFirstService(serviceFunctionChain[0])
 	if err != nil {
-		return 0, nil, err
+		return nil, true, err
 	}
-	cost := firstPath.GetTotalCost()
-	if bestCost != 0 && cost > bestCost {
-		return cost, nil, nil
+	*cost = firstPath.GetTotalCost()
+	if *cost > bestCost {
+		return nil, true, nil
+	}
+	return firstPath, false, nil
+}
+
+func (calculation *ServiceFunctionChainCalculation) evaluateSecondSubPath(firstPath graph.Path, serviceFunctionChain []string, cost *float64, bestCost float64) ([]graph.Path, bool, error) {
+	intermediatePaths, intermediateCost, err := calculation.calculatePathsBetweenServices(firstPath, serviceFunctionChain)
+	if err != nil {
+		return nil, true, err
+	}
+	*cost = intermediateCost
+	if *cost > bestCost {
+		return nil, true, nil
+	}
+	return intermediatePaths, false, nil
+}
+
+func (calculation *ServiceFunctionChainCalculation) evaluateLastSubPath(lastIntermediatePath graph.Path, serviceFunctionChain []string, bestCost float64, cost *float64) (graph.Path, bool, error) {
+	lastPath, err := calculation.calculatePathLastServiceToDestination(lastIntermediatePath, serviceFunctionChain[len(serviceFunctionChain)-1])
+	if err != nil {
+		return nil, true, err
+	}
+	*cost = lastPath.GetTotalCost()
+	if *cost > bestCost {
+		return nil, true, nil
+	}
+	return lastPath, false, nil
+}
+
+func (calculation *ServiceFunctionChainCalculation) processServiceFunctionChain(serviceFunctionChain []string, bestCost float64) (float64, []graph.Path, error) {
+	paths := make([]graph.Path, 0)
+	cost := float64(0)
+	firstPath, shouldReturn, err := calculation.evaluateFistSubPath(serviceFunctionChain, bestCost, &cost)
+	if shouldReturn {
+		return cost, nil, err
 	}
 	paths = append(paths, firstPath)
 
-	intermediatePaths, intermediateCost, err := calculation.calculatePathsBetweenServices(firstPath, serviceFunctionChain)
-	if err != nil {
-		return 0, nil, err
-	}
-	cost = intermediateCost
-	if bestCost != 0 && cost > bestCost {
-		return cost, nil, nil
+	var intermediatePaths []graph.Path
+	intermediatePaths, shouldReturn, err = calculation.evaluateSecondSubPath(firstPath, serviceFunctionChain, &cost, bestCost)
+	if shouldReturn {
+		return cost, nil, err
 	}
 	paths = append(paths, intermediatePaths...)
 
-	lastPath, err := calculation.calculatePathLastServiceToDestination(paths[len(paths)-1], serviceFunctionChain[len(serviceFunctionChain)-1])
-	if err != nil {
-		return 0, nil, err
-	}
-	cost = lastPath.GetTotalCost()
-	if bestCost != 0 && cost > bestCost {
-		return cost, nil, nil
+	lastPath, shouldReturn, err := calculation.evaluateLastSubPath(paths[len(paths)-1], serviceFunctionChain, bestCost, &cost)
+	if shouldReturn {
+		return cost, nil, err
 	}
 	paths = append(paths, lastPath)
-
 	return cost, paths, nil
 }
 
@@ -112,29 +137,54 @@ func (calculation *ServiceFunctionChainCalculation) createPathFromSubPaths(subPa
 	return graph.NewShortestPath(edges, lastPath.GetTotalCost(), lastPath.GetTotalDelay(), lastPath.GetTotalJitter(), lastPath.GetTotalPacketLoss(), bottleneckValue, bottleneckEdge)
 }
 
-func (calculation *ServiceFunctionChainCalculation) Execute() (graph.Path, error) {
+func (calculation *ServiceFunctionChainCalculation) updateBestPath(currentCost float64, bestCost *float64, currentPaths []graph.Path, bestSubPaths *[]graph.Path) bool {
+	if len(currentPaths) > 0 && currentCost < *bestCost {
+		*bestCost = currentCost
+		*bestSubPaths = currentPaths
+		calculation.log.Debugf("Found new best path with cost %f", currentCost)
+		return true
+	}
+	calculation.log.Debugf("Path with cost %f is not better than the best path with cost %f", currentCost, *bestCost)
+	return false
+}
+
+func (calculation *ServiceFunctionChainCalculation) updateRouterServiceMap(serviceFunctionChain []string, routerServiceMap map[string]string) {
+	for _, serviceRouterId := range serviceFunctionChain {
+		routerServiceMap[serviceRouterId] = calculation.routerServiceMap[serviceRouterId]
+	}
+}
+
+func (calculation *ServiceFunctionChainCalculation) calculateBestServiceChain() ([]graph.Path, map[string]string, error) {
 	bestCost := math.Inf(1)
-	var bestPath []graph.Path
-	routerServiceMap := make(map[string]string)
+	var bestSubPaths []graph.Path
+	bestServiceFunctionChain := make([]string, 0)
 
 	for index, serviceFunctionChain := range calculation.serviceFunctionChain {
 		calculation.log.Debugf("Processing %d. service function chain", index+1)
 		cost, paths, err := calculation.processServiceFunctionChain(serviceFunctionChain, bestCost)
 		if err != nil {
-			return nil, err
+			calculation.log.Errorf("Error processing service function chain: %s", err)
+			continue
 		}
-		if len(paths) > 0 && cost < bestCost {
-			bestCost = cost
-			bestPath = paths
-			for _, serviceRouterId := range serviceFunctionChain {
-				routerServiceMap[serviceRouterId] = calculation.routerServiceMap[serviceRouterId]
-			}
-			calculation.log.Debugf("Found new best path with cost %f", cost)
-		} else {
-			calculation.log.Debugf("Path with cost %f is not better than the best path with cost %f", cost, bestCost)
+		if calculation.updateBestPath(cost, &bestCost, paths, &bestSubPaths) {
+			bestServiceFunctionChain = serviceFunctionChain
 		}
 	}
-	path := calculation.createPathFromSubPaths(bestPath)
+	if len(bestSubPaths) == 0 {
+		return nil, nil, fmt.Errorf("No valid path for service function chain found")
+	}
+
+	routerServiceMap := make(map[string]string)
+	calculation.updateRouterServiceMap(bestServiceFunctionChain, routerServiceMap)
+	return bestSubPaths, routerServiceMap, nil
+}
+
+func (calculation *ServiceFunctionChainCalculation) Execute() (graph.Path, error) {
+	bestSubPaths, routerServiceMap, err := calculation.calculateBestServiceChain()
+	if err != nil {
+		return nil, err
+	}
+	path := calculation.createPathFromSubPaths(bestSubPaths)
 	path.SetRouterServiceMap(routerServiceMap)
 	return path, nil
 }

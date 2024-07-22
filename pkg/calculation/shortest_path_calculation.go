@@ -225,15 +225,11 @@ func (calculation *ShortestPathCalculation) getPath(current graph.Node) ([]graph
 			return nil, nil, fmt.Errorf("No path found from node %s to node %s", calculation.source.GetId(), calculation.destination.GetId())
 		}
 		if edge.GetWeight(helper.AvailableBandwidthKey) < bottleneckBandwidth {
-			calculation.log.Debugln("Bottleneck edge changed")
 			bottleneckBandwidth = edge.GetWeight(helper.AvailableBandwidthKey)
 			bottleneckEdge = edge
 		}
 		path = append([]graph.Edge{edge}, path...)
 		current = edge.From()
-	}
-	if len(path) == 0 {
-		return nil, nil, fmt.Errorf("No path found from node %s to node %s", calculation.source.GetId(), calculation.destination.GetId())
 	}
 	return path, bottleneckEdge, nil
 }

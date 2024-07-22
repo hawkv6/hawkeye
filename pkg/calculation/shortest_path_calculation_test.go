@@ -32,7 +32,7 @@ func almostEqual(a, b float64) bool {
 	return math.Abs(a-b) <= tolerance
 }
 
-func TestNetworkGraph_GetShortestPathSingleIntentSum(t *testing.T) {
+func TestShortestPathCalculation_Execute_SingleIntentSum(t *testing.T) {
 	srAlgorithm := []uint32{0}
 	nodes := map[int]graph.Node{
 		1: graph.NewNetworkNode("1", "1", srAlgorithm),
@@ -187,7 +187,7 @@ func TestNetworkGraph_GetShortestPathSingleIntentSum(t *testing.T) {
 		})
 	}
 }
-func TestNetworkGraph_GetShortestPathSingleIntentMax(t *testing.T) {
+func TestShortestPathCalculation_Execute_SingleIntentMax(t *testing.T) {
 	srAlgorithm := []uint32{0}
 	nodes := map[int]graph.Node{
 		1: graph.NewNetworkNode("1", "1", srAlgorithm),
@@ -295,7 +295,7 @@ func TestNetworkGraph_GetShortestPathSingleIntentMax(t *testing.T) {
 	}
 }
 
-func TestNetworkGraph_GetShortestPathSingleIntentMin(t *testing.T) {
+func TestShortestPathCalculation_Execute_SingleIntentMin(t *testing.T) {
 	srAlgorithm := []uint32{0}
 	nodes := map[int]graph.Node{
 		1: graph.NewNetworkNode("1", "1", srAlgorithm),
@@ -403,7 +403,7 @@ func TestNetworkGraph_GetShortestPathSingleIntentMin(t *testing.T) {
 	}
 }
 
-func TestNetworkGraph_GetShortestPathMultipleIntents(t *testing.T) {
+func TestShortestPathCalculation_Execute_MultipleIntents(t *testing.T) {
 	srAlgorithm := []uint32{0}
 	nodes := map[int]graph.Node{
 		1: graph.NewNetworkNode("1", "1", srAlgorithm),
