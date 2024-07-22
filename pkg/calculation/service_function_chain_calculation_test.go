@@ -2,6 +2,7 @@ package calculation
 
 import (
 	"fmt"
+	"math"
 	"os"
 	reflect "reflect"
 	"testing"
@@ -39,7 +40,7 @@ func TestServiceFunctionChainCalculation_Execute(t *testing.T) {
 	edges := map[int]graph.Edge{
 		1:  graph.NewNetworkEdge("1", nodes[1], nodes[2], map[helper.WeightKey]float64{helper.IgpMetricKey: 10, helper.LatencyKey: 1000, helper.JitterKey: 10, helper.PacketLossKey: 1, helper.UtilizedBandwidthKey: 1000, helper.AvailableBandwidthKey: 999000}),  // 1->2 igp metric 10, latency 1ms, jitter 1us, loss 1%, utilization 1Mbit/s, available bandwidth 999Mbit/s
 		2:  graph.NewNetworkEdge("2", nodes[1], nodes[3], map[helper.WeightKey]float64{helper.IgpMetricKey: 20, helper.LatencyKey: 2000, helper.JitterKey: 20, helper.PacketLossKey: 2, helper.UtilizedBandwidthKey: 9000, helper.AvailableBandwidthKey: 991000}),  // 1->3  igp metric 10, latency 2ms, jitter 2us, loss 2%, utilization 9Mbit/s, available bandwidth 991Mbit/s
-		3:  graph.NewNetworkEdge("3", nodes[1], nodes[4], map[helper.WeightKey]float64{helper.IgpMetricKey: 20, helper.LatencyKey: 1000, helper.JitterKey: 10, helper.PacketLossKey: 1, helper.UtilizedBandwidthKey: 1000, helper.AvailableBandwidthKey: 999000}),  // 1->4  igp metric 10, latency 1ms, jitter 1us, loss 1%, utilization 1Mbit/s, available bandwidth 999Mbit/s
+		3:  graph.NewNetworkEdge("3", nodes[1], nodes[4], map[helper.WeightKey]float64{helper.IgpMetricKey: 20, helper.LatencyKey: 1000, helper.JitterKey: 10, helper.PacketLossKey: 10, helper.UtilizedBandwidthKey: 1000, helper.AvailableBandwidthKey: 999000}), // 1->4  igp metric 10, latency 1ms, jitter 1us, loss 10%, utilization 1Mbit/s, available bandwidth 999Mbit/s
 		4:  graph.NewNetworkEdge("4", nodes[2], nodes[5], map[helper.WeightKey]float64{helper.IgpMetricKey: 10, helper.LatencyKey: 1000, helper.JitterKey: 10, helper.PacketLossKey: 1, helper.UtilizedBandwidthKey: 10000, helper.AvailableBandwidthKey: 990000}), // 2->5, igp metric 10, latency 1ms, jitter 1us, loss 1%, utilization 10Mbit/s, available bandwidth 990Mbit/s
 		5:  graph.NewNetworkEdge("5", nodes[3], nodes[5], map[helper.WeightKey]float64{helper.IgpMetricKey: 100, helper.LatencyKey: 3000, helper.JitterKey: 30, helper.PacketLossKey: 3, helper.UtilizedBandwidthKey: 5000, helper.AvailableBandwidthKey: 995000}), // 3->5  igp metric 10, latency 3ms, jitter 3us, loss 3%, utilization 5Mbit/s, available bandwidth 995Mbit/s
 		6:  graph.NewNetworkEdge("6", nodes[3], nodes[6], map[helper.WeightKey]float64{helper.IgpMetricKey: 10, helper.LatencyKey: 4000, helper.JitterKey: 40, helper.PacketLossKey: 4, helper.UtilizedBandwidthKey: 5000, helper.AvailableBandwidthKey: 995000}),  // 3->6  igp metric 10, latency 4ms, jitter 4us, loss 4%, utilization 5Mbit/s, available bandwidth 995Mbit/s
@@ -139,6 +140,24 @@ func TestServiceFunctionChainCalculation_Execute(t *testing.T) {
 			want: Result{
 				edgeNumbers: []int{3, 7, 10, 9},
 				totalCost:   edges[3].GetWeight(helper.LatencyKey) + edges[7].GetWeight(helper.LatencyKey) + edges[10].GetWeight(helper.LatencyKey) + edges[9].GetWeight(helper.LatencyKey),
+			},
+			wantErr: false,
+		},
+		{
+			name: "Test sfc path low packet loss metric",
+			args: args{
+				from:                 nodes[1],
+				to:                   nodes[8],
+				weightTypes:          []helper.WeightKey{helper.PacketLossKey},
+				calculationType:      CalculationModeSum,
+				minConstraints:       make(map[helper.WeightKey]float64),
+				maxConstraints:       make(map[helper.WeightKey]float64),
+				serviceFunctionChain: [][]string{{"2", "5"}, {"2", "7"}, {"4", "7"}, {"4", "5"}},
+				routerServiceMap:     map[string]string{"2": "2001:db8:f2::", "4": "2001:db8:f4::", "5": "2001:db8:f5::", "7": "2001:db8:f7::"},
+			},
+			want: Result{
+				edgeNumbers: []int{1, 4, 8},
+				totalCost:   -math.Log(1-edges[1].GetWeight(helper.PacketLossKey)/100) - math.Log(1-edges[4].GetWeight(helper.PacketLossKey)/100) - math.Log(1-edges[8].GetWeight(helper.PacketLossKey)/100),
 			},
 			wantErr: false,
 		},
