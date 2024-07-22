@@ -67,7 +67,7 @@ func (provider *CalculationSetupProvider) getWeightKeyAndCalcMode(intentType dom
 	case domain.IntentTypeHighBandwidth:
 		return helper.AvailableBandwidthKey, CalculationModeMax
 	case domain.IntentTypeLowBandwidth:
-		return helper.MaximumLinkBandwidth, CalculationModeMin
+		return helper.MaximumLinkBandwidthKey, CalculationModeMin
 	case domain.IntentTypeLowLatency:
 		return helper.LatencyKey, CalculationModeSum
 	case domain.IntentTypeLowPacketLoss:

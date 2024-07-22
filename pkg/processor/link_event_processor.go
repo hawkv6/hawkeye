@@ -30,7 +30,7 @@ func (processor *LinkEventProcessor) getCurrentLinkWeights(link domain.Link) map
 		helper.IgpMetricKey:            float64(link.GetIgpMetric()),
 		helper.LatencyKey:              float64(link.GetUnidirLinkDelay()),
 		helper.JitterKey:               float64(link.GetUnidirDelayVariation()),
-		helper.MaximumLinkBandwidth:    float64(link.GetMaxLinkBWKbps()),
+		helper.MaximumLinkBandwidthKey: float64(link.GetMaxLinkBWKbps()),
 		helper.AvailableBandwidthKey:   float64(link.GetUnidirAvailableBandwidth()),
 		helper.UtilizedBandwidthKey:    float64(link.GetUnidirBandwidthUtilization()),
 		helper.PacketLossKey:           float64(link.GetUnidirPacketLoss()),

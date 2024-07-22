@@ -78,7 +78,7 @@ func TestLinkEventProcessor_getCurrentLinkWeights(t *testing.T) {
 			assert.Equal(t, weights[helper.IgpMetricKey], float64(10))
 			assert.Equal(t, weights[helper.LatencyKey], float64(2000))
 			assert.Equal(t, weights[helper.JitterKey], float64(100))
-			assert.Equal(t, weights[helper.MaximumLinkBandwidth], float64(1000000))
+			assert.Equal(t, weights[helper.MaximumLinkBandwidthKey], float64(1000000))
 			assert.Equal(t, weights[helper.AvailableBandwidthKey], float64(99766))
 			assert.Equal(t, weights[helper.UtilizedBandwidthKey], float64(234))
 			assert.Equal(t, weights[helper.PacketLossKey], float64(3.0059316283477027))

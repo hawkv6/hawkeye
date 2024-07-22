@@ -214,7 +214,7 @@ func TestCalculationSetupProvider_getWeightKeyAndCalcMode(t *testing.T) {
 		{
 			name:            "Test Get Weight Key and Calculation Mode",
 			intentType:      domain.IntentTypeLowBandwidth,
-			wantWeightKey:   helper.MaximumLinkBandwidth,
+			wantWeightKey:   helper.MaximumLinkBandwidthKey,
 			calculationMode: CalculationModeMin,
 		},
 		{

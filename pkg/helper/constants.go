@@ -32,7 +32,7 @@ const (
 	IgpMetricKey            WeightKey = PropertyIgpMetric
 	LatencyKey              WeightKey = PropertyUnidirLinkDelay
 	JitterKey               WeightKey = PropertyUnidirDelayVariation
-	MaximumLinkBandwidth    WeightKey = PropertyMaxLinkBwKbps
+	MaximumLinkBandwidthKey WeightKey = PropertyMaxLinkBwKbps
 	AvailableBandwidthKey   WeightKey = PropertyUnidirAvailableBw
 	UtilizedBandwidthKey    WeightKey = PropertyUnidirBwUtilization
 	PacketLossKey           WeightKey = PropertyUnidirPacketLoss
