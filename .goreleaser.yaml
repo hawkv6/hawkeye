@@ -1,0 +1,22 @@
+project_name: hawkeye
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: ./hawkeye/
+    binary: hawkeye
+    ldflags:
+      - -s -w -X main.build={{.Version}}
+    goos:
+      - linux
+    goarch:
+      - amd64
+
+dockers:
+  - use: buildx
+    dockerfile: ./build/package/Dockerfile
+    image_templates:
+      - "ghcr.io/hawkv6/hawkeye:latest"
+      - "ghcr.io/hawkv6/hawkeye:{{ .Tag }}"
