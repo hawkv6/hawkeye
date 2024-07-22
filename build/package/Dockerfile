@@ -1,4 +1,4 @@
 FROM scratch
 
-ENTRYPOINT ["/hawkeye"]
+ENTRYPOINT ["/hawkeye/main"]
 COPY hawkeye /
