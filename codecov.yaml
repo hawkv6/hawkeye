@@ -1,0 +1,10 @@
+ignore:
+  - "**/*_mock.go"
+coverage:
+  status:
+    project:
+      default:
+        target: 80%
+    patch:
+      default:
+        enabled: false
