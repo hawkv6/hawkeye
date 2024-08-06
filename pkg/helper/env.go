@@ -68,5 +68,5 @@ var NetworkProcessorHoldTime time.Duration = func() time.Duration {
 			return time.Duration(temp) * time.Second
 		}
 	}
-	return 3 * time.Second
+	return 1 * time.Second
 }()

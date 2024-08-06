@@ -119,7 +119,7 @@ func (calculation *ShortestPathCalculation) violatesBandwidthMinConstraint(edge 
 	if minValue, ok := calculation.minConstraints[helper.AvailableBandwidthKey]; ok {
 		bandwidth := edge.GetWeight(helper.AvailableBandwidthKey)
 		if minValue > bandwidth {
-			calculation.log.Debugf("Edge %v violates %s constraint, returning", edge, helper.AvailableBandwidthKey)
+			calculation.log.Debugf("Edge from %s to %s violates %s constraint, returning", edge.From().GetName(), edge.To().GetName(), helper.AvailableBandwidthKey)
 			return true
 		}
 	}

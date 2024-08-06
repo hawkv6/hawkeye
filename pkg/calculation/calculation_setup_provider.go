@@ -105,19 +105,27 @@ func (provider *CalculationSetupProvider) getWeightKeys(intents []domain.Intent,
 	return weightKeys
 }
 
+func (provider *CalculationSetupProvider) getIntentOffset(intents []domain.Intent) int {
+	if len(intents) == 1 {
+		return 0
+	}
+	offset := 0
+	if intents[0].GetIntentType() == domain.IntentTypeFlexAlgo || intents[0].GetIntentType() == domain.IntentTypeSFC {
+		offset += 1
+	}
+	if intents[1].GetIntentType() == domain.IntentTypeFlexAlgo {
+		offset += 1
+	}
+	return offset
+}
+
 func (provider *CalculationSetupProvider) GetWeightKeysandCalculationMode(intents []domain.Intent) ([]helper.WeightKey, CalculationMode) {
 	if len(intents) == 1 {
 		weightKey, calcType := provider.getWeightKeyAndCalcMode(intents[0].GetIntentType())
 		return []helper.WeightKey{weightKey}, calcType
 	} else {
 		calculationType := CalculationModeSum
-		offset := 0
-		if intents[0].GetIntentType() == domain.IntentTypeFlexAlgo || intents[0].GetIntentType() == domain.IntentTypeSFC {
-			offset += 1
-		}
-		if intents[1].GetIntentType() == domain.IntentTypeFlexAlgo {
-			offset += 1
-		}
+		offset := provider.getIntentOffset(intents)
 		if len(intents)-offset == 1 {
 			weightKey, calcType := provider.getWeightKeyAndCalcMode(intents[offset].GetIntentType())
 			return []helper.WeightKey{weightKey}, calcType
@@ -130,10 +138,11 @@ func (provider *CalculationSetupProvider) GetWeightKeysandCalculationMode(intent
 
 func (provider *CalculationSetupProvider) getMaxConstraints(intents []domain.Intent, weightKeys []helper.WeightKey) map[helper.WeightKey]float64 {
 	maxValues := make(map[helper.WeightKey]float64)
-	for index, intent := range intents {
-		values := intent.GetValues()
+	offset := provider.getIntentOffset(intents)
+	for i := offset; i < len(intents); i++ {
+		values := intents[i].GetValues()
 		for _, value := range values {
-			key := weightKeys[index]
+			key := weightKeys[i-offset]
 			if value.GetValueType() == domain.ValueTypeMaxValue &&
 				(key == helper.NormalizedLatencyKey || key == helper.NormalizedJitterKey || key == helper.NormalizedPacketLossKey) {
 				maxValues[key] = float64(value.GetNumberValue())
@@ -148,10 +157,11 @@ func (provider *CalculationSetupProvider) getMaxConstraints(intents []domain.Int
 
 func (provider *CalculationSetupProvider) getMinConstraints(intents []domain.Intent, weightKeys []helper.WeightKey) map[helper.WeightKey]float64 {
 	minValues := make(map[helper.WeightKey]float64)
-	for index, intent := range intents {
-		values := intent.GetValues()
+	offset := provider.getIntentOffset(intents)
+	for i := offset; i < len(intents); i++ {
+		values := intents[i].GetValues()
 		for _, value := range values {
-			key := weightKeys[index]
+			key := weightKeys[i-offset]
 			if value.GetValueType() == domain.ValueTypeMinValue && key == helper.AvailableBandwidthKey {
 				minValues[key] = float64(value.GetNumberValue())
 			}
@@ -244,7 +254,6 @@ func (provider *CalculationSetupProvider) PerformSetup(pathRequest domain.PathRe
 	}
 
 	intents := pathRequest.GetIntents()
-
 	calculationSetupOption.weightKeys, calculationSetupOption.calculationMode = provider.GetWeightKeysandCalculationMode(intents)
 	if calculationSetupOption.calculationMode == CalculationModeUndefined {
 		return nil, fmt.Errorf("Calculation mode not defined for intents")

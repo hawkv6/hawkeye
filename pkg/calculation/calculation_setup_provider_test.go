@@ -460,7 +460,7 @@ func TestCalculationSetupProvider_GetWeightKeysandCalculationMode(t *testing.T) 
 			cacheMock := cache.NewMockCache(controller)
 			graphMock := graph.NewMockGraph(controller)
 			provider := NewCalculationSetupProvider(cacheMock, graphMock)
-			keys, calcMode := provider.GetWeightKeysandCalculationMode(tt.intents)
+			keys, calcMode := provider.GetWeightKeysandCalculationMode(tt.intents) // TODO check offset
 			assert.Equal(t, tt.wantKeys, keys)
 			assert.Equal(t, tt.wantCalcMode, calcMode)
 		})
@@ -535,7 +535,7 @@ func TestCalculationSetupProvider_getMinConstraints(t *testing.T) {
 			cacheMock := cache.NewMockCache(controller)
 			graphMock := graph.NewMockGraph(controller)
 			provider := NewCalculationSetupProvider(cacheMock, graphMock)
-			minValues := provider.getMinConstraints(tt.intents, []helper.WeightKey{helper.AvailableBandwidthKey})
+			minValues := provider.getMinConstraints(tt.intents, []helper.WeightKey{helper.AvailableBandwidthKey}) // TODO adjust offset
 			assert.Equal(t, tt.wantMinValues, minValues)
 		})
 	}
