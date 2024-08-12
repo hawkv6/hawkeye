@@ -16,9 +16,9 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "hawkeye",
-	Short: "Controller for Enabling Intent-Driven End-to-End SRv6 Networking",
+	Short: "Controller for Enabling Intent-Based Networking in SRv6",
 	Long: `
-Hawkeye is a controller that enables intent-driven end-to-end SRv6 networking.
+Hawkeye is a controller that enables Intent-Based Networking in SRv6.
 
 Start Hawkeye by running the following command:
 $ hawkeye start --jagw-request-service localhost:9903 --jagw-subscription-service localhost:9902 --grpc-port 10000

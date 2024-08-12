@@ -1,0 +1,3 @@
+# Design Considerations
+During startup the HawkEye requests the necessary network data to maintain an internal graph, on which the calculations can be triggered. Furthermore, it maintains an internal cache, which is used to enrich the calculation result, for example the SID list, which are mapped to the path calculations. 
+Also it starts monitoring the services by requesting the Consul service registery api. This long-polling mechanism ensures that failing health-checks or service removal are notified and forwarded to the controller. The controller can t 
