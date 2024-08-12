@@ -1,42 +1,21 @@
-# hawkeye
-Controller for Enabling Intent-Driven End-to-End SRv6 Networking
+### Analyze Command Branch
 
-## Configuration
+This branch introduces the `analyze` command, which is designed to generate and analyze data using various normalization methods. The resulting plots are saved in the `png` folder. This command was primarily used to evaluate and determine the most effective normalization technique.
 
-Here's how you can document these environment variables in your README file:
+#### Normalization Methods
 
-## Configuration
+The `analyze` command retrieves all link data from JAGW and normalizes them using the following methods:
 
-The application can be configured via command-line flags or environment variables. The following options are available:
+- **Robust Normalizer**
+- **Z-Score Normalizer**
+- **MinMax Normalizer**
+- **IQR MinMax Normalizer**
 
-- `--jagw-service-address` or `-j`: This sets the JAGW Service Address. It can be a hostname like `localhost` or an IP address like `127.0.0.1`. The corresponding environment variable is `HAWKEYE_JAGW_SERVICE_ADDRESS`.
+After testing, the **IQR MinMax Normalizer** was found to provide the best-fitting solution. Consequently, it has been implemented and tested within the `generic-processor`.
 
-- `--jagw-request-port` or `-r`: This sets the JAGW Request Port, for example `9903`. The corresponding environment variable is `HAWKEYE_JAGW_REQUEST_PORT`.
+#### How to Execute
 
-- `--jagw-subscription-port` or `-s`: This sets the JAGW Subscription Port, for example `9902`. The corresponding environment variable is `HAWKEYE_JAGW_SUBSCRIPTION_PORT`.
-
-- `--grpc-port` or `-p`: This sets the gRPC Port, for example `10000`. The corresponding environment variable is `HAWKEYE_GRPC_PORT`.
-
-- `HAWKEYE_FLAPPING_THRESHOLD`: This variable sets the flapping threshold. It should be a float value. If not provided, the default value is `0.1`, which means that paths will only change if the alternative path is 10% better.
-
-- `HAWKEYE_TWO_FACTOR_WEIGHTS`: This variable sets the weights when the request includes two factors. It should be a comma-separated string of float values. If not provided, the default value is `0.7,0.3`.
-
-- `HAWKEYE_THREE_FACTOR_WEIGHTS`: This variable sets the weights when the request includes three factors. It should be a comma-separated string of float values. If not provided, the default value is `0.7,0.2,0.1`.
-
-
-You can set the environment variables in your shell before running the application, like this:
+To run the `analyze` command, use the following syntax:
 
 ```bash
-export HAWKEYE_JAGW_SERVICE_ADDRESS=localhost
-export HAWKEYE_JAGW_REQUEST_PORT=9903
-export HAWKEYE_JAGW_SUBSCRIPTION_PORT=9902
-export HAWKEYE_GRPC_PORT=10000
-export HAWKEYE_FLAPPING_THRESHOLD=0.1
-export HAWKEYE_TWO_FACTOR_WEIGHTS=0.7,0.3
-export HAWKEYE_THREE_FACTOR_WEIGHTS=0.7,0.2,0.1
-
-Or you can pass the command-line flags when running the application, like this:
-
-```bash
-./bin/hawkeye --jagw-service-address localhost --jagw-request-port 9903 --jagw-subscription-port 9902 --grpc-port 10000
-```
+hawkeye analyze -j <jagw-address> -r <request-port>
