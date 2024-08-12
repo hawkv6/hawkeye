@@ -14,15 +14,6 @@ var (
 	consulServerAddress  string
 )
 
-func markRequiredFlags(cmd *cobra.Command, flags []string) {
-	for _, flag := range flags {
-		if err := cmd.MarkFlagRequired(flag); err != nil {
-			log.Fatal(err)
-		}
-	}
-
-}
-
 var rootCmd = &cobra.Command{
 	Use:   "hawkeye",
 	Short: "Controller for Enabling Intent-Driven End-to-End SRv6 Networking",
