@@ -70,3 +70,12 @@ var NetworkProcessorHoldTime time.Duration = func() time.Duration {
 	}
 	return 1 * time.Second
 }()
+
+var SkipTlsVerification bool = func() bool {
+	if value, exists := os.LookupEnv("HAWKEYE_SKIP_TLS_VERIFICATION"); exists {
+		if value == "true" || value == "TRUE" {
+			return true
+		}
+	}
+	return false
+}()

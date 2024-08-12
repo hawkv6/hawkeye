@@ -41,6 +41,7 @@ func NewConsulServiceMonitor(cache cache.Cache, updateChan chan struct{}, addres
 	config := api.DefaultConfig()
 	config.Address = address
 	config.Scheme = "https"
+	config.TLSConfig.InsecureSkipVerify = helper.SkipTlsVerification
 	client, err := api.NewClient(config)
 	if err != nil {
 		return nil, err
