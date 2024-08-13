@@ -4,7 +4,7 @@ The high bandwidth intent identifies the best path between a given source and de
 ## Network Topology
 The network topology below, with the associated rate limits, is used to demonstrate this intent. The bandwidth/rate impairments were applied using the [Lab Impairment Script](https://github.com/hawkv6/network/blob/main/docs/network.md#lab-impairments-scripts). Since, the there is almost no traffic in the network, the path should follow the path including the highest bandwidth links.
 
-![Hawkv6 Network with Latency Impairments](../images/hawkv6-network-bw.drawio.svg)
+![Hawkv6 Network with Bandwidth Impairments](../images/hawkv6-network-bw.drawio.svg)
 
 ## Example Scenario
 In this example, Host-A (acting as a client) requests a high bandwidth path to Host-B (acting as a server). The HawkEye controller calculates the optimal path based on the highest available bandwidth between the two hosts.
@@ -42,7 +42,7 @@ The `high bandwidth` request is saved `single intent` folder. The JSON request f
 ```
 
 ### Result 
-The result includes the following SID List, ensuring the lowest latency path between the two hosts:
+The result includes the following SID List, ensuring the path with the highest available bandwidth:
 - `fc00:0:1:0:1::`
 - `fc00:0:2:0:1::`
 - `fc00:0:6:0:1::`

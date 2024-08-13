@@ -24,3 +24,7 @@ More information about the high bandwidth intent can be found [here](./high-band
 
 ### Low Bandwidth
 More information about the low bandwidth intent can be found [here](./low-bandwidth.md).
+
+
+### Low Utilization
+More information about the low utilization intent can be found [here](./low-utilization.md).

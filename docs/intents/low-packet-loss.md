@@ -4,7 +4,7 @@ The low packet loss Intent identifies the best path between a given source and d
 ## Network Topology
 The network topology below, with the associated packet loss values, is used to demonstrate this intent. The packet loss impairments were applied using the [Lab Impairment Script](https://github.com/hawkv6/network/blob/main/docs/network.md#lab-impairments-scripts)
 
-![Hawkv6 Network with Latency Impairments](../images/hawkv6-network-packet-loss.drawio.svg)
+![Hawkv6 Network with Packet Loss Impairments](../images/hawkv6-network-packet-loss.drawio.svg)
 
 ## Example Scenario
 
@@ -43,7 +43,7 @@ The `low packet loss` request is saved `single intent` folder. The JSON request 
 ```
 
 ### Result 
-The result includes the following SID List, ensuring the lowest latency path between the two hosts:
+The result includes the following SID List, ensuring the lowest packet loss path between the two hosts:
 - `fc00:0:1:0:1::`
 - `fc00:0:2:0:1::`
 - `fc00:0:6:0:1::`
