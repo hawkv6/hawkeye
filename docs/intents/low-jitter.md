@@ -55,5 +55,5 @@ The result includes the following SID List, ensuring the lowest jitter path betw
 The packets are routed through the following devices:
 HOST-A -> SITE-A -> XR-1 -> XR-2 -> XR-4 -> XR-5 -> XR-6 -> SITE-B -> HOST-B
 
-![Low Latency Path](../images/hawkv6-low-latency-intent.drawio.svg)
+![Low Jitter Path](../images/hawkv6-low-latency-intent.drawio.svg)
 

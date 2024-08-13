@@ -16,3 +16,11 @@ More information about the low latency intent can be found [here](./low-jitter.m
 
 ### Low Packet Loss
 More information about the low packet loss intent can be found [here](./low-packet-loss.md).
+
+
+### High Bandwidth
+
+More information about the high bandwidth intent can be found [here](./high-bandwidth.md).
+
+### Low Bandwidth
+More information about the low bandwidth intent can be found [here](./low-bandwidth.md).
