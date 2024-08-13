@@ -19,3 +19,7 @@ HawkEye can be configured using the following environment variables:
 - **`HAWKEYE_THREE_FACTOR_WEIGHTS`**: Sets the weights for requests involving three factors. Accepts a comma-separated string of float values. Default is `0.7,0.2,0.1`.
 
 - **`HAWKEYE_SKIP_TLS_VERIFICATION`**: Skips TLS verification when set to `true` or `TRUE`. The default is `false`.
+
+- **`HAWKEYE_CONSUL_QUERY_WAIT_TIME`**: Sets the wait time for Consul long-polling queries. The default is `5s`.
+
+- **`HAWKEYE_NETWORK_PROCESSOR_HOLD_TIME`**: Sets the hold time for the network processor. The default is `1s`. Meaning the network processor will trigger a recalculation if no updates are received within x seconds.

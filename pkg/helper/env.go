@@ -53,15 +53,6 @@ var ConsulQueryWaitTime time.Duration = func() time.Duration {
 	return 5 * time.Second
 }()
 
-var RollingWindowSize uint8 = func() uint8 {
-	if value, exists := os.LookupEnv("HAWKEYE_ROLLING_WINDOWS_SIZE"); exists {
-		if temp, err := strconv.ParseUint(value, 10, 8); err == nil {
-			return uint8(temp)
-		}
-	}
-	return 5
-}()
-
 var NetworkProcessorHoldTime time.Duration = func() time.Duration {
 	if value, exists := os.LookupEnv("HAWKEYE_NETWORK_PROCESSOR_HOLD_TIME"); exists {
 		if temp, err := strconv.ParseInt(value, 10, 64); err == nil {

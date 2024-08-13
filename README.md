@@ -32,9 +32,6 @@ HawkEye includes a gRPC API that enables clients within the SRv6 network to send
 - **Interoperability**: HawkEye leverages standardized technologies like YANG-Push for telemetry and BMP for performance measurement, ensuring compatibility with existing network hardware and software.
 
 
-## Design Considerations
-
-
 ## Usage
 ```
 hawkeye [command]
@@ -63,9 +60,6 @@ cd hawkeye && make binary
 sudo ./bin/hawkeye
 ```
 
-
-## Intents
-
 ## Getting Started
 
 1. Deploy all necessary Kubernetes resources.
@@ -86,6 +80,7 @@ sudo ./bin/hawkeye
    - For more information, refer to the [start command documentation](docs/commands/start.md).
 
 ## Additional Information
+- The design considerations are documented in the [design file](docs/design.md).
 - Environment variables are documented in the [env file](docs/env.md).
 - The proto definiton is included via submodule and can be found [here](https://github.com/hawkv6/proto/blob/main/intent.proto).
 - Limitations are documented in the [limitations file](docs/limitations.md).
