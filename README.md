@@ -15,11 +15,11 @@
 ## Overview
 HawkEye is an advanced controller designed to bring Intent-Based Networking (IBN) to life within Segment Routing over IPv6 (SRv6) networks. The project showcases how HawkEye translates high-level user intents into precise network instructions (segments), ensuring seamless and efficient network management.
 
-![HawkEye Architecture](docs/images/Hawkv6-High-Level-Architecture.drawio.svg)
+![HawkEye Architecture](docs/images/Hawkv6-HawkEye-Architecture.drawio.svg)
 
 HawkEye continuously maintains an up-to-date view of the network by requesting and subscribing to data from the Jalapeno API Gateway (JAGW). This real-time data allows HawkEye to monitor network changes and respond proactively. Additionally, HawkEye integrates with Consul as a service registry, obtaining vital information about network services and conducting health checks to ensure optimal performance.
 
-HawkEye includes a gRPC API that enables clients within the SRv6 network to send intents directly to the controller. When an intent is received, HawkEye computes the optimal segment list to ensure the network behavior aligns with the specified intent.
+HawkEye features a [gRPC API](https://github.com/hawkv6/proto/blob/main/intent.proto) that allows clients within the SRv6 network to send path requests, including specified intents, directly to the controller. Upon receiving a path request or detecting network changes, HawkEye calculates the optimal path and generates a corresponding segment list to ensure the network's behavior aligns with the intended objectives.
 
 
 ## Key Features
@@ -30,6 +30,15 @@ HawkEye includes a gRPC API that enables clients within the SRv6 network to send
 - **Event-Driven Architecture**: HawkEye operates in an event-driven manner, automatically recalculating paths and updating segment lists when network conditions change or when service health checks indicate issues. The operator can define a threshold which defines when the path should be switched. This feature ensures that the network remains responsive and reliable and does not flap between paths unnecessarily.
 
 - **Interoperability**: HawkEye leverages standardized technologies like YANG-Push for telemetry and BMP for performance measurement, ensuring compatibility with existing network hardware and software.
+
+
+## Design Considerations
+
+The design principles and detailed information about the HawkEye implementation are available in the [design documentation](docs/design.md).
+
+
+## Intent Overview
+An overview about the intents and examples can be found in the [intent documentation](docs/intents/overview.md).
 
 
 ## Usage
@@ -80,7 +89,6 @@ sudo ./bin/hawkeye
    - For more information, refer to the [start command documentation](docs/commands/start.md).
 
 ## Additional Information
-- The design considerations are documented in the [design file](docs/design.md).
-- Environment variables are documented in the [env file](docs/env.md).
+- Environment variables are documented in the [env documentation](docs/env.md).
 - The proto definiton is included via submodule and can be found [here](https://github.com/hawkv6/proto/blob/main/intent.proto).
-- Limitations are documented in the [limitations file](docs/limitations.md).
+- Limitations are documented in the [limitations documentation](docs/limitations.md).
