@@ -4,7 +4,7 @@
   },
   "requests": [
     {
-      "location": "flex-algo 128 igp-request-0.json"
+      "location": "flex-algo 128 igp metric-request-0.json"
     }
   ],
   "operationType": "duplexStreaming",

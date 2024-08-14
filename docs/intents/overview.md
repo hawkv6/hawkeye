@@ -44,10 +44,13 @@ More information about the constrained intents can be found [here](combined-inte
 
 
 ### Service Function Chaining 
+Here is a list of intents that can be used to define a specific path between two hosts with Service Function Chaining.
 
 #### SFC with IGP Metric
+More information about the SFC with IGP metrics can be found [here](sfc/sfc-igp-metric.md).
 
 ### SFC with other Metrics
+More information about the SFC with other metrics can be found [here](sfc/sfc-other-metrics.md).
 
 
 ### Flexible Algorithm
