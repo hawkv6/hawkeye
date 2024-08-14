@@ -20,11 +20,11 @@ These two example scenarios demonstrate how combined intents can be used to opti
 Note that the order in which the intents are listed influences their weighting, with the first intent receiving higher priority.
 
 
-### Scenario 1:  Low Packet Loss, Low Latency, and Low Jitter
+### Scenario 1:  Low Packet Loss, Low Latency, and Low Jitter with default weights
 In this example, Host-A (acting as a client) requests a path to Host-C (acting as a server) that prioritizes low packet loss, low latency, and low jitter. In this scenario, packet loss is given higher importance than latency and jitter, with default parameters assigning a weight of 0.7 to packet loss, 0.2 to latency, and 0.1 to jitter. The HawkEye controller calculates the optimal path based on these weights to achieve the lowest packet loss, latency, and jitter between the two hosts.
 
 
-### HawkWing Configuration
+#### HawkWing Configuration
 ```yaml
 ---
 ---
@@ -45,7 +45,7 @@ services:
           - intent: low-jitter
 ```
 
-### API Request
+#### API Request
 The `low packet loss and low latency and low jitter` request is saved `combined intents` folder. The JSON request format is as follows:
 ```
 {
@@ -65,7 +65,7 @@ The `low packet loss and low latency and low jitter` request is saved `combined 
 }
 ```
 
-### Result
+#### Result
 
 The following SID List is generated to optimize the path between the two hosts:
 
@@ -81,22 +81,22 @@ HOST-A -> SITE-A -> XR-1 -> XR-2 -> XR-3 -> XR-7 -> SITE-C -> HOST-C
 This path is optimized to prioritize minimizing packet loss while also considering latency and jitter. The selected route avoids segments with higher packet loss to ensure the best possible performance. However, it does include links with higher delay and jitter as a trade-off to minimize packet loss.
 
 
-![Low Latency and Low Packet Loss Path](../../images/hawkv6-low-loss-low-latency-intent.drawio.svg)
+![Low Latency and Low Packet Loss Path](../../images/hawkv6-low-loss-low-latency-low-jitter-default-weights-intent.drawio.svg)
 
 
-### Scenario 2: Prioritizing Low Packet Loss and Low Latency
+### Scenario 2:  Low Packet Loss, Low Latency, and Low Jitter with non-default weights
 
 In this scenario, the path optimization focuses on minimizing packet loss, with secondary considerations for latency and jitter. The `HAWKEYE_THREE_FACTOR_WEIGHTS` environment variable is configured with weights of 0.5 for packet loss, 0.3 for latency, and 0.2 for jitter. This setup ensures that the HawkEye controller prioritizes low packet loss, followed by low latency and jitter, when calculating the optimal path between the two hosts.
 
 
-### HawkWing Configuration
+#### HawkWing Configuration
 The HawkWing configuration is identical to the previous scenario.
 
 
-### API Request
+#### API Request
 The api request is identical to the previous scenario.
 
-### Result
+#### Result
 
 The following SID List is generated to optimize the path between the two hosts:
 
@@ -112,5 +112,5 @@ HOST-A -> SITE-A -> XR-1 -> XR-2 -> XR-3 -> XR-7 -> SITE-C -> HOST-C
 This path is optimized to prioritize minimizing packet loss while also considering latency and jitter. The result illustrates that, in this scenario, the influence of low latency and low jitter led to the selection of a path that includes the higher packet loss link between XR-5 and XR-7. This outcome highlights the significant impact that weight selection can have on the path calculation.
 
 
-![Low Low Packet Loss and Low Latency Path](../../images/hawkv6-low-latency-low-loss-intent.drawio.svg)
+![Low Low Packet Loss and Low Latency Path](../../images/hawkv6-low-loss-low-latency-low-jitter-non-default-weights-intent.drawio.svg)
 

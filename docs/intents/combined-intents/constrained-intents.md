@@ -23,7 +23,7 @@ The following scenarios illustrate how combined intents with constraints can be 
 In this scenario, HOST-A (acting as client) requests a path to HOST-C ( acting as server) that prioritizes low latency and low packet loss. Additionally, the request specifies constraints: latency must not exceed 25ms, and packet loss must remain below 1%. The HawkEye controller calculates the optimal path, ensuring it meets these constraints while achieving the lowest possible latency and packet loss between the two hosts.
 
 
-### HawkWing Configuration
+#### HawkWing Configuration
 ```yaml
 ---
 client_ipv6_address: 2001:db8:a::10
@@ -44,7 +44,7 @@ services:
             max_value: 1 #%
 ```
 
-### API Request
+#### API Request
 The `low latency and low packet loss with max constraints` request is saved `combined intents` folder. The JSON request format is as follows:
 ```
 {
@@ -73,7 +73,7 @@ The `low latency and low packet loss with max constraints` request is saved `com
 }
 ```
 
-### Result
+#### Result
 
 The following SID List is generated to ensure an optimized path between the two hosts:
 
@@ -92,14 +92,14 @@ Compared to the [example without constraints](two-intents.md#scenario-1--low-lat
 ![Low Latency and Low Packet Loss Path with constraints](../../images/hawkv6-low-latency-low-loss-with-constraints-intent.drawio.svg)
 
 
-### Scenario 2: Low Packet Loss and Low Latency with max and min constraints
+#### Scenario 2: Low Packet Loss and Low Latency with max and min constraints
 
 In this scenario, the path between HOST-A and HOST-C is optimized with a focus on minimizing packet loss and latency, while also enforcing additional constraints. The minimum required bandwidth is set to 200 Mbit/s, the maximum allowable packet loss is 3%, and the maximum latency is capped at 25ms.
 
 The HawkEye controller computes the optimal path by considering all these constraints.
 
 
-### HawkWing Configuration
+#### HawkWing Configuration
 ```yaml
 ---
 client_ipv6_address: 2001:db8:a::10
@@ -122,7 +122,7 @@ services:
             min_value: 200000 #200 Mbit/s
 ```
 
-### API Request
+#### API Request
 The `low packet loss and low latency` request is saved `combined intents` folder. The JSON request format is as follows:
 ```
 {
@@ -161,7 +161,7 @@ The `low packet loss and low latency` request is saved `combined intents` folder
 }
 ```
 
-### Result
+#### Result
 
 The following SID List is generated to ensure an optimized path between the two hosts:
 

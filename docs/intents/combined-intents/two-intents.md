@@ -25,7 +25,7 @@ Note that the order in which the intents are listed influences their weighting, 
 In this example, Host-A (acting as a client) requests a path to Host-C (acting as a server) that prioritizes low latency and low packet loss. In this scenario, latency is given higher importance than packet loss, with default parameters assigning a weight of 0.7 to latency and 0.3 to packet loss. The HawkEye controller calculates the optimal path based on these weights to achieve the lowest latency and packet loss between the two hosts.
 
 
-### HawkWing Configuration
+#### HawkWing Configuration
 ```yaml
 ---
 client_ipv6_address: 2001:db8:a::10
@@ -44,7 +44,7 @@ services:
           - intent: low-packet-loss
 ```
 
-### API Request
+#### API Request
 The `low latency and low packet loss` request is saved `combined intents` folder. The JSON request format is as follows:
 ```
 {
@@ -61,7 +61,7 @@ The `low latency and low packet loss` request is saved `combined intents` folder
 }
 ```
 
-### Result
+#### Result
 
 The following SID List is generated to ensure an optimized path between the two hosts:
 
@@ -83,7 +83,7 @@ This path is optimized to minimize both latency and packet loss, with a higher p
 ### Scenario 2: Low Packet Loss and Low Latency
 This scenario is similar to the previous one, but with the order of the intents reversed. It shows how the weighting of the intents affects the path calculation.
 
-### HawkWing Configuration
+#### HawkWing Configuration
 ```yaml
 ---
 client_ipv6_address: 2001:db8:a::10
@@ -102,7 +102,7 @@ services:
           - intent: low-latency
 ```
 
-### API Request
+#### API Request
 The `low packet loss and low latency` request is saved `combined intents` folder. The JSON request format is as follows:
 ```
 {
@@ -119,7 +119,7 @@ The `low packet loss and low latency` request is saved `combined intents` folder
 }
 ```
 
-### Result
+#### Result
 
 The following SID List is generated to ensure an optimized path between the two hosts:
 
