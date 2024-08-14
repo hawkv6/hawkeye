@@ -1,9 +1,13 @@
 # Low Jitter Intent
-The low jitter intent identifies the best path between a given source and destination pair based on the lowest jitter. This intent is ideal for applications requiring a stable connection between two points.
+The `low jitter` intent identifies the best path between a given source and destination pair based on the lowest jitter. This intent is ideal for applications requiring a stable connection between two points.
 
 ## Network Topology
 The system is designed that the higher the delay the higher the jitter. Thus, the network topology below, with the associated latency values, is used to demonstrate this intent. 
 The latency impairments were applied using the [Lab Impairment Script](https://github.com/hawkv6/network/blob/main/docs/network.md#lab-impairments-scripts).
+
+
+![Hawkv6 Network with Latency Impairments](../../images/hawkv6-network-delay.drawio.svg)
+
 
 However, for manual testing an additional jitter can also be set via the `clab-telemetry-linker -n <node> -i <interface> -j <jitter value>` command.
 
@@ -55,5 +59,5 @@ The result includes the following SID List, ensuring the lowest jitter path betw
 The packets are routed through the following devices:
 HOST-A -> SITE-A -> XR-1 -> XR-2 -> XR-4 -> XR-5 -> XR-6 -> SITE-B -> HOST-B
 
-![Low Jitter Path](../images/hawkv6-low-latency-intent.drawio.svg)
+![Low Jitter Path](../../images/hawkv6-low-latency-intent.drawio.svg)
 

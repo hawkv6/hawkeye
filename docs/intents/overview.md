@@ -6,25 +6,56 @@ For each intent, you will find an example that includes the relevant HawkWing co
 
 ## Intents
 
-## Single Intents
+### Single Intents
+Here is a list of single intents that can be used to define a specific path between two hosts.
 
-### Low Latency
-More information about the low latency intent can be found [here](./low-latency.md).
+#### Low Latency
+More information about the low latency intent can be found [here](single-intent/low-latency.md).
 
-### Low Jitter
-More information about the low latency intent can be found [here](./low-jitter.md).
+#### Low Jitter
+More information about the low latency intent can be found [here](single-intent/low-jitter.md).
 
-### Low Packet Loss
-More information about the low packet loss intent can be found [here](./low-packet-loss.md).
-
-
-### High Bandwidth
-
-More information about the high bandwidth intent can be found [here](./high-bandwidth.md).
-
-### Low Bandwidth
-More information about the low bandwidth intent can be found [here](./low-bandwidth.md).
+#### Low Packet Loss
+More information about the low packet loss intent can be found [here](single-intent/low-packet-loss.md).
 
 
-### Low Utilization
-More information about the low utilization intent can be found [here](./low-utilization.md).
+#### High Bandwidth
+
+More information about the high bandwidth intent can be found [here](single-intent/high-bandwidth.md).
+
+#### Low Bandwidth
+More information about the low bandwidth intent can be found [here](single-intent/low-bandwidth.md).
+
+
+#### Low Utilization
+More information about the low utilization intent can be found [here](single-intent/low-utilization.md).
+
+### Combinations
+Here is a list of intents that can be combined to define a specific path between two hosts.
+
+#### Two Intents
+More information about the combininig two intents can be found [here](combined-intents/two-intents.md).
+
+#### Three Intents
+More information about the combininig three intents can be found [here](combined-intents/three-intents.md).
+
+#### Constrained Intents
+More information about the constrained intents can be found [here](combined-intents/constrained-intents.md).
+
+
+### Service Function Chaining 
+
+#### SFC with IGP Metric
+
+### SFC with other Metrics
+
+
+### Flexible Algorithm
+#### Flex Algo with IGP Metric
+More information about the flex algo intent can be found [here](single-intent/flex-algo.md).
+
+
+#### Flex Algo with other Metrics
+
+
+#### Flex Algo with SFC

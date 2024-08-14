@@ -1,12 +1,12 @@
 # Low Latency Intent
 
-The low latency intent identifies the best path between a given source and destination pair based on the lowest latency. This intent is ideal for applications requiring the fastest possible connection between two points.
+The `low latency` intent identifies the best path between a given source and destination pair based on the lowest latency. This intent is ideal for applications requiring the fastest possible connection between two points.
 
 ## Network Topology
 
 The network topology below, with the associated latency values, is used to demonstrate this intent. The latency impairments were applied using the [Lab Impairment Script](https://github.com/hawkv6/network/blob/main/docs/network.md#lab-impairments-scripts).
 
-![Hawkv6 Network with Latency Impairments](../images/hawkv6-network-delay.drawio.svg)
+![Hawkv6 Network with Latency Impairments](../../images/hawkv6-network-delay.drawio.svg)
 
 ## Example Scenario
 
@@ -56,5 +56,5 @@ The result includes the following SID List, ensuring the lowest latency path bet
 The packets are routed through the following devices:
 HOST-A -> SITE-A -> XR-1 -> XR-2 -> XR-4 -> XR-5 -> XR-6 -> SITE-B -> HOST-B
 
-![Low Latency Path](../images/hawkv6-low-latency-intent.drawio.svg)
+![Low Latency Path](../../images/hawkv6-low-latency-intent.drawio.svg)
 

@@ -1,5 +1,5 @@
 # Low Bandwidth Intent
-The low bandwidth intent finds the path between source and destination with the lowest bandwidth. The bandwidth is based on the theoretical maximum bandwidth given by the interface speed or the virtual rate/bandwidth impairment. The path follows the links with the lowest bandwidth.
+The `low bandwidth` intent finds the path between source and destination with the lowest bandwidth. The bandwidth is based on the theoretical maximum bandwidth given by the interface speed or the virtual rate/bandwidth impairment. The path follows the links with the lowest bandwidth.
 It's ideal for applications requiring low bandwidth.
 
 Important: the implementation does ensure that the path with the lowest bandwidth is used, thus the path is not optimal in terms of lowest hop count.
@@ -7,7 +7,7 @@ Important: the implementation does ensure that the path with the lowest bandwidt
 ## Network Topology
 The network topology below, with the associated rate limits, is used to demonstrate this intent. The bandwidth/rate impairments were applied using the [Lab Impairment Script](https://github.com/hawkv6/network/blob/main/docs/network.md#lab-impairments-scripts). Since, the there is almost no traffic in the network, the path should follow the path including the highest bandwidth links.
 
-![Hawkv6 Network with Bandwidth Impairments](../images/hawkv6-network-bw.drawio.svg)
+![Hawkv6 Network with Bandwidth Impairments](../../images/hawkv6-network-bw.drawio.svg)
 
 ## Example Scenario
 In this example, Host-A (acting as a client) requests a low bandwidth path to Host-B (acting as a server). The HawkEye controller calculates the optimal path based on the lowest maximum bandwidth between the two hosts.
@@ -68,5 +68,5 @@ or in the worst case scenario:
 The packets are routed through the following devices:
 HOST-A -> SITE-A -> XR-1 -> XR-3 -> XR-2 -> XR-6 -> XR-7 -> XR-8 -> SITE-B -> HOST-B
 
-![Low Bandwidth Path](../images/hawkv6-low-bw-intent.drawio.svg)
+![Low Bandwidth Path](../../images/hawkv6-low-bw-intent.drawio.svg)
 
