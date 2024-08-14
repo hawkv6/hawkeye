@@ -1,64 +1,41 @@
 # Intents Overview
-This section provides a comprehensive list of all available intents within the platform. Each intent serves as a unique identifier for a specific action that users can initiate. The platform uses these intents to interpret user requests and trigger the corresponding actions.
 
-For each intent, you will find an example that includes the relevant HawkWing configuration and the associated API request. The `/api` folder contains the [Kreya API Files](https://kreya.app/) it can be simpliy imported.
- Each example has been tested in the provided test network environment, offering you a practical reference for implementing these intents in your own configurations.
+This section provides a detailed overview of all available intents within the platform. Each intent serves as a unique identifier for a specific action that can be initiated, enabling the platform to interpret and execute user requests accordingly.
 
-## Intents
+For each intent, an example is provided that includes the relevant HawkWing configuration and the corresponding API request. The examples are organized in the `/api` folder, where [Kreya API Files](https://kreya.app/) can be easily imported for practical use. Each example has been thoroughly tested within the provided test network environment, offering practical references for implementing these intents in various configurations.
+
+## Intents Categories
+
+The intents are categorized into four main groups: **Single Intents**, **Combined Intents**, **Service Function Chaining (SFC)**, and **Flexible Algorithm (Flex Algo)**. Each category includes detailed information and examples to help implement the intents effectively.
 
 ### Single Intents
-Here is a list of single intents that can be used to define a specific path between two hosts.
 
-#### Low Latency
-More information about the low latency intent can be found [here](single-intent/low-latency.md).
+Single intents are used to define a specific path between two hosts based on a single network metric. Below are the available single intents:
 
-#### Low Jitter
-More information about the low latency intent can be found [here](single-intent/low-jitter.md).
+- **Low Latency**: [Learn more](single-intent/low-latency.md)
+- **Low Jitter**: [Learn more](single-intent/low-jitter.md)
+- **Low Packet Loss**: [Learn more](single-intent/low-packet-loss.md)
+- **High Bandwidth**: [Learn more](single-intent/high-bandwidth.md)
+- **Low Bandwidth**: [Learn more](single-intent/low-bandwidth.md)
+- **Low Utilization**: [Learn more](single-intent/low-utilization.md)
 
-#### Low Packet Loss
-More information about the low packet loss intent can be found [here](single-intent/low-packet-loss.md).
+### Combined Intents
 
+Combined intents allow optimization of paths between hosts using multiple metrics. Below are the available combined intents:
 
-#### High Bandwidth
+- **Two Intents**: [Learn more](combined-intents/two-intents.md)
+- **Three Intents**: [Learn more](combined-intents/three-intents.md)
+- **Constrained Intents**: [Learn more](combined-intents/constrained-intents.md)
 
-More information about the high bandwidth intent can be found [here](single-intent/high-bandwidth.md).
+### Service Function Chaining (SFC)
 
-#### Low Bandwidth
-More information about the low bandwidth intent can be found [here](single-intent/low-bandwidth.md).
+SFC intents are used to define paths between two hosts that include specific service functions. Below are the available SFC intents:
 
+- **SFC with IGP Metric**: [Learn more](sfc/sfc-igp-metric.md)
+- **SFC with Other Metrics**: [Learn more](sfc/sfc-other-metrics.md)
 
-#### Low Utilization
-More information about the low utilization intent can be found [here](single-intent/low-utilization.md).
+### Flexible Algorithm (Flex Algo)
 
-### Combinations
-Here is a list of intents that can be combined to define a specific path between two hosts.
+Flex Algo intents allow calculation of paths on specific subgraphs of the network topology, enabling the exclusion of certain links or nodes. Below are the available Flex Algo intents:
 
-#### Two Intents
-More information about the combininig two intents can be found [here](combined-intents/two-intents.md).
-
-#### Three Intents
-More information about the combininig three intents can be found [here](combined-intents/three-intents.md).
-
-#### Constrained Intents
-More information about the constrained intents can be found [here](combined-intents/constrained-intents.md).
-
-
-### Service Function Chaining 
-Here is a list of intents that can be used to define a specific path between two hosts with Service Function Chaining.
-
-#### SFC with IGP Metric
-More information about the SFC with IGP metrics can be found [here](sfc/sfc-igp-metric.md).
-
-### SFC with other Metrics
-More information about the SFC with other metrics can be found [here](sfc/sfc-other-metrics.md).
-
-
-### Flexible Algorithm
-#### Flex Algo with IGP Metric
-More information about the single flex algo with IGP metrics can be found [here](flex-algo/single-flex-algo.md).
-
-
-#### Flex Algo with other Metrics
-
-
-#### Flex Algo with SFC
+- **Flex Algo**: [Learn more](flex-algo/flex-algo-overview.md)
