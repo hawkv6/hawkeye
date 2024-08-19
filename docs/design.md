@@ -36,10 +36,9 @@ The combination of these techniques enables HawkEye to efficiently manage the co
 
 - **messaging**: The messaging package is responsible for client communication. It receives initial requests from clients, forwards them to the adapter for validation and conversion, and then passes them to the controller, which manages the session and triggers calculations. The package also ensures that the client receives up-to-date path results throughout the session.
 
-
 ## Cache Design
 
-The cache plays a crucial role in HawkEye's architecture by storing network data to enhance the efficiency and speed of path calculations. It serves as a temporary storage for various types of network information, ensuring that the system can quickly access and utilize this data when needed.
+The cache is a key component in HawkEye's architecture, storing network and service data to improve the efficiency and speed of path calculations. It acts as temporary storage for various types of network information, allowing the system to quickly access and use this data as needed. The cache receives its data from Jalapeno via JAGW and the Consul server API.
 
 ### Data Stored
 
@@ -106,6 +105,15 @@ As soon as a health check fails, the service node is marked as unhealthy and exc
 
 HawkEye features two main types of calculations: shortest path calculation and service function chain (SFC) calculation. Both are based on an extended Dijkstra algorithm, implemented in the calculation package, which uses data from the graph and cache to determine the optimal path or service function chain, expressed as a segment list.
 
+### Calculation Process
+
+HawkEye follows a structured process to translate a path request into a path result that includes the necessary segments. The process begins by identifying the locations of the client and server within the SRv6 network. Using the specified intents, HawkEye calculates the shortest paths from the source router to the destination router, leveraging various metrics such as latency, jitter, packet loss, and bandwidth.
+
+The calculation logic is based on an extended Dijkstra algorithm, which ensures that paths are optimized according to the selected metric or combination of metrics. The result is a segment list that is returned to the requesting end device, ensuring that the network meets the desired intent.
+
+Further details on specific metrics, handling multiple intents, and applying constraints are provided in the following subchapters.
+
+
 ### Shortest Path Calculation
 
 HawkEye's shortest path calculation determines the optimal route between a source and destination node based on various metrics such as latency, jitter, and packet loss. Detailed information about different metrics and intents can be found in the [Intent Overview](intents/overview.md).
@@ -170,3 +178,4 @@ Possible service function chains in this example are:
 The service function chain with the lowest cost is selected as the best option. The corresponding segment list is calculated and returned to the client.
 
 Further information can be found in the [Intent Overview](intents/overview.md).
+
