@@ -93,3 +93,4 @@ sudo ./bin/hawkeye
 - Environment variables are documented in the [env documentation](docs/env.md).
 - The proto/API definiton is included via submodule and can be found [here](https://github.com/hawkv6/proto/blob/main/intent.proto).
 - Limitations are documented in the [limitations documentation](docs/limitations.md).
+- Unit tests are documented in the [unit tests documentation](docs/unit-tests.md).
