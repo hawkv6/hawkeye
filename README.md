@@ -17,7 +17,7 @@ HawkEye is an advanced controller designed to facilitate Intent-Based Networking
 
 When receiving path requests from clients via gRPC, HawkEye calculates optimal paths based on the specified intents and maps these paths to segment lists, which are then returned to the clients for packet encapsulation. The application continuously monitors the network, adjusting paths as network conditions evolve. If a change is necessary to maintain the intent, an updated segment list is automatically provided to the client, ensuring that the network meets the desired requirements.
 
-![HawkEye Architecture](docs/images/Hawkv6-High-Level-Architecture-high.drawio.svg)
+![HawkEye Architecture](docs/images/Hawkv6-High-Level-Architecture.drawio.svg)
 
 ## Key Features
 
