@@ -86,6 +86,22 @@ The graph is built and continuously updated based on network events and data fro
 
 The graph can be divided into subgraphs based on Flexible Algorithms (Flex Algos). This allows for path calculations that consider only the nodes and links within the relevant subgraph.
 
+
+## Service Registry
+### Overview
+As already mentioned, HawkEye integrates with Consul to monitor service availability and health. This integration ensures that service function chaining remains intact and that paths are adjusted if a service instance becomes unavailable. The service package is responsible for handling communication with the Consul service registry, retrieving service information, and health checks. It updates the cache with service data, which is then used in path calculations. The service package also sends update notifications when service information changes.
+
+### Service Registration and Health Checks
+As soon a service instance is operational, it registers with Consul, providing essential information such as the service name and the SRv6 SID. Consul then performs health checks on the service instance, ensuring that it is operational and healthy. HawkEye's service package retrieves this information from Consul and updates the cache accordingly.
+
+Service Registery Overview |  Service Health Check Overview
+:-------------------------:|:-------------------------:
+![Service Registry Healthy Nodes](images/Hawkv6-HawkEye-Consul-Healthy-Nodes.png) | ![SERA-1 Health Check Overview](images/Hawkv6-HawkEye-SERA1-Health-Check-Overview.png)
+
+As soon as a health check fails, the service node is marked as unhealthy and excluded from the calculation:
+
+![SERA-1 Failing Health Check](images/Hawkv6-HawkEye-SERA1-Failing-Health-Check.png)
+
 ## Calculation Logic
 
 HawkEye features two main types of calculations: shortest path calculation and service function chain (SFC) calculation. Both are based on an extended Dijkstra algorithm, implemented in the calculation package, which uses data from the graph and cache to determine the optimal path or service function chain, expressed as a segment list.
@@ -137,21 +153,7 @@ For example, if the maximum bearable latency is set to 10 ms, the link between X
 
 ### Service Function Chain Calculation
 
-HawkEye's service function chain calculation determines the optimal sequence of service functions applied to packets as they traverse the network. This involves calculating multiple shortest paths between service points, ensuring the packet is processed by the specified services in the correct order. The process, based on the Dijkstra algorithm, calculates the shortest path between the source node and the first service, followed by paths between services, and finally, the path between the last service and the destination node. The total cost is the sum of these paths.
-
-#### Service Registry
-
-Only service nodes marked as healthy and operational in the Consul service registry are considered:
-
-
-
-Service Registery Overview |  Service Health Check Overview
-:-------------------------:|:-------------------------:
-![Service Registry Healthy Nodes](images/Hawkv6-HawkEye-Consul-Healthy-Nodes.png) | ![SERA-1 Health Check Overview](images/Hawkv6-HawkEye-SERA1-Health-Check-Overview.png)
-
-As soon as a health check fails, the service node is marked as unhealthy and excluded from the calculation:
-
-![SERA-1 Failing Health Check](images/Hawkv6-HawkEye-SERA1-Failing-Health-Check.png)
+HawkEye's service function chain calculation determines the optimal sequence of service functions applied to packets as they traverse the network. This involves calculating multiple shortest paths between healthy service instances , ensuring the packet is processed by the specified services in the correct order. The process, based on the Dijkstra algorithm, calculates the shortest path between the source node and the first service, followed by paths between services, and finally, the path between the last service and the destination node. The total cost is the sum of these paths.
 
 #### Example
 

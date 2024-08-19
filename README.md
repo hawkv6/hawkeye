@@ -13,24 +13,25 @@
 
 
 ## Overview
-HawkEye is an advanced controller designed to bring Intent-Based Networking (IBN) to life within Segment Routing over IPv6 (SRv6) networks. The project showcases how HawkEye translates high-level user intents into precise network instructions (segments), ensuring seamless and efficient network management.
+HawkEye is an advanced controller designed to facilitate Intent-Based Networking (IBN) and Segment Routing over IPv6 (SRv6). It integrates with open-source projects like [Jalapeno](https://github.com/cisco-open/jalapeno) and the [Jalapeno API Gateway](https://github.com/jalapeno-api-gateway), and utilizes standardized protocols such as [BMP](https://datatracker.ietf.org/doc/rfc7854/) and [YANG-Push](https://datatracker.ietf.org/doc/rfc8641/). Additionally, HawkEye leverages [Consul](https://www.consul.io/) as a service registry to gather critical information about network services and perform health checks.
 
-![HawkEye Architecture](docs/images/Hawkv6-HawkEye-Architecture.drawio.svg)
+When receiving path requests from clients via gRPC, HawkEye calculates optimal paths based on the specified intents and maps these paths to segment lists, which are then returned to the clients for packet encapsulation. The application continuously monitors the network, adjusting paths as network conditions evolve. If a change is necessary to maintain the intent, an updated segment list is automatically provided to the client, ensuring that the network meets the desired requirements.
 
-HawkEye continuously maintains an up-to-date view of the network by requesting and subscribing to data from the Jalapeno API Gateway (JAGW). This real-time data allows HawkEye to monitor network changes and respond proactively. Additionally, HawkEye integrates with Consul as a service registry, obtaining vital information about network services and conducting health checks to ensure optimal performance.
-
-HawkEye features a [gRPC API](https://github.com/hawkv6/proto/blob/main/intent.proto) that allows clients within the SRv6 network to send path requests, including specified intents, directly to the controller. Upon receiving a path request or detecting network changes, HawkEye calculates the optimal path and generates a corresponding segment list to ensure the network's behavior aligns with the intended objectives.
-
+![HawkEye Architecture](docs/images/Hawkv6-High-Level-Architecture-high.drawio.svg)
 
 ## Key Features
-- **Intent Fulfillment**: HawkEye processes user-defined intents, such as ensuring low latency, high bandwidth, or specific service chaining, and calculates optimal paths in the SRv6 network to meet these requirements. It returns the segment list that must be applied to the packet to achieve the desired behavior.
 
-- **Real-Time Network Monitoring**: HawkEye continuously monitors network performance metrics, including latency, jitter, and packet loss. It responds to network changes in real-time, ensuring that the network adheres to the specified intents.
+- **Intent Fulfillment**: HawkEye processes user-defined intents, such as ensuring low latency, high bandwidth, or specific service function chaining, and calculates optimal paths in the SRv6 network to meet these requirements. It returns the segment list that must be applied to the packet to achieve the desired behavior.
 
-- **Event-Driven Architecture**: HawkEye operates in an event-driven manner, automatically recalculating paths and updating segment lists when network conditions change or when service health checks indicate issues. The operator can define a threshold which defines when the path should be switched. This feature ensures that the network remains responsive and reliable and does not flap between paths unnecessarily.
+- **Real-Time Network Monitoring**: HawkEye continuously monitors network performance metrics, including latency, jitter, and packet loss. It responds to network changes such as link removals or performance metric variations, ensuring that the network adheres to the specified intents. This task leverages components like [Jalapeno](https://github.com/cisco-open/jalapeno), [JAGW](https://github.com/jalapeno-api-gateway), [Consul](https://www.consul.io/), the [generic-processor](https://github.com/hawkv6/generic-processor), and the [clab-telemetry-linker](https://github.com/hawkv6/clab-telemetry-linker).
+
+- **Event-Driven Architecture**: HawkEye operates in an event-driven manner, automatically recalculating paths and updating segment lists when network conditions change or when service health checks indicate issues. Operators can define thresholds that determine when a path should be switched, preventing unnecessary path flapping. This feature ensures that the network remains responsive and reliable.
+
+- **Service Registry Integration**: HawkEye integrates with [Consul](https://www.consul.io/) to monitor service availability and health. This integration ensures that service function chaining remains intact and that paths are adjusted if a service instance becomes unavailable.
+
+- **Session Management**: HawkEye tracks ongoing sessions for each client, maintaining a record of path requests and updates. This session management capability allows for seamless adjustments to paths as network conditions change, ensuring continuous intent compliance.
 
 - **Interoperability**: HawkEye leverages standardized technologies like YANG-Push for telemetry and BMP for performance measurement, ensuring compatibility with existing network hardware and software.
-
 
 ## Design Considerations
 
@@ -78,7 +79,7 @@ sudo ./bin/hawkeye
    - Additional information can be found in the [hawkv6 testnetwork documentation](https://github.com/hawkv6/network).
 
 3. Confirm that `clab-telemetry-linker` is active and running.
-   - Detailed instructions are available in the [clab-telemetry-linker documentation](https://github.com/hawkv6/generic-processor).
+   - Detailed instructions are available in the [clab-telemetry-linker documentation](https://github.com/hawkv6/clab-telemetry-linker).
 
 4. Confirm that the `generic-processor` is active and running.
    - Detailed instructions are available in the [generic processor documentation](https://github.com/hawkv6/generic-processor).
@@ -90,5 +91,5 @@ sudo ./bin/hawkeye
 
 ## Additional Information
 - Environment variables are documented in the [env documentation](docs/env.md).
-- The proto definiton is included via submodule and can be found [here](https://github.com/hawkv6/proto/blob/main/intent.proto).
+- The proto/API definiton is included via submodule and can be found [here](https://github.com/hawkv6/proto/blob/main/intent.proto).
 - Limitations are documented in the [limitations documentation](docs/limitations.md).

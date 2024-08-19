@@ -2,7 +2,7 @@
 
 This section provides a detailed overview of all available intents within the platform. Each intent serves as a unique identifier for a specific action that can be initiated, enabling the platform to interpret and execute user requests accordingly.
 
-For each intent, an example is provided that includes the relevant HawkWing configuration and the corresponding API request. The examples are organized in the `/api` folder, where [Kreya API Files](https://kreya.app/) can be easily imported for practical use. Each example has been thoroughly tested within the provided test network environment, offering practical references for implementing these intents in various configurations.
+For each intent, an example is provided that includes the relevant HawkWing configuration and the corresponding API request. The examples are organized in the [`/api`](/api/) folder, where [Kreya API Files](https://kreya.app/) can be easily imported for practical use. Each example has been thoroughly tested within the provided test network environment, offering practical references for implementing these intents in various configurations.
 
 ## Intents Categories
 
