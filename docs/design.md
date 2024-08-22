@@ -26,7 +26,7 @@ The combination of these techniques enables HawkEye to efficiently manage the co
 
 - **service**: This package handles communication with the Consul service registry, retrieving service information and health checks. It updates the cache with service data, which is then used in path calculations. The service package also sends update notifications when service information changes.
 
-- **graph**: Responsible for creating and updating the network graph, this package manages network nodes and links, along with their characteristics. The graph is crucial for calculating the optimal path, as it serves as the foundation for the algorithm used to find the best route.
+- **graph**: Responsible for creating and updating the internal graph, this package manages graph nodes and links, along with their characteristics observed from the network. The graph is crucial for calculating the optimal path, as it serves as the foundation for the algorithm used to find the best route.
 
 - **cache**: This package stores network data in a cache, which is used to enrich the path calculation process. For example, the cache handles the mapping from source and destination addresses to network nodes, and the translation of network nodes to SRv6 SIDs. The cache is continuously updated by the processor and service packages.
 
