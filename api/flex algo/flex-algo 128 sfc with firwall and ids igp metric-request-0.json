@@ -1,0 +1,28 @@
+{
+    "ipv6_source_address": "2001:db8:a::10",
+    "ipv6_destination_address": "2001:db8:c::10",
+    "intents": [
+        {
+            "type": "INTENT_TYPE_SFC",
+            "values": [
+                {
+                    "type": "VALUE_TYPE_SFC",
+                    "string_value": "fw"
+                },
+                {
+                    "type": "VALUE_TYPE_SFC",
+                    "string_value": "ids"
+                }
+            ]
+        },
+        {
+            "type": "INTENT_TYPE_FLEX_ALGO",
+            "values": [
+                {
+                    "type": "VALUE_TYPE_FLEX_ALGO_NR",
+                    "number_value": 128
+                }
+            ]
+        }
+    ]
+}

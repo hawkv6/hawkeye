@@ -1,0 +1,19 @@
+{
+  "id": "4eec7e8f-d4de-44e1-8862-df07fbcfd482",
+  "importStreams": [
+    {
+      "id": "5cd780b6-dbe1-43db-b488-54f0d58a019d",
+      "name": "Intent API Spec",
+      "importerName": "ProtoFile",
+      "createMissingOperations": false,
+      "options": {
+        "files": [
+          "../proto/intent.proto"
+        ],
+        "importPaths": []
+      }
+    }
+  ],
+  "authConfigs": [],
+  "certificates": []
+}

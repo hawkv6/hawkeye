@@ -1,0 +1,18 @@
+{
+    "ipv6_destination_address": "2001:db8:b::10",
+    "ipv6_source_address": "2001:db8:a::10",
+    "intents": [
+        {
+            "type": "INTENT_TYPE_FLEX_ALGO",
+            "values": [
+        {
+            "type": "VALUE_TYPE_FLEX_ALGO_NR",
+            "number_value": 128
+        }
+            ]
+        },
+        {
+            "type": "INTENT_TYPE_LOW_PACKET_LOSS"
+        }
+    ]
+}

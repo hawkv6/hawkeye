@@ -1,0 +1,15 @@
+{
+    "ipv6_source_address": "2001:db8:a::10",
+    "ipv6_destination_address": "2001:db8:c::10",
+    "intents": [
+        {
+            "type": "INTENT_TYPE_LOW_PACKET_LOSS"
+        },
+        {
+            "type": "INTENT_TYPE_LOW_LATENCY"
+        }, 
+        {
+            "type": "INTENT_TYPE_LOW_JITTER"
+        }
+    ]
+}

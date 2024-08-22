@@ -1,0 +1,32 @@
+project_name: hawkeye
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: ./hawkeye/
+    binary: hawkeye
+    ldflags:
+      - -s -w -X main.build={{.Version}}
+    goos:
+      - linux
+    goarch:
+      - amd64
+    env:
+      - CGO_ENABLED=0
+
+dockers:
+  - use: buildx
+    dockerfile: ./build/package/Dockerfile
+    image_templates:
+      - "ghcr.io/hawkv6/hawkeye:latest"
+      - "ghcr.io/hawkv6/hawkeye:{{ .Tag }}"
+    
+nfpms:
+  - maintainer: Severin Dellsperger <severin.dellsperger@ost.ch>
+    description: Controller for Enabling Intent-Based Networking in SRv6
+    homepage: https://github.com/hawkv6/hawkeye
+    license: Apache 2.0
+    formats:
+      - deb

@@ -1,0 +1,13 @@
+{
+  "details": {
+    "methodFqn": "api.IntentController.GetIntentPath"
+  },
+  "requests": [
+    {
+      "location": "low latency and low packet loss with max and min constraints-request-0.json"
+    }
+  ],
+  "operationType": "duplexStreaming",
+  "invokerName": "grpc",
+  "importStreamId": "5cd780b6-dbe1-43db-b488-54f0d58a019d"
+}

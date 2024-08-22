@@ -1,0 +1,9 @@
+{
+    "ipv6_source_address": "2001:db8:a::10",
+    "ipv6_destination_address": "2001:db8:b::10",
+    "intents": [
+        {
+            "type": "INTENT_TYPE_LOW_UTILIZATION"
+        }
+    ]
+}
