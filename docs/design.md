@@ -161,21 +161,43 @@ For example, if the maximum bearable latency is set to 10 ms, the link between X
 
 ### Service Function Chain Calculation
 
-HawkEye's service function chain calculation determines the optimal sequence of service functions applied to packets as they traverse the network. This involves calculating multiple shortest paths between healthy service instances , ensuring the packet is processed by the specified services in the correct order. The process, based on the Dijkstra algorithm, calculates the shortest path between the source node and the first service, followed by paths between services, and finally, the path between the last service and the destination node. The total cost is the sum of these paths.
+HawkEye's service function chain calculation determines the optimal sequence of service functions that packets must traverse as they move through the network. This process involves calculating the shortest paths between healthy service instances, ensuring that packets are processed by the specified services in the correct order. Based on the Dijkstra algorithm, the calculation follows these steps:
+
+1. Source node to the first service
+2. Paths between service functions
+3. Path between the last service and the destination node
+
+The total cost is the sum of these paths, ensuring that the selected service function chain is the most efficient option.
 
 #### Example
 
-In the example below, the best service function chain including a firewall and an IDS is calculated. The algorithm calculates the shortest path between the source and firewall, firewall and IDS, and IDS and destination. The total cost is the sum of all these paths.
+In the example below, we calculate the best service function chain that includes a firewall and an IDS. The algorithm determines the shortest path between the source and firewall, between the firewall and IDS, and finally between the IDS and destination. The total cost is the sum of all these paths.
+
+Assume the source is attached to SITE-A and the destination to SITE-B. The firewall is located behind XR-2 and XR-3, and the IDS is located behind XR-6 and XR-7.
 
 Possible service function chains in this example are:
+
 1. Source -> Firewall behind XR-2 -> IDS behind XR-6 -> Destination 
 2. Source -> Firewall behind XR-2 -> IDS behind XR-7 -> Destination 
 3. Source -> Firewall behind XR-3 -> IDS behind XR-6 -> Destination
 4. Source -> Firewall behind XR-3 -> IDS behind XR-7 -> Destination
 
+In the first service function chain combination (highlighted in green), the cost is calculated as follows:
+
+1. Source to Firewall: XR-1 to XR-2
+2. Firewall to IDS: XR-2 to XR-6
+3. IDS to Destination: XR-6 to SITE-B
+
+In the last service function chain considered (highlighted in pink), the cost is calculated as follows:
+
+1. Source to Firewall: XR-1 to XR-3
+2. Firewall to IDS: XR-3 to XR-7
+3. IDS to Destination: XR-7 to SITE-B
+
 ![Service Function Chain Calculation](images/Hawkv6-HawkEye-SFC-Overview.drawio.svg)
 
-The service function chain with the lowest cost is selected as the best option. The corresponding segment list is calculated and returned to the client.
+The service function chain with the lowest cost is selected as the best option. The corresponding segment list is then calculated and returned to the client.
+
+In this case, the first service chain has the lowest cost, making it the optimal choice.
 
 Further information can be found in the [Intent Overview](intents/overview.md).
-
